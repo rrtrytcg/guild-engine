@@ -1,6 +1,28 @@
-import { Field, TextArea, Section, StatBlock, useNodeUpdater } from './FormPrimitives'
+import { Field, TextArea, Section, StatBlock, DroppableInput, useNodeUpdater } from './FormPrimitives'
 
 const SLOT_OPTIONS = ['weapon', 'armor', 'accessory', 'relic']
+
+function CostEditor({ value, onChange }) {
+  const add = () => onChange([...value, { resource_id: '', amount: 0 }])
+  const upd = (i, patch) => onChange(value.map((c, idx) => (idx === i ? { ...c, ...patch } : c)))
+  const rem = (i) => onChange(value.filter((_, idx) => idx !== i))
+  return (
+    <div style={{ marginBottom: 10 }}>
+      {value.map((c, i) => (
+        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
+          <DroppableInput value={c.resource_id} onChange={(v) => upd(i, { resource_id: v })} placeholder="resource_id" style={{ ...inp, flex: 1 }} />
+          <input type="number" value={c.amount} onChange={(e) => upd(i, { amount: Number(e.target.value) })} style={{ ...inp, width: 70 }} />
+          <button onClick={() => rem(i)} style={xBtn}>×</button>
+        </div>
+      ))}
+      <button onClick={add} style={addBtn}>+ cost</button>
+    </div>
+  )
+}
+
+const inp = { background: '#1e1e2e', border: '1px solid #2a2a3e', borderRadius: 6, padding: '4px 6px', color: '#e0e0f0', fontSize: 12, outline: 'none' }
+const xBtn = { background: 'none', border: 'none', color: '#555570', cursor: 'pointer', fontSize: 14, padding: '0 2px' }
+const addBtn = { fontSize: 10, padding: '3px 8px', background: '#1e1e2e', border: '1px solid #2a2a3e', borderRadius: 4, color: '#666680', cursor: 'pointer' }
 
 export default function HeroClassInspector({ node }) {
   const update = useNodeUpdater(node.id)
@@ -45,6 +67,9 @@ export default function HeroClassInspector({ node }) {
           )
         })}
       </div>
+
+      <Section title="Recruit cost" />
+      <CostEditor value={d.recruit_cost ?? []} onChange={(v) => update({ recruit_cost: v })} />
 
       <Section title="Base stats" />
       <StatBlock label="Base stats" value={d.base_stats} onChange={(v) => update({ base_stats: v })} />

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import useStore from '../store/useStore'
 
 // Hook: returns a bound updater for a specific node
@@ -195,6 +196,77 @@ export function StatBlock({ label, value = {}, onChange }) {
         </div>
       ))}
     </div>
+  )
+}
+
+// Droppable labeled field — drag a canvas node onto it to fill the ID
+export function DroppableField({ label, value, onChange, type = 'text', placeholder = '' }) {
+  const [over, setOver] = useState(false)
+
+  const handleDragOver = (e) => { e.preventDefault(); setOver(true) }
+  const handleDragLeave = () => setOver(false)
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setOver(false)
+    const raw = e.dataTransfer.getData('text/plain')
+    if (raw) onChange(raw.split('::')[0])
+  }
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <label style={{ display: 'block', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666680', marginBottom: 4 }}>
+        {label}
+      </label>
+      <input
+        type={type}
+        value={value ?? ''}
+        placeholder={placeholder}
+        onChange={(e) => onChange(type === 'number' ? Number(e.target.value) : e.target.value)}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        style={{
+          width: '100%',
+          background: '#1e1e2e',
+          border: `1px ${over ? 'dashed' : 'solid'} ${over ? '#7F77DD' : '#2a2a3e'}`,
+          borderRadius: 6,
+          padding: '6px 8px',
+          color: '#e0e0f0',
+          fontSize: 12,
+          outline: 'none',
+          boxSizing: 'border-box',
+        }}
+      />
+    </div>
+  )
+}
+
+// Droppable raw input (no label wrapper) — for use inside inline cost/production editors
+export function DroppableInput({ value, onChange, placeholder = '', style: baseStyle = {} }) {
+  const [over, setOver] = useState(false)
+
+  const handleDragOver = (e) => { e.preventDefault(); setOver(true) }
+  const handleDragLeave = () => setOver(false)
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setOver(false)
+    const raw = e.dataTransfer.getData('text/plain')
+    if (raw) onChange(raw.split('::')[0])
+  }
+
+  return (
+    <input
+      value={value ?? ''}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      style={{
+        ...baseStyle,
+        border: over ? '1px dashed #7F77DD' : (baseStyle.border ?? '1px solid #2a2a3e'),
+      }}
+    />
   )
 }
 

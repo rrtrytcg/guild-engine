@@ -1,4 +1,4 @@
-import { Field, TextArea, Select, Toggle, Section, useNodeUpdater } from './FormPrimitives'
+import { Field, TextArea, Select, Toggle, Section, DroppableField, useNodeUpdater } from './FormPrimitives'
 import React from 'react'
 
 const RESET_OPTIONS = ['resources', 'buildings', 'heroes', 'upgrades', 'expeditions', 'factions']
@@ -41,7 +41,7 @@ export default function PrestigeInspector({ node }) {
       <TextArea label="Description" value={d.description} onChange={(v) => update({ description: v })} rows={2} />
 
       <Section title="Prestige currency" />
-      <Field label="Currency resource ID" value={d.currency_id} onChange={(v) => update({ currency_id: v })} placeholder="soul_shards" />
+      <DroppableField label="Currency resource ID" value={d.currency_id} onChange={(v) => update({ currency_id: v })} placeholder="soul_shards" />
       <Field label="Currency formula (JS)" value={d.currency_formula} onChange={(v) => update({ currency_formula: v })} placeholder="Math.floor(Math.sqrt(gold / 1000))" />
 
       <Section title="Trigger conditions (all must pass)" />
@@ -52,7 +52,7 @@ export default function PrestigeInspector({ node }) {
             <button onClick={() => removeCondition(i)} style={xBtn}>× remove</button>
           </div>
           <Select label="Type" value={cond.type} onChange={(v) => updateCondition(i, { type: v })} options={CONDITION_TYPES} />
-          <Field label="Target ID" value={cond.target_id ?? ''} onChange={(v) => updateCondition(i, { target_id: v })} />
+          <DroppableField label="Target ID" value={cond.target_id ?? ''} onChange={(v) => updateCondition(i, { target_id: v })} />
           <Field label="Value" value={cond.value ?? 0} onChange={(v) => updateCondition(i, { value: Number(v) })} type="number" />
         </div>
       ))}

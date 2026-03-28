@@ -1,4 +1,4 @@
-import { Field, TextArea, Toggle, Section, useNodeUpdater } from './FormPrimitives'
+import { Field, TextArea, Toggle, Section, DroppableInput, useNodeUpdater } from './FormPrimitives'
 
 export default function BuildingInspector({ node }) {
   const update = useNodeUpdater(node.id)
@@ -73,7 +73,7 @@ function CostEditor({ label, value, onChange }) {
       <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666680', marginBottom: 4 }}>{label}</div>
       {value.map((c, i) => (
         <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
-          <input value={c.resource_id} onChange={(e) => upd(i, { resource_id: e.target.value })} placeholder="resource_id" style={{ ...inp, flex: 1 }} />
+          <DroppableInput value={c.resource_id} onChange={(v) => upd(i, { resource_id: v })} placeholder="resource_id" style={{ ...inp, flex: 1 }} />
           <input type="number" value={c.amount} onChange={(e) => upd(i, { amount: Number(e.target.value) })} style={{ ...inp, width: 70 }} />
           <button onClick={() => rem(i)} style={xBtn}>×</button>
         </div>
@@ -98,7 +98,7 @@ function ProductionEditor({ value, onChange }) {
       <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666680', marginBottom: 4 }}>Production / sec</div>
       {entries.map(([key, val], i) => (
         <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
-          <input value={key} onChange={(e) => upd(key, e.target.value, val)} placeholder="resource_id" style={{ ...inp, flex: 1 }} />
+          <DroppableInput value={key} onChange={(v) => upd(key, v, val)} placeholder="resource_id" style={{ ...inp, flex: 1 }} />
           <input type="number" value={val} onChange={(e) => upd(key, key, Number(e.target.value))} style={{ ...inp, width: 70 }} />
           <button onClick={() => rem(key)} style={xBtn}>×</button>
         </div>

@@ -1,4 +1,4 @@
-import { Field, TextArea, Toggle, Section, StatBlock, useNodeUpdater } from './FormPrimitives'
+import { Field, TextArea, Toggle, Section, StatBlock, DroppableField, useNodeUpdater } from './FormPrimitives'
 import React from 'react'
 
 export default function BossExpeditionInspector({ node }) {
@@ -40,8 +40,8 @@ export default function BossExpeditionInspector({ node }) {
       <StatBlock label="Boss stats" value={d.boss_stats ?? {}} onChange={(v) => update({ boss_stats: v })} />
 
       <Section title="Loot" />
-      <Field label="Kill loot table ID" value={d.loot_table_id} onChange={(v) => update({ loot_table_id: v })} placeholder="loot_table-id" />
-      <Field label="Fail loot table ID (optional)" value={d.fail_loot_table_id ?? ''} onChange={(v) => update({ fail_loot_table_id: v })} />
+      <DroppableField label="Kill loot table ID" value={d.loot_table_id} onChange={(v) => update({ loot_table_id: v })} placeholder="loot_table-id" />
+      <DroppableField label="Fail loot table ID (optional)" value={d.fail_loot_table_id ?? ''} onChange={(v) => update({ fail_loot_table_id: v })} />
 
       <Section title="Phases" />
       <p style={{ fontSize: 11, color: '#444460', marginBottom: 8 }}>

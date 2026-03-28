@@ -1,4 +1,4 @@
-import { Field, Section, Toggle, useNodeUpdater } from './FormPrimitives'
+import { Field, Section, Toggle, DroppableField, useNodeUpdater } from './FormPrimitives'
 
 export default function LootTableInspector({ node }) {
   const update = useNodeUpdater(node.id)
@@ -32,7 +32,7 @@ export default function LootTableInspector({ node }) {
             <span style={{ fontSize: 10, color: '#555570', fontWeight: 700 }}>ENTRY {i + 1}</span>
             <button onClick={() => removeEntry(i)} style={xBtn}>× remove</button>
           </div>
-          <Field label="Item ID" value={entry.item_id} onChange={(v) => updateEntry(i, { item_id: v })} placeholder="item-123" />
+          <DroppableField label="Item ID" value={entry.item_id} onChange={(v) => updateEntry(i, { item_id: v })} placeholder="item-123" />
           <div style={{ display: 'flex', gap: 8 }}>
             <div style={{ flex: 1 }}>
               <Field label="Weight" value={entry.weight} onChange={(v) => updateEntry(i, { weight: Number(v) })} type="number" />

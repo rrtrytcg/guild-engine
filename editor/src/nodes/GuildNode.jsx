@@ -9,6 +9,11 @@ const GuildNode = memo(({ id, data, selected }) => {
 
   return (
     <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', `${id}::${data.type}`)
+        e.dataTransfer.effectAllowed = 'copy'
+      }}
       onClick={() => selectNode(id)}
       style={{
         minWidth: 180,

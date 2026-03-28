@@ -1,4 +1,4 @@
-import { Field, TextArea, Section, Toggle, useNodeUpdater } from './FormPrimitives'
+import { Field, TextArea, Section, Toggle, DroppableField, DroppableInput, useNodeUpdater } from './FormPrimitives'
 
 export default function ExpeditionInspector({ node }) {
   const update = useNodeUpdater(node.id)
@@ -34,8 +34,8 @@ export default function ExpeditionInspector({ node }) {
       <Field label="Base success chance (0–1)" value={d.base_success_chance} onChange={(v) => update({ base_success_chance: Number(v) })} type="number" />
 
       <Section title="Loot" />
-      <Field label="Loot table ID" value={d.loot_table_id} onChange={(v) => update({ loot_table_id: v })} placeholder="loot_table-id" />
-      <Field label="Fail loot table ID (optional)" value={d.fail_loot_table_id ?? ''} onChange={(v) => update({ fail_loot_table_id: v })} placeholder="loot_table-id" />
+      <DroppableField label="Loot table ID" value={d.loot_table_id} onChange={(v) => update({ loot_table_id: v })} placeholder="loot_table-id" />
+      <DroppableField label="Fail loot table ID (optional)" value={d.fail_loot_table_id ?? ''} onChange={(v) => update({ fail_loot_table_id: v })} placeholder="loot_table-id" />
 
       <Section title="Entry cost" />
       <CostEditor value={d.entry_cost ?? []} onChange={(v) => update({ entry_cost: v })} />
@@ -79,7 +79,7 @@ function CostEditor({ value, onChange }) {
     <div style={{ marginBottom: 10 }}>
       {value.map((c, i) => (
         <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
-          <input value={c.resource_id} onChange={(e) => upd(i, { resource_id: e.target.value })} placeholder="resource_id" style={{ ...inp, flex: 1 }} />
+          <DroppableInput value={c.resource_id} onChange={(v) => upd(i, { resource_id: v })} placeholder="resource_id" style={{ ...inp, flex: 1 }} />
           <input type="number" value={c.amount} onChange={(e) => upd(i, { amount: Number(e.target.value) })} style={{ ...inp, width: 70 }} />
           <button onClick={() => rem(i)} style={xBtn}>×</button>
         </div>

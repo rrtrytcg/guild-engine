@@ -1,4 +1,4 @@
-import { Field, Section, useNodeUpdater } from './FormPrimitives'
+import { Field, Section, DroppableField, useNodeUpdater } from './FormPrimitives'
 
 export default function RecipeInspector({ node }) {
   const update = useNodeUpdater(node.id)
@@ -23,7 +23,7 @@ export default function RecipeInspector({ node }) {
       {inputs.map((inp, i) => (
         <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'flex-end' }}>
           <div style={{ flex: 1 }}>
-            <Field label={i === 0 ? 'Item ID' : ''} value={inp.item_id} onChange={(v) => updateInput(i, { item_id: v })} placeholder="item-id" />
+            <DroppableField label={i === 0 ? 'Item ID' : ''} value={inp.item_id} onChange={(v) => updateInput(i, { item_id: v })} placeholder="item-id" />
           </div>
           <div style={{ width: 60 }}>
             <Field label={i === 0 ? 'Qty' : ''} value={inp.qty} onChange={(v) => updateInput(i, { qty: Number(v) })} type="number" />
@@ -34,7 +34,7 @@ export default function RecipeInspector({ node }) {
       <button onClick={addInput} style={addBtn}>+ Add ingredient</button>
 
       <Section title="Output" />
-      <Field label="Output item ID" value={d.output_item_id} onChange={(v) => update({ output_item_id: v })} placeholder="item-id" />
+      <DroppableField label="Output item ID" value={d.output_item_id} onChange={(v) => update({ output_item_id: v })} placeholder="item-id" />
       <Field label="Output quantity" value={d.output_qty} onChange={(v) => update({ output_qty: Number(v) })} type="number" />
 
       <Section title="Crafting" />
