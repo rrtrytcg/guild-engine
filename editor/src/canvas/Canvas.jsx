@@ -24,6 +24,7 @@ export default function Canvas() {
   const onEdgesChange = useStore((s) => s.onEdgesChange)
   const onConnect = useStore((s) => s.onConnect)
   const clearSelection = useStore((s) => s.clearSelection)
+  const selectNode = useStore((s) => s.selectNode)
   const addNode = useStore((s) => s.addNode)
 
   const reactFlowWrapper = useRef(null)
@@ -51,12 +52,17 @@ export default function Canvas() {
     e.dataTransfer.dropEffect = 'move'
   }, [])
 
+  const suppressContextMenu = useCallback((e) => {
+    e.preventDefault()
+  }, [])
+
   return (
     <div
       ref={reactFlowWrapper}
       style={{ flex: 1, background: '#0d0d1a' }}
       onDrop={onDrop}
       onDragOver={onDragOver}
+      onContextMenu={suppressContextMenu}
     >
       <ReactFlow
         nodes={nodes}
@@ -65,9 +71,17 @@ export default function Canvas() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onPaneClick={clearSelection}
+        onPaneContextMenu={(e) => {
+          e.preventDefault()
+          clearSelection()
+        }}
+        onNodeContextMenu={(e, node) => {
+          e.preventDefault()
+          selectNode(node.id)
+        }}
         onInit={(instance) => (reactFlowInstance.current = instance)}
         nodeTypes={nodeTypes}
-        nodesDraggable={false}
+        nodesDraggable
         fitView
         deleteKeyCode="Delete"
         snapToGrid

@@ -5,7 +5,10 @@ import Inspector from './inspector/Inspector'
 
 export default function App() {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#0d0d1a', color: '#e0e0f0', fontFamily: 'system-ui, sans-serif' }}>
+    <div
+      onContextMenu={(e) => e.preventDefault()}
+      style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#0d0d1a', color: '#e0e0f0', fontFamily: 'system-ui, sans-serif' }}
+    >
       <Toolbar />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Palette />

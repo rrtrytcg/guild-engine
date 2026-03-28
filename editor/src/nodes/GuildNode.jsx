@@ -10,6 +10,11 @@ const GuildNode = memo(({ id, data, selected }) => {
   return (
     <div
       onClick={() => selectNode(id)}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        selectNode(id)
+      }}
       style={{
         minWidth: 180,
         maxWidth: 220,
@@ -19,7 +24,7 @@ const GuildNode = memo(({ id, data, selected }) => {
           ? `0 0 0 3px ${config.color}, 0 4px 20px rgba(0,0,0,0.4)`
           : '0 2px 8px rgba(0,0,0,0.3)',
         background: '#1e1e2e',
-        cursor: 'pointer',
+        cursor: 'grab',
         userSelect: 'none',
         transition: 'box-shadow 0.15s, border-color 0.15s',
       }}
@@ -40,6 +45,10 @@ const GuildNode = memo(({ id, data, selected }) => {
           className="nodrag nopan"
           onMouseDown={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+          }}
           onDragStart={(e) => {
             e.stopPropagation()
             e.dataTransfer.setData('application/guild-engine-node-id', id)
