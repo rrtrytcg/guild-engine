@@ -345,6 +345,8 @@ function renderReadinessParty(readiness) {
 function isHeroSelectableForExpedition(s, hero) {
   if (!hero || hero.status === 'dead') return false
   if (!['ready', 'inspired'].includes(hero.status)) return false
+  const heroClass = (s.heroClasses ?? []).find((entry) => entry.id === hero.class_id)
+  if (heroClass?.combat_eligible === false || heroClass?.hero_type === 'artisan') return false
   return !(s.activeRuns ?? []).some((run) => !run.done && run.party?.includes(hero.id))
 }
 

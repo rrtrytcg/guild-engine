@@ -4,7 +4,7 @@
 export function bootstrapState(project) {
   const nodeMap = new Map(project.nodes.map((n) => [n.id, n]))
 
-  // ── Resources ────────────────────────────────────────────────────────────────
+  // Resources
   const resources = {}
   for (const node of project.nodes.filter((n) => n.type === 'resource')) {
     resources[node.id] = {
@@ -18,50 +18,92 @@ export function bootstrapState(project) {
     }
   }
 
-  // ── Items / inventory ────────────────────────────────────────────────────────
+  // Items / inventory
   const itemDefs = {}
   for (const node of project.nodes.filter((n) => n.type === 'item')) {
     itemDefs[node.id] = node
   }
-  const inventory = {} // item_id → qty
+  const inventory = {} // item_id -> qty
+  const buffStockpile = {} // consumable item_id -> qty
 
-  // ── Hero classes & roster ────────────────────────────────────────────────────
+  // Hero classes & roster
   const heroClasses = {}
   for (const node of project.nodes.filter((n) => n.type === 'hero_class')) {
     heroClasses[node.id] = node
   }
   const heroes = [] // live hero instances
+  const recruitPool = []
 
-  // ── Buildings ────────────────────────────────────────────────────────────────
+  // Buildings
   const buildings = {}
   for (const node of project.nodes.filter((n) => n.type === 'building')) {
+    const hasWorkflows = node.has_workflows ?? false
     buildings[node.id] = {
       id: node.id,
       label: node.label,
       icon: node.icon ?? '🏰',
-      level: 0,          // 0 = not yet built
+      level: 0, // 0 = not yet built
       max_level: node.max_level,
       levels: node.levels ?? [],
       is_crafting_station: node.is_crafting_station ?? false,
+      has_workflows: hasWorkflows,
+      artisan_slots: node.artisan_slots ?? null,
+      buff_slots: node.buff_slots ?? null,
+      passive_events: node.passive_events ?? [],
       assigned_heroes: [],
-      craft_queue: [],   // [{ recipe_id, progress_s, total_s }]
+      craft_queue: [], // legacy recipe queue
+      workflow_queue: hasWorkflows ? [] : [],
+      artisan_assigned: hasWorkflows ? null : null,
+      momentum: hasWorkflows ? 0 : 0,
+      streak_count: hasWorkflows ? 0 : 0,
       visible: !node.unlock_conditions?.length,
     }
   }
 
-  // ── Loot tables ──────────────────────────────────────────────────────────────
+  // Loot tables
   const lootTables = {}
   for (const node of project.nodes.filter((n) => n.type === 'loot_table')) {
     lootTables[node.id] = node
   }
 
-  // ── Recipes ──────────────────────────────────────────────────────────────────
+  // Legacy recipes
   const recipes = {}
   for (const node of project.nodes.filter((n) => n.type === 'recipe')) {
     recipes[node.id] = node
   }
 
-  // ── Upgrades ─────────────────────────────────────────────────────────────────
+  // Day 2 workflows / recipes / upgrades
+  const buildingWorkflows = {}
+  for (const node of project.nodes.filter((n) => n.type === 'building_workflow')) {
+    buildingWorkflows[node.id] = {
+      ...node,
+      visible: !node.unlocked_by?.building_level && !node.unlocked_by?.building_prerequisites?.length,
+    }
+  }
+
+  const craftingRecipes = {}
+  for (const node of project.nodes.filter((n) => n.type === 'crafting_recipe')) {
+    craftingRecipes[node.id] = {
+      ...node,
+      visible: !(node.required_building_level > 1),
+    }
+  }
+
+  const buildingUpgrades = {}
+  for (const node of project.nodes.filter((n) => n.type === 'building_upgrade')) {
+    buildingUpgrades[node.id] = {
+      ...node,
+      completed: false,
+      visible: true,
+    }
+  }
+
+  const blueprints = {}
+  for (const node of project.nodes.filter((n) => n.type === 'blueprint')) {
+    blueprints[node.id] = node
+  }
+
+  // Upgrades
   const upgrades = {}
   for (const node of project.nodes.filter((n) => n.type === 'upgrade')) {
     upgrades[node.id] = {
@@ -71,7 +113,7 @@ export function bootstrapState(project) {
     }
   }
 
-  // ── Expeditions ──────────────────────────────────────────────────────────────
+  // Expeditions
   const expeditions = {}
   for (const node of project.nodes.filter(
     (n) => n.type === 'expedition' || n.type === 'boss_expedition'
@@ -84,11 +126,10 @@ export function bootstrapState(project) {
     }
   }
 
-  // ── Active runs ───────────────────────────────────────────────────────────────
-  // [{ run_id, expedition_id, party, elapsed_s, total_s, log[], boss_hp?, phase_idx?, done }]
+  // Active runs
   const activeRuns = []
 
-  // ── Acts ─────────────────────────────────────────────────────────────────────
+  // Acts / events
   const acts = {}
   for (const node of project.nodes.filter((n) => n.type === 'act')) {
     acts[node.id] = { ...node, completed: false, visible: false }
@@ -129,44 +170,44 @@ export function bootstrapState(project) {
     expedition.visible = !expedition.unlock_conditions?.length
   }
 
-  // ── Factions ─────────────────────────────────────────────────────────────────
+  // Factions
   const factions = {}
   for (const node of project.nodes.filter((n) => n.type === 'faction')) {
     factions[node.id] = { ...node, rep: node.starting_rep ?? 0 }
   }
 
-  // ── Prestige ─────────────────────────────────────────────────────────────────
+  // Prestige
   const prestige = {}
   for (const node of project.nodes.filter((n) => n.type === 'prestige')) {
     prestige[node.id] = {
       ...node,
       count: 0,
       currency: 0,
-      purchased: {}, // bonus_id → tier bought
+      purchased: {}, // bonus_id -> tier bought
     }
   }
 
-  // ── Multipliers (modified by upgrades) ───────────────────────────────────────
+  // Multipliers (modified by upgrades / world effects)
   const multipliers = {
-    resource_cap: {},       // resource_id → multiplier
-    resource_income: {},    // resource_id → multiplier
-    hero_stats: {},         // stat → modifier
-    expedition_success: 0,  // flat bonus
+    resource_cap: {}, // resource_id -> multiplier
+    resource_income: {}, // resource_id -> multiplier
+    hero_stats: {}, // stat -> modifier
+    expedition_success: 0, // flat bonus
     craft_speed: 1,
     loot_bonus_pct: 0,
   }
 
-  // ── Event log ────────────────────────────────────────────────────────────────
+  // Event log
   const eventLog = [
     { ts: Date.now(), text: `${project.meta.title} — a new adventure begins.`, type: 'system' },
   ]
 
-  // ── UI state ─────────────────────────────────────────────────────────────────
+  // UI state
   const ui = {
-    screen: 'world',          // 'world' | 'expedition' | 'forge'
-    activeRunId: null,        // which run the expedition screen is watching
+    screen: 'world', // 'world' | 'expedition' | 'forge'
+    activeRunId: null,
     selectedBuildingId: null,
-    notification: null,       // { text, type } — cleared after 3s
+    notification: null,
   }
 
   return {
@@ -176,12 +217,18 @@ export function bootstrapState(project) {
 
     resources,
     inventory,
+    buff_stockpile: buffStockpile,
     itemDefs,
     heroes,
     heroClasses,
+    recruitPool,
     buildings,
     lootTables,
     recipes,
+    craftingRecipes,
+    buildingWorkflows,
+    buildingUpgrades,
+    blueprints,
     upgrades,
     expeditions,
     activeRuns,
@@ -192,7 +239,7 @@ export function bootstrapState(project) {
     multipliers,
     eventLog,
     ui,
-    _nodeMap: nodeMap, // raw node lookup for edge resolution
-    _project: project, // keep original for edge lookups
+    _nodeMap: nodeMap,
+    _project: project,
   }
 }

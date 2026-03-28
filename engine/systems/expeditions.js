@@ -2,6 +2,8 @@ import { canAfford, spend, gain } from './resources.js'
 import { rollLootTable, formatDrops } from './loot.js'
 import {
   addHeroStatus,
+  advanceHeroBuffDurations,
+  applyPreExpeditionBuffs,
   clearExpiredHeroStatuses,
   completePartyRun,
   getHeroEffectiveStats,
@@ -9,6 +11,7 @@ import {
   grantPartyXp,
   handleWipeDeaths,
   hasHeroStatus,
+  isCombatEligibleHero,
   startPartyRun,
 } from './buildings.js'
 
@@ -52,6 +55,7 @@ function isHeroOnActiveRun(state, heroId) {
 
 function isSelectableAutoHero(state, hero) {
   if (!hero || hasHeroStatus(hero, 'dead')) return false
+  if (!isCombatEligibleHero(state, hero)) return false
   if (isHeroOnActiveRun(state, hero.id)) return false
   return hero.status === 'ready' || hero.status === 'inspired'
 }
@@ -473,6 +477,7 @@ function finalizeRun(state, run, tier) {
     }
   }
 
+  advanceHeroBuffDurations(state, run.party ?? [], TIER_RANK[tier] >= TIER_RANK.NARROW_SUCCESS)
   completePartyRun(state, run.party ?? [])
   updateBestProgress(expedition, tier)
   checkActProgress(state)
@@ -552,6 +557,10 @@ export function evaluateCondition(state, cond) {
 export function unlockNode(state, nodeId) {
   if (!nodeId) return
 
+  if (state.buildingWorkflows?.[nodeId]) state.buildingWorkflows[nodeId].visible = true
+  if (state.buildingUpgrades?.[nodeId]) state.buildingUpgrades[nodeId].visible = true
+  if (state.craftingRecipes?.[nodeId]) state.craftingRecipes[nodeId].visible = true
+  if (state.blueprints?.[nodeId]) state.blueprints[nodeId].visible = true
   if (state.buildings?.[nodeId]) state.buildings[nodeId].visible = true
   if (state.upgrades?.[nodeId]) state.upgrades[nodeId].visible = true
   if (state.expeditions?.[nodeId]) state.expeditions[nodeId].visible = true
@@ -666,6 +675,7 @@ export function startExpedition(state, expeditionId, heroIds = null) {
     const hero = state.heroes.find((entry) => entry.id === heroId)
     if (!hero) return { ok: false, reason: `Hero "${heroId}" not found.` }
     if (hasHeroStatus(hero, 'dead')) return { ok: false, reason: `${hero.name} cannot depart.` }
+    if (!isCombatEligibleHero(state, hero)) return { ok: false, reason: `${hero.name} cannot join expeditions.` }
     heroes.push(hero)
   }
 
@@ -674,6 +684,7 @@ export function startExpedition(state, expeditionId, heroIds = null) {
   }
 
   spend(state, expedition.entry_cost ?? [])
+  applyPreExpeditionBuffs(state, selectedIds)
   startPartyRun(state, selectedIds)
 
   const metrics = computePartyMetrics(state, selectedIds)

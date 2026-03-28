@@ -1,4 +1,4 @@
-import { canAfford, spend, giveItem, spendItems } from './resources.js'
+import { canAfford, spend, gain, giveItem, spendItems } from './resources.js'
 import { addToEventLog, checkActProgress, unlockNode, evaluateCondition } from './expeditions.js'
 
 export const MIN_ACTION_DELAY_MS = 275
@@ -13,6 +13,50 @@ const STATUS_MULTIPLIERS = {
 }
 
 const STATUS_PRIORITY = ['dead', 'injured', 'cursed', 'exhausted', 'inspired', 'ready']
+const HERO_STAT_ALIASES = {
+  atk: 'attack',
+  def: 'defense',
+  spd: 'speed',
+  hp: 'hp',
+  lck: 'luck',
+}
+const HERO_RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary']
+const HERO_NAMES = ['Aldric', 'Brienna', 'Corvin', 'Dasha', 'Emrick', 'Fyra', 'Gareth', 'Hilde', 'Iven', 'Jora']
+const FORMULA_HELPERS = {
+  abs: Math.abs,
+  ceil: Math.ceil,
+  floor: Math.floor,
+  round: Math.round,
+  min: Math.min,
+  max: Math.max,
+  pow: Math.pow,
+  sqrt: Math.sqrt,
+  clamp: (value, min, max) => Math.min(max, Math.max(min, value)),
+}
+const FORMULA_IDENTIFIER_RE = /\b[A-Za-z_][A-Za-z0-9_]*\b/g
+const SAFE_FORMULA_CHARS_RE = /^[0-9A-Za-z_+\-*/%().,?:<>=!&| \t\r\n]+$/
+const BANNED_FORMULA_TOKENS_RE = /(?:__proto__|prototype|constructor|globalThis|window|document|Function|eval|import|new|this|;|\[|\]|\{|\}|`|'|"|\\)/i
+const EXACT_FORMULA_VARIABLES = new Set([
+  'item_level',
+  'item_rarity_tier',
+  'item_quality_tier',
+  'building_level',
+  'worker_skill',
+  'worker_specialization_match',
+  'worker_level',
+  'batch_size',
+  'momentum',
+  'streak_count',
+  'base_failure',
+  'base_crit',
+  'forge_level',
+  'base_duration',
+])
+const DYNAMIC_FORMULA_VARIABLE_PATTERNS = [
+  /^item_craft_cost_[A-Za-z0-9_]+$/,
+  /^item_base_stat_[A-Za-z0-9_]+$/,
+  /^resource_[A-Za-z0-9_]+$/,
+]
 
 export function xpRequired(level) {
   return Math.floor(100 * Math.pow(Math.max(1, level), 1.6))
@@ -71,6 +115,24 @@ export function hasHeroStatus(hero, status) {
   return getHeroStatuses(hero).includes(status)
 }
 
+function aliasHeroStat(stat) {
+  return HERO_STAT_ALIASES[stat] ?? stat
+}
+
+function normalizeBuffRecord(buff) {
+  if (!buff) return null
+  return {
+    item_id: buff.item_id,
+    duration_type: buff.duration_type ?? 'expedition_count',
+    remaining: Math.max(0, Number(buff.remaining ?? 0)),
+    effect: buff.effect ?? null,
+    stack_behavior: buff.stack_behavior ?? 'refresh',
+    stack_cap: buff.stack_cap ?? null,
+    stacks: Math.max(1, Number(buff.stacks ?? 1)),
+    buff_slot_cost: Math.max(1, Number(buff.buff_slot_cost ?? 1)),
+  }
+}
+
 export function normalizeHeroRecord(state, hero) {
   const normalized = {
     ...hero,
@@ -80,6 +142,9 @@ export function normalizeHeroRecord(state, hero) {
     recovery_at: hero.recovery_at ?? null,
     curse_clears_at: hero.curse_clears_at ?? null,
     equipment: hero.equipment ?? {},
+    active_buffs: (hero.active_buffs ?? []).map(normalizeBuffRecord).filter(Boolean),
+    specialization: hero.specialization ?? null,
+    rarity: hero.rarity ?? 'common',
   }
   if (!Array.isArray(normalized.statuses)) {
     normalized.statuses = hero.status && hero.status !== 'ready' ? [hero.status] : []
@@ -89,14 +154,76 @@ export function normalizeHeroRecord(state, hero) {
   return normalized
 }
 
+function buildBuffFormulaVariables(state, hero, buff) {
+  const itemDef = state.itemDefs?.[buff.item_id] ?? {}
+  const variables = {
+    item_level: hero.level ?? 1,
+    item_rarity_tier: rarityToTier(itemDef.rarity),
+    item_quality_tier: 0,
+    building_level: 0,
+    worker_skill: 0,
+    worker_specialization_match: 0,
+    worker_level: hero.level ?? 1,
+    batch_size: 1,
+    momentum: 0,
+    streak_count: 0,
+    base_failure: 0,
+    base_crit: 0,
+    forge_level: 0,
+    base_duration: 0,
+  }
+
+  for (const [resourceId, resource] of Object.entries(state.resources ?? {})) {
+    variables[`resource_${resourceId}`] = Number(resource.amount ?? 0)
+  }
+  for (const [stat, value] of Object.entries(itemDef.stat_modifiers ?? {})) {
+    variables[`item_base_stat_${stat}`] = Number(value ?? 0)
+  }
+
+  return variables
+}
+
+function resolveBuffValue(state, hero, buff) {
+  const rawValue = buff?.effect?.value
+  if (typeof rawValue === 'string') {
+    return safeEvaluateFormula(rawValue, buildBuffFormulaVariables(state, hero, buff), 0)
+  }
+  return Number(rawValue ?? 0)
+}
+
+function applySingleBuffEffect(state, hero, stats, buff) {
+  const effect = buff?.effect
+  if (!effect?.stat) return
+
+  const stat = aliasHeroStat(effect.stat)
+  const value = resolveBuffValue(state, hero, buff)
+  if (!Number.isFinite(value)) return
+
+  if (effect.operation === 'multiply') {
+    stats[stat] = (stats[stat] ?? 0) * value
+    return
+  }
+  if (effect.operation === 'set') {
+    stats[stat] = value
+    return
+  }
+  stats[stat] = (stats[stat] ?? 0) + value
+}
+
 export function syncHeroStats(state, hero) {
   const cls = state.heroClasses[hero.class_id]
   if (!cls) return
+  hero.active_buffs = (hero.active_buffs ?? []).map(normalizeBuffRecord).filter(Boolean)
   hero.stats = computeHeroStats(cls, hero.level ?? 1)
   for (const equipped of Object.values(hero.equipment ?? {})) {
     const equippedDef = state.itemDefs[equipped]
     for (const [stat, mod] of Object.entries(equippedDef?.stat_modifiers ?? {})) {
       hero.stats[stat] = (hero.stats[stat] ?? 0) + mod
+    }
+  }
+  for (const buff of hero.active_buffs) {
+    for (let index = 0; index < Math.max(1, buff.stacks ?? 1); index++) {
+      applySingleBuffEffect(state, hero, hero.stats, buff)
     }
   }
   for (const [stat, mod] of Object.entries(state.multipliers.hero_stats ?? {})) {
@@ -106,6 +233,9 @@ export function syncHeroStats(state, hero) {
 
 export function syncAllHeroStats(state) {
   for (const hero of state.heroes) {
+    syncHeroStats(state, hero)
+  }
+  for (const hero of state.recruitPool ?? []) {
     syncHeroStats(state, hero)
   }
 }
@@ -149,8 +279,18 @@ export function clearExpiredHeroStatuses(state, nowMs = Date.now()) {
 
     if (changed) {
       setHeroStatuses(hero, [...statuses])
+      syncHeroStats(state, hero)
     }
   }
+}
+
+export function isCombatEligibleHero(state, hero) {
+  if (!hero) return false
+  const cls = state.heroClasses?.[hero.class_id]
+  if (!cls) return true
+  if (cls.combat_eligible === false) return false
+  if (cls.hero_type === 'artisan') return false
+  return true
 }
 
 export function startPartyRun(state, heroIds) {
@@ -190,9 +330,10 @@ export function completePartyRun(state, heroIds) {
 
 export function grantHeroXp(state, heroId, xpGained) {
   const hero = state.heroes.find((h) => h.id === heroId)
-  if (!hero || hasHeroStatus(hero, 'dead')) return 0
+  const safeXp = Math.max(0, Number(xpGained ?? 0))
+  if (!hero || hasHeroStatus(hero, 'dead') || safeXp <= 0) return 0
 
-  hero.xp = (hero.xp ?? 0) + xpGained
+  hero.xp = (hero.xp ?? 0) + safeXp
   let levelsGained = 0
 
   while (hero.xp >= xpRequired(hero.level ?? 1)) {
@@ -230,17 +371,659 @@ export function handleWipeDeaths(state, heroIds, expeditionLabel, expeditionLeve
         if (itemId) giveItem(state, itemId, 1)
       }
       hero.equipment = {}
+      hero.active_buffs = []
       setHeroStatuses(hero, ['dead'])
       deadIds.add(hero.id)
       addToEventLog(state, `${hero.name} has fallen in ${expeditionLabel}.`, 'danger')
     } else {
       refreshHeroStatus(hero)
+      syncHeroStats(state, hero)
     }
   }
 
   if (deadIds.size > 0) {
     state.heroes = state.heroes.filter((hero) => !deadIds.has(hero.id))
   }
+}
+
+function rarityToTier(rarity) {
+  return Math.max(0, HERO_RARITIES.indexOf(rarity ?? 'common'))
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value))
+}
+
+function isAllowedFormulaVariable(name) {
+  return EXACT_FORMULA_VARIABLES.has(name) || DYNAMIC_FORMULA_VARIABLE_PATTERNS.some((pattern) => pattern.test(name))
+}
+
+export function evaluateFormula(formulaString, variables = {}) {
+  if (typeof formulaString !== 'string') return 0
+  const formula = formulaString.trim()
+  if (!formula) return 0
+  if (!SAFE_FORMULA_CHARS_RE.test(formula) || BANNED_FORMULA_TOKENS_RE.test(formula)) {
+    throw new Error('Unsafe formula')
+  }
+
+  const safeVariables = {}
+  for (const [key, value] of Object.entries(variables)) {
+    if (isAllowedFormulaVariable(key)) {
+      safeVariables[key] = Number.isFinite(Number(value)) ? Number(value) : 0
+    }
+  }
+
+  const identifiers = new Set(formula.match(FORMULA_IDENTIFIER_RE) ?? [])
+  for (const identifier of identifiers) {
+    if (identifier === 'true' || identifier === 'false' || identifier === 'null') continue
+    if (identifier in FORMULA_HELPERS) continue
+    if (identifier in safeVariables) continue
+    throw new Error(`Unknown formula identifier: ${identifier}`)
+  }
+
+  const argNames = [...Object.keys(FORMULA_HELPERS), ...Object.keys(safeVariables)]
+  const argValues = [...Object.values(FORMULA_HELPERS), ...Object.values(safeVariables)]
+  const fn = Function(...argNames, '"use strict"; return (' + formula + ');')
+  const result = fn(...argValues)
+  if (typeof result === 'boolean') return result ? 1 : 0
+  const numericResult = Number(result)
+  if (!Number.isFinite(numericResult)) {
+    throw new Error('Formula did not resolve to a finite number')
+  }
+  return numericResult
+}
+
+function safeEvaluateFormula(formulaString, variables, fallback = 0) {
+  try {
+    return evaluateFormula(formulaString, variables)
+  } catch {
+    return fallback
+  }
+}
+
+function pickRandomName() {
+  return `${HERO_NAMES[Math.floor(Math.random() * HERO_NAMES.length)]} ${Math.floor(Math.random() * 100)}`
+}
+
+function createHeroInstance(state, classId, options = {}) {
+  const cls = state.heroClasses[classId]
+  if (!cls) return null
+
+  const specialization = options.specialization
+    ?? (Array.isArray(cls.specializations) && cls.specializations.length
+      ? cls.specializations[Math.floor(Math.random() * cls.specializations.length)]
+      : null)
+
+  const hero = {
+    id: options.id ?? `hero-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    class_id: classId,
+    name: options.name ?? pickRandomName(),
+    level: options.level ?? 1,
+    xp: options.xp ?? 0,
+    xp_next: xpRequired(options.level ?? 1),
+    statuses: options.statuses ?? [],
+    status: options.status ?? 'ready',
+    consecutive_runs: options.consecutive_runs ?? 0,
+    recovery_at: options.recovery_at ?? null,
+    curse_clears_at: options.curse_clears_at ?? null,
+    equipment: options.equipment ?? {},
+    active_buffs: (options.active_buffs ?? []).map(normalizeBuffRecord).filter(Boolean),
+    specialization,
+    rarity: options.rarity ?? 'common',
+    stats: {},
+  }
+
+  syncHeroStats(state, hero)
+  refreshHeroStatus(hero)
+  return hero
+}
+
+function getAssignedArtisan(state, building) {
+  if (!building?.artisan_assigned) return null
+  return state.heroes.find((hero) => hero.id === building.artisan_assigned) ?? null
+}
+
+function resolveWorkflowSuccessTable(workflow, recipe) {
+  const table = { ...(workflow?.success_table ?? {}) }
+  if (recipe?.success_table_override) {
+    Object.assign(table, recipe.success_table_override)
+  }
+  if (recipe?.crit_output?.behavior === 'quality_upgrade') {
+    table.crit_behavior = 'quality_upgrade'
+    if (recipe.crit_output.result_item) table.crit_output_item = recipe.crit_output.result_item
+  } else if (recipe?.crit_output?.behavior === 'double_output') {
+    table.crit_behavior = 'double_output'
+  }
+  return table
+}
+
+function buildFormulaVariables(state, building, workflow, job = {}, extra = {}) {
+  const artisan = getAssignedArtisan(state, building)
+  const artisanClass = artisan ? state.heroClasses?.[artisan.class_id] : null
+  const sourceItemDef = job.source_item_id ? state.itemDefs?.[job.source_item_id] : null
+  const successTable = resolveWorkflowSuccessTable(workflow, job.recipe_id ? state.craftingRecipes?.[job.recipe_id] : null)
+  const variables = {
+    item_level: Number(job.item_level ?? 1),
+    item_rarity_tier: rarityToTier(sourceItemDef?.rarity),
+    item_quality_tier: Number(job.item_quality_tier ?? 0),
+    building_level: Number(building?.level ?? 0),
+    worker_skill: Number(artisan?.stats?.[artisanClass?.primary_stat] ?? 0),
+    worker_specialization_match: Number(
+      artisan?.specialization && workflow?.action_type
+        ? artisan.specialization === workflow.action_type
+        : 0
+    ),
+    worker_level: Number(artisan?.level ?? 1),
+    batch_size: Number(job.batch_size ?? 1),
+    momentum: Number(building?.momentum ?? 0),
+    streak_count: Number(building?.streak_count ?? 0),
+    base_failure: Number(successTable.base_failure ?? 0),
+    base_crit: Number(successTable.base_crit ?? 0),
+    forge_level: Number(building?.level ?? 0),
+    base_duration: Number(
+      workflow?.duration_base_ticks
+      ?? workflow?.total_ticks_required
+      ?? job.base_duration
+      ?? job.total_s
+      ?? 1
+    ),
+  }
+
+  for (const [resourceId, resource] of Object.entries(state.resources ?? {})) {
+    variables[`resource_${resourceId}`] = Number(resource.amount ?? 0)
+  }
+
+  for (const [stat, value] of Object.entries(sourceItemDef?.stat_modifiers ?? {})) {
+    variables[`item_base_stat_${stat}`] = Number(value ?? 0)
+  }
+
+  for (const [key, value] of Object.entries(extra)) {
+    variables[key] = value
+  }
+
+  return variables
+}
+
+function buildResourceInputEntries(state, building, workflow, job = {}) {
+  const recipe = job.recipe_id ? state.craftingRecipes?.[job.recipe_id] : null
+  const rawInputs = recipe?.inputs ?? workflow?.inputs ?? []
+  const variables = buildFormulaVariables(state, building, workflow, job)
+
+  return rawInputs.map((entry) => ({
+    resource_id: entry.resource,
+    amount: Math.max(
+      0,
+      typeof entry.amount === 'string'
+        ? safeEvaluateFormula(entry.amount, variables, 0)
+        : Number(entry.amount ?? 0)
+    ),
+  }))
+}
+
+function canAffordResourceInputs(state, inputs) {
+  return inputs.every(({ resource_id, amount }) => (state.resources?.[resource_id]?.amount ?? 0) >= amount)
+}
+
+function spendResourceInputs(state, inputs) {
+  if (!canAffordResourceInputs(state, inputs)) return false
+  for (const { resource_id, amount } of inputs) {
+    if (!state.resources?.[resource_id]) continue
+    state.resources[resource_id].amount -= amount
+  }
+  return true
+}
+
+function refundResourceInputs(state, inputs, rate = 1) {
+  const refund = {}
+  for (const { resource_id, amount } of inputs ?? []) {
+    refund[resource_id] = (refund[resource_id] ?? 0) + (amount * rate)
+  }
+  gain(state, refund)
+}
+
+function createWorkflowJob(state, building, workflow, options = {}) {
+  const job = {
+    id: options.id ?? `job-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    workflow_id: workflow.id,
+    recipe_id: options.recipe_id ?? null,
+    source_item_id: options.source_item_id ?? null,
+    progress_s: Number(options.progress_s ?? 0),
+    total_s: Number(options.total_s ?? 0),
+    batch_size: Number(options.batch_size ?? 1),
+    inputs_committed: options.inputs_committed ?? false,
+    consumed_resources: options.consumed_resources ?? [],
+    item_level: options.item_level ?? 1,
+    item_quality_tier: options.item_quality_tier ?? 0,
+    passive: options.passive ?? workflow.workflow_mode === 'passive',
+  }
+
+  if (!(job.total_s > 0)) {
+    job.total_s = computeWorkflowDuration(state, building, workflow, job)
+  }
+
+  return job
+}
+
+function ensureJobInputsCommitted(state, building, workflow, job) {
+  if (job.inputs_committed) return true
+
+  const inputs = buildResourceInputEntries(state, building, workflow, job)
+  if (!inputs.length) {
+    job.inputs_committed = true
+    job.consumed_resources = []
+    return true
+  }
+
+  if (!spendResourceInputs(state, inputs)) return false
+  job.inputs_committed = true
+  job.consumed_resources = inputs
+  return true
+}
+
+function computeWorkflowDuration(state, building, workflow, job = {}) {
+  const recipe = job.recipe_id ? state.craftingRecipes?.[job.recipe_id] : null
+  const variables = buildFormulaVariables(state, building, workflow, job)
+
+  if (recipe?.craft_time_formula) {
+    return Math.max(0.1, safeEvaluateFormula(recipe.craft_time_formula, variables, workflow?.duration_base_ticks ?? 1))
+  }
+  if (workflow?.duration_formula) {
+    return Math.max(0.1, safeEvaluateFormula(workflow.duration_formula, variables, workflow?.duration_base_ticks ?? workflow?.total_ticks_required ?? 1))
+  }
+  return Math.max(0.1, Number(workflow?.total_ticks_required ?? workflow?.duration_base_ticks ?? job.total_s ?? 1))
+}
+
+function getMomentumThresholdBonus(workflow, building) {
+  const thresholds = [...(workflow?.momentum_config?.thresholds ?? [])].sort(
+    (left, right) => Number(left.momentum ?? 0) - Number(right.momentum ?? 0)
+  )
+  let matched = null
+  for (const threshold of thresholds) {
+    if ((building?.momentum ?? 0) >= (threshold.momentum ?? 0)) {
+      matched = threshold
+    }
+  }
+  return matched
+}
+
+function computeWorkflowSpeedMultiplier(state, building, workflow, job) {
+  const variables = buildFormulaVariables(state, building, workflow, job)
+  let speed = Number(state.multipliers?.craft_speed ?? 1)
+
+  if (variables.worker_skill > 0) {
+    speed *= 1 + (variables.worker_skill / 100)
+  }
+  if (variables.worker_specialization_match > 0) {
+    speed *= 1.15
+  }
+
+  if (workflow?.streak_bonus && (building?.streak_count ?? 0) >= (workflow.streak_bonus.threshold ?? Infinity)) {
+    speed *= 1 + Number(workflow.streak_bonus.duration_reduction ?? 0)
+  }
+
+  const momentumThreshold = getMomentumThresholdBonus(workflow, building)
+  if (momentumThreshold?.speed_bonus) {
+    speed *= 1 + Number(momentumThreshold.speed_bonus)
+  }
+
+  return Math.max(0.01, speed)
+}
+
+function resolveChance(value, variables) {
+  if (typeof value === 'string') {
+    return clamp(safeEvaluateFormula(value, variables, 1), 0, 1)
+  }
+  if (value === undefined || value === null) return 1
+  return clamp(Number(value), 0, 1)
+}
+
+function getWorkflowOutputRules(state, workflow, job, recipe) {
+  if (workflow?.use_item_salvage_profile && job.source_item_id) {
+    return (state.itemDefs?.[job.source_item_id]?.salvage_profile?.outputs ?? []).map((rule) => ({ ...rule }))
+  }
+
+  if (recipe?.output_item) {
+    const outputDef = state.itemDefs?.[recipe.output_item]
+    const outputType = outputDef?.item_type === 'consumable' ? 'consumable' : 'item'
+    return [{
+      output_type: outputType,
+      target: recipe.output_item,
+      quantity: recipe.output_quantity ?? 1,
+    }]
+  }
+
+  return (workflow?.output_rules ?? []).map((rule) => ({ ...rule }))
+}
+
+function addToBuffStockpile(state, itemId, quantity) {
+  const itemDef = state.itemDefs?.[itemId]
+  if (!itemDef || quantity <= 0) return 0
+  const limit = itemDef.stack_max ?? itemDef.stack_limit ?? Infinity
+  const previous = Number(state.buff_stockpile?.[itemId] ?? 0)
+  const next = Math.min(previous + quantity, limit)
+  state.buff_stockpile[itemId] = next
+  return next - previous
+}
+
+function consumeFromBuffStockpile(state, itemId, quantity = 1) {
+  const available = Number(state.buff_stockpile?.[itemId] ?? 0)
+  if (available < quantity) return false
+  state.buff_stockpile[itemId] = available - quantity
+  return true
+}
+
+function pickWeightedRarity(rarityTable = []) {
+  if (!rarityTable.length) return 'common'
+  const totalWeight = rarityTable.reduce((sum, entry) => sum + Number(entry.weight ?? 0), 0)
+  if (totalWeight <= 0) return rarityTable[0].rarity ?? 'common'
+
+  let roll = Math.random() * totalWeight
+  for (const entry of rarityTable) {
+    roll -= Number(entry.weight ?? 0)
+    if (roll <= 0) return entry.rarity ?? 'common'
+  }
+  return rarityTable[rarityTable.length - 1].rarity ?? 'common'
+}
+
+function increaseRarity(rarity, steps = 1) {
+  const current = Math.max(0, HERO_RARITIES.indexOf(rarity ?? 'common'))
+  return HERO_RARITIES[Math.min(HERO_RARITIES.length - 1, current + steps)] ?? 'common'
+}
+
+function applyModifierTarget(container, target, operation, value) {
+  if (!container || !target) return
+  const parts = String(target).split('.').filter(Boolean)
+  if (!parts.length) return
+
+  let current = container
+  for (let index = 0; index < parts.length - 1; index++) {
+    const part = parts[index]
+    if (!current[part] || typeof current[part] !== 'object') {
+      current[part] = {}
+    }
+    current = current[part]
+  }
+
+  const key = parts[parts.length - 1]
+  const base = current[key] ?? (operation === 'multiply' ? 1 : 0)
+  if (operation === 'multiply') {
+    current[key] = base * value
+  } else if (operation === 'set') {
+    current[key] = value
+  } else {
+    current[key] = base + value
+  }
+}
+
+function applyWorldEffectOutput(state, rule, variables) {
+  if (rule.effect_type === 'unlock_node') {
+    unlockNode(state, rule.target)
+    return
+  }
+
+  if (rule.effect_type === 'apply_modifier') {
+    const value = typeof rule.modifier_value === 'string'
+      ? safeEvaluateFormula(rule.modifier_value, variables, 1)
+      : Number(rule.modifier_value ?? 1)
+    applyModifierTarget(
+      state.multipliers,
+      rule.modifier_target ?? rule.target,
+      rule.modifier_operation ?? 'multiply',
+      value
+    )
+    if ((rule.modifier_target ?? '').startsWith('hero_stats.')) {
+      syncAllHeroStats(state)
+    }
+    return
+  }
+
+  if (rule.effect_type === 'trigger_event') {
+    const targetNode = state._nodeMap?.get(rule.target)
+    const text = targetNode?.log_message ?? targetNode?.label ?? `Triggered event: ${rule.target}`
+    addToEventLog(state, text, 'system')
+  }
+}
+
+function applyWorkflowOutputs(state, building, workflow, job, recipe, successTable, isCrit) {
+  const variables = buildFormulaVariables(state, building, workflow, job)
+  const outputRules = getWorkflowOutputRules(state, workflow, job, recipe)
+  const quantityMultiplier = isCrit && successTable.crit_behavior === 'double_output'
+    ? Number(successTable.crit_multiplier ?? 2)
+    : 1
+
+  if (isCrit && successTable.crit_behavior === 'quality_upgrade') {
+    const upgradedItemId = recipe?.crit_output?.result_item ?? successTable.crit_output_item
+    if (upgradedItemId) {
+      for (const rule of outputRules) {
+        if (rule.output_type === 'item' || rule.output_type === 'consumable') {
+          rule.target = upgradedItemId
+        }
+      }
+    }
+  }
+
+  if (isCrit && recipe?.crit_output?.behavior === 'bonus_material' && recipe.crit_output.bonus_resource) {
+    outputRules.push({
+      output_type: 'resource',
+      target: recipe.crit_output.bonus_resource,
+      yield_formula: String(recipe.crit_output.bonus_amount ?? 0),
+    })
+  }
+
+  for (const rule of outputRules) {
+    if (Math.random() > resolveChance(rule.chance, variables)) continue
+
+    if (rule.output_type === 'resource') {
+      const baseAmount = rule.yield_formula
+        ? safeEvaluateFormula(rule.yield_formula, variables, 0)
+        : Number(rule.quantity ?? 0)
+      const amount = Math.max(0, baseAmount * quantityMultiplier)
+      if (rule.target && amount > 0) {
+        gain(state, { [rule.target]: amount })
+      }
+      continue
+    }
+
+    if (rule.output_type === 'item') {
+      const quantity = Math.max(1, Math.round(Number(rule.quantity ?? 1) * quantityMultiplier))
+      if (rule.target) giveItem(state, rule.target, quantity)
+      continue
+    }
+
+    if (rule.output_type === 'consumable') {
+      const quantity = Math.max(1, Math.round(Number(rule.quantity ?? 1) * quantityMultiplier))
+      if (rule.target) addToBuffStockpile(state, rule.target, quantity)
+      continue
+    }
+
+    if (rule.output_type === 'world_effect') {
+      applyWorldEffectOutput(state, rule, variables)
+      continue
+    }
+
+    if (rule.output_type === 'hero_instance') {
+      const rarity = isCrit && successTable.crit_behavior === 'rarity_upgrade'
+        ? increaseRarity(pickWeightedRarity(rule.rarity_table), 1)
+        : pickWeightedRarity(rule.rarity_table)
+      const hero = createHeroInstance(state, rule.target_class, { rarity })
+      if (hero) {
+        state.recruitPool = state.recruitPool ?? []
+        state.recruitPool.push(hero)
+        addToEventLog(state, `${hero.name} is now available for recruitment.`, 'success')
+      }
+    }
+  }
+
+  if (isCrit && successTable.crit_behavior === 'breakthrough' && Array.isArray(successTable.breakthrough_table) && successTable.breakthrough_table.length) {
+    const totalWeight = successTable.breakthrough_table.reduce((sum, entry) => sum + Number(entry.weight ?? 0), 0)
+    let roll = Math.random() * Math.max(1, totalWeight)
+    let selected = successTable.breakthrough_table[0]
+    for (const entry of successTable.breakthrough_table) {
+      roll -= Number(entry.weight ?? 0)
+      if (roll <= 0) {
+        selected = entry
+        break
+      }
+    }
+    applyWorldEffectOutput(state, {
+      output_type: 'world_effect',
+      effect_type: selected.effect_type,
+      target: selected.target,
+      modifier_value: selected.modifier_value,
+    }, variables)
+  }
+}
+
+function updateBuildingCompletionState(building, workflow, job, completedSuccessfully) {
+  const streakKey = job.recipe_id ?? job.workflow_id
+  if (completedSuccessfully) {
+    if (workflow?.streak_bonus) {
+      if (building._last_streak_key === streakKey) {
+        building.streak_count = (building.streak_count ?? 0) + 1
+      } else {
+        building.streak_count = 1
+      }
+      building._last_streak_key = streakKey
+    }
+
+    if (workflow?.momentum_config) {
+      building.momentum = Math.max(
+        0,
+        Number(building.momentum ?? 0) + Number(workflow.momentum_config.gain_per_job ?? 0)
+      )
+    }
+    return
+  }
+
+  if (workflow?.streak_bonus) {
+    building.streak_count = 0
+    building._last_streak_key = null
+  }
+}
+
+function resolveWorkflowJobCompletion(state, building, workflow, job) {
+  const recipe = job.recipe_id ? state.craftingRecipes?.[job.recipe_id] : null
+  const successTable = resolveWorkflowSuccessTable(workflow, recipe)
+  const variables = buildFormulaVariables(state, building, workflow, job)
+  const momentumThreshold = getMomentumThresholdBonus(workflow, building)
+  let failureChance = Number(successTable.base_failure ?? 0)
+  let critChance = Number(successTable.base_crit ?? 0)
+
+  if (successTable.failure_chance_formula) {
+    failureChance = safeEvaluateFormula(successTable.failure_chance_formula, variables, failureChance)
+  }
+  if (successTable.crit_chance_formula) {
+    critChance = safeEvaluateFormula(successTable.crit_chance_formula, variables, critChance)
+  }
+
+  if (workflow?.streak_bonus && (building.streak_count ?? 0) >= (workflow.streak_bonus.threshold ?? Infinity)) {
+    critChance += Number(workflow.streak_bonus.crit_bonus ?? 0)
+  }
+  if (momentumThreshold?.crit_bonus) {
+    critChance += Number(momentumThreshold.crit_bonus)
+  }
+
+  failureChance = clamp(failureChance, 0, 1)
+  critChance = clamp(critChance, 0, 1)
+
+  const artisan = getAssignedArtisan(state, building)
+  const baseXp = Number(workflow?.xp_on_complete ?? 0)
+
+  if (Math.random() < failureChance) {
+    if (successTable.failure_behavior === 'partial_refund') {
+      refundResourceInputs(state, job.consumed_resources, Number(successTable.failure_refund_rate ?? 0.5))
+    } else if (successTable.failure_behavior === 'reset_progress_refund_inputs') {
+      refundResourceInputs(state, job.consumed_resources, 1)
+      job.progress_s = 0
+      job.total_s = computeWorkflowDuration(state, building, workflow, job)
+      job.inputs_committed = false
+      job.consumed_resources = []
+      if (artisan && successTable.failure_grants_xp !== false) {
+        grantHeroXp(state, artisan.id, baseXp * Number(successTable.failure_xp_multiplier ?? 0.5))
+      }
+      updateBuildingCompletionState(building, workflow, job, false)
+      addToEventLog(state, `${building.label}: ${workflow.label ?? workflow.id} failed and must restart.`, 'danger')
+      return true
+    }
+
+    if (artisan && successTable.failure_grants_xp !== false) {
+      grantHeroXp(state, artisan.id, baseXp * Number(successTable.failure_xp_multiplier ?? 0.5))
+    }
+    updateBuildingCompletionState(building, workflow, job, false)
+    addToEventLog(state, `${building.label}: ${workflow.label ?? workflow.id} failed.`, 'danger')
+    return false
+  }
+
+  const isCrit = Math.random() < critChance
+  applyWorkflowOutputs(state, building, workflow, job, recipe, successTable, isCrit)
+
+  if (artisan && baseXp > 0) {
+    grantHeroXp(state, artisan.id, baseXp)
+  }
+
+  updateBuildingCompletionState(building, workflow, job, true)
+  addToEventLog(
+    state,
+    `${building.label}: ${workflow.label ?? workflow.id} completed${isCrit ? ' with a critical result' : ''}.`,
+    isCrit ? 'success' : 'info'
+  )
+  return false
+}
+
+function refreshWorkflowUnlocksForBuilding(state, buildingId) {
+  const building = state.buildings?.[buildingId]
+  if (!building) return
+
+  for (const workflow of Object.values(state.buildingWorkflows ?? {})) {
+    if (workflow.host_building !== buildingId) continue
+    const unlock = workflow.unlocked_by ?? {}
+    const meetsLevel = (building.level ?? 0) >= (unlock.building_level ?? 1)
+    const meetsPrereqs = (unlock.building_prerequisites ?? []).every(
+      (upgradeId) => state.buildingUpgrades?.[upgradeId]?.completed
+    )
+    workflow.visible = !!building.visible && meetsLevel && meetsPrereqs
+  }
+
+  for (const recipe of Object.values(state.craftingRecipes ?? {})) {
+    const workflow = state.buildingWorkflows?.[recipe.required_workflow]
+    if (!workflow || workflow.host_building !== buildingId) continue
+    recipe.visible = !!workflow.visible && (building.level ?? 0) >= (recipe.required_building_level ?? 1)
+  }
+
+  for (const upgrade of Object.values(state.buildingUpgrades ?? {})) {
+    if (upgrade.host_building !== buildingId) continue
+    const requiredLevel = Number(upgrade.requires?.building_level ?? 0)
+    const crossRequirements = (upgrade.requires?.cross_building ?? []).every((requirement) => {
+      const otherBuilding = state.buildings?.[requirement.building_id]
+      return !!otherBuilding && (otherBuilding.level ?? 0) >= (requirement.level ?? 0)
+    })
+    upgrade.visible = !!building.visible && (building.level ?? 0) >= requiredLevel && crossRequirements
+  }
+}
+
+function ensurePassiveWorkflowJobs(state, building) {
+  for (const workflow of Object.values(state.buildingWorkflows ?? {})) {
+    if (workflow.host_building !== building.id) continue
+    if (!workflow.visible || workflow.workflow_mode !== 'passive') continue
+
+    const hasExistingJob = (building.workflow_queue ?? []).some(
+      (job) => job.workflow_id === workflow.id && job.passive
+    )
+    if (hasExistingJob) continue
+
+    building.workflow_queue.push(createWorkflowJob(state, building, workflow, {
+      passive: true,
+      inputs_committed: false,
+    }))
+  }
+}
+
+function decayBuildingMomentum(building, workflow, dt) {
+  if (!workflow?.momentum_config) return
+  building.momentum = Math.max(
+    0,
+    Number(building.momentum ?? 0) - (Number(workflow.momentum_config.decay_per_idle_tick ?? 0) * dt)
+  )
 }
 
 // ── Build a building (or upgrade to next level) ───────────────────────────────
@@ -264,6 +1047,7 @@ export function buildBuilding(state, buildingId) {
     unlockNode(state, nodeId)
   }
 
+  refreshWorkflowUnlocksForBuilding(state, buildingId)
   addToEventLog(state, `${bld.label} upgraded to level ${bld.level}.`, 'success')
   checkActProgress(state)
   return { ok: true }
@@ -411,23 +1195,52 @@ function applyUpgradeEffect(state, effect) {
 
 // ── Crafting system ───────────────────────────────────────────────────────────
 export function startCraft(state, buildingId, recipeId) {
-  const bld = state.buildings[buildingId]
-  const recipe = state.recipes[recipeId]
-  if (!bld || !recipe) return { ok: false, reason: 'Building or recipe not found.' }
-  if (!bld.is_crafting_station) return { ok: false, reason: 'Not a crafting station.' }
+  const legacyBuilding = state.buildings[buildingId]
+  const legacyRecipe = state.recipes[recipeId]
 
-  const levelData = bld.levels[bld.level - 1]
-  const maxSlots = levelData?.recipe_slots ?? 1
-  if (bld.craft_queue.length >= maxSlots) return { ok: false, reason: 'Crafting queue is full.' }
+  if (legacyBuilding && legacyRecipe) {
+    if (!legacyBuilding.is_crafting_station) return { ok: false, reason: 'Not a crafting station.' }
 
-  if (!spendItems(state, recipe.inputs)) return { ok: false, reason: 'Missing ingredients.' }
+    const levelData = legacyBuilding.levels[legacyBuilding.level - 1]
+    const maxSlots = levelData?.recipe_slots ?? 1
+    if (legacyBuilding.craft_queue.length >= maxSlots) return { ok: false, reason: 'Crafting queue is full.' }
 
-  bld.craft_queue.push({
-    recipe_id: recipeId,
-    progress_s: 0,
-    total_s: recipe.craft_time_s ?? 10,
+    if (!spendItems(state, legacyRecipe.inputs)) return { ok: false, reason: 'Missing ingredients.' }
+
+    legacyBuilding.craft_queue.push({
+      recipe_id: recipeId,
+      progress_s: 0,
+      total_s: legacyRecipe.craft_time_s ?? 10,
+    })
+
+    return { ok: true }
+  }
+
+  const building = state.buildings?.[buildingId]
+  const recipe = state.craftingRecipes?.[recipeId]
+  const workflow = recipe ? state.buildingWorkflows?.[recipe.required_workflow] : null
+  if (!building || !recipe || !workflow) return { ok: false, reason: 'Building or recipe not found.' }
+  if (!building.has_workflows) return { ok: false, reason: 'This building does not support workflows.' }
+
+  refreshWorkflowUnlocksForBuilding(state, buildingId)
+  if (workflow.host_building !== buildingId || workflow.visible === false || recipe.visible === false) {
+    return { ok: false, reason: 'Workflow or recipe is locked.' }
+  }
+
+  const maxSlots = Math.max(1, workflow.batch_config?.max_size ?? 1)
+  if ((building.workflow_queue?.length ?? 0) >= maxSlots) {
+    return { ok: false, reason: 'Workflow queue is full.' }
+  }
+
+  const job = createWorkflowJob(state, building, workflow, {
+    recipe_id: recipe.id,
+    batch_size: recipe.output_quantity ?? 1,
   })
+  if (!ensureJobInputsCommitted(state, building, workflow, job)) {
+    return { ok: false, reason: 'Missing resources.' }
+  }
 
+  building.workflow_queue.push(job)
   return { ok: true }
 }
 
@@ -455,21 +1268,188 @@ export function tickCrafting(state, dt) {
   }
 }
 
+export function processBuildingTick(state, dt) {
+  for (const building of Object.values(state.buildings ?? {})) {
+    if (!building.has_workflows || building.level === 0) continue
+
+    refreshWorkflowUnlocksForBuilding(state, building.id)
+    ensurePassiveWorkflowJobs(state, building)
+
+    const nextQueue = []
+    let processedAnyJob = false
+    let momentumWorkflow = null
+
+    for (const job of building.workflow_queue ?? []) {
+      const workflow = state.buildingWorkflows?.[job.workflow_id]
+      if (!workflow || workflow.host_building !== building.id) continue
+      if (!momentumWorkflow && workflow.momentum_config) momentumWorkflow = workflow
+
+      if (!ensureJobInputsCommitted(state, building, workflow, job)) {
+        nextQueue.push(job)
+        continue
+      }
+
+      if (!(job.total_s > 0)) {
+        job.total_s = computeWorkflowDuration(state, building, workflow, job)
+      }
+
+      const speedMultiplier = computeWorkflowSpeedMultiplier(state, building, workflow, job)
+      job.progress_s = Number(job.progress_s ?? 0) + (dt * speedMultiplier)
+      processedAnyJob = true
+
+      if (job.progress_s < job.total_s) {
+        nextQueue.push(job)
+        continue
+      }
+
+      const keepJob = resolveWorkflowJobCompletion(state, building, workflow, job)
+      if (keepJob) {
+        nextQueue.push(job)
+      }
+    }
+
+    building.workflow_queue = nextQueue
+
+    if (!processedAnyJob && momentumWorkflow) {
+      decayBuildingMomentum(building, momentumWorkflow, dt)
+    }
+  }
+}
+
 // ── Save/Load ─────────────────────────────────────────────────────────────────
+function getBuffTargets(state, partyHeroes, buffConfig) {
+  if (buffConfig.apply_scope === 'party') {
+    return partyHeroes
+  }
+  if (buffConfig.apply_scope === 'hero_class') {
+    return partyHeroes.filter((hero) => hero.class_id === buffConfig.apply_target)
+  }
+  return partyHeroes.length ? [partyHeroes[0]] : []
+}
+
+function applyBuffToHero(state, hero, itemId, buffConfig) {
+  hero.active_buffs = hero.active_buffs ?? []
+  const existing = hero.active_buffs.find((buff) => buff.item_id === itemId)
+
+  if (existing) {
+    if (buffConfig.stack_behavior === 'extend') {
+      existing.remaining += Number(buffConfig.duration_value ?? 1)
+    } else if (buffConfig.stack_behavior === 'intensify') {
+      existing.stacks = Math.min(
+        Number(buffConfig.stack_cap ?? existing.stacks + 1),
+        Number(existing.stacks ?? 1) + 1
+      )
+      existing.remaining = Math.max(existing.remaining, Number(buffConfig.duration_value ?? 1))
+    } else {
+      existing.remaining = Number(buffConfig.duration_value ?? 1)
+    }
+    syncHeroStats(state, hero)
+    return
+  }
+
+  hero.active_buffs.push(normalizeBuffRecord({
+    item_id: itemId,
+    duration_type: buffConfig.duration_type,
+    remaining: Number(buffConfig.duration_value ?? 1),
+    effect: { ...buffConfig.effect },
+    stack_behavior: buffConfig.stack_behavior ?? 'refresh',
+    stack_cap: buffConfig.stack_cap ?? null,
+    stacks: 1,
+    buff_slot_cost: buffConfig.buff_slot_cost ?? 1,
+  }))
+  syncHeroStats(state, hero)
+}
+
+export function applyPreExpeditionBuffs(state, heroIds) {
+  const partyHeroes = (heroIds ?? [])
+    .map((heroId) => state.heroes.find((hero) => hero.id === heroId))
+    .filter(Boolean)
+  if (!partyHeroes.length) return 0
+
+  let appliedCount = 0
+  for (const [itemId, quantity] of Object.entries(state.buff_stockpile ?? {})) {
+    if (!(quantity > 0)) continue
+    const itemDef = state.itemDefs?.[itemId]
+    const buffConfig = itemDef?.consumable_config
+    if (!buffConfig) continue
+
+    const targets = getBuffTargets(state, partyHeroes, buffConfig)
+    if (!targets.length) continue
+    if (!consumeFromBuffStockpile(state, itemId, 1)) continue
+
+    for (const hero of targets) {
+      applyBuffToHero(state, hero, itemId, buffConfig)
+    }
+    appliedCount += 1
+  }
+
+  if (appliedCount > 0) {
+    addToEventLog(state, `Applied ${appliedCount} consumable buff${appliedCount === 1 ? '' : 's'} before departure.`, 'info')
+  }
+
+  return appliedCount
+}
+
+export function advanceHeroBuffDurations(state, heroIds, wasSuccessful) {
+  for (const heroId of heroIds ?? []) {
+    const hero = state.heroes.find((entry) => entry.id === heroId)
+    if (!hero) continue
+
+    let changed = false
+    hero.active_buffs = (hero.active_buffs ?? []).filter((buff) => {
+      if (!buff) return false
+      if (buff.duration_type === 'permanent_until_death') return true
+      if (buff.duration_type === 'expedition_success' && !wasSuccessful) return true
+
+      changed = true
+      const nextRemaining = Number(buff.remaining ?? 0) - 1
+      return nextRemaining > 0
+        ? ((buff.remaining = nextRemaining), true)
+        : false
+    })
+
+    if (changed) {
+      syncHeroStats(state, hero)
+    }
+  }
+}
+
 export function saveGame(state) {
   const saveData = {
-    version: 1,
+    version: 2,
     savedAt: Date.now(),
     projectTitle: state.meta.title,
     resources: Object.fromEntries(
       Object.entries(state.resources).map(([id, r]) => [id, r.amount])
     ),
     inventory: { ...state.inventory },
+    buff_stockpile: { ...(state.buff_stockpile ?? {}) },
     heroes: state.heroes,
+    recruitPool: state.recruitPool ?? [],
     buildings: Object.fromEntries(
       Object.entries(state.buildings).map(([id, b]) => [
         id,
-        { level: b.level, craft_queue: b.craft_queue, visible: b.visible },
+        {
+          level: b.level,
+          craft_queue: b.craft_queue,
+          workflow_queue: b.workflow_queue,
+          artisan_assigned: b.artisan_assigned,
+          momentum: b.momentum,
+          streak_count: b.streak_count,
+          visible: b.visible,
+        },
+      ])
+    ),
+    buildingWorkflows: Object.fromEntries(
+      Object.entries(state.buildingWorkflows ?? {}).map(([id, workflow]) => [
+        id,
+        { visible: workflow.visible },
+      ])
+    ),
+    buildingUpgrades: Object.fromEntries(
+      Object.entries(state.buildingUpgrades ?? {}).map(([id, upgrade]) => [
+        id,
+        { completed: upgrade.completed, visible: upgrade.visible },
       ])
     ),
     upgrades: Object.fromEntries(
@@ -491,7 +1471,7 @@ export function saveGame(state) {
     factions: Object.fromEntries(
       Object.entries(state.factions).map(([id, f]) => [id, { rep: f.rep }])
     ),
-    multipliers: state.multipliers,
+    multipliers: JSON.parse(JSON.stringify(state.multipliers)),
   }
 
   try {
@@ -513,10 +1493,18 @@ export function loadSave(state) {
       if (state.resources[id]) state.resources[id].amount = amount
     }
     state.inventory = save.inventory ?? {}
+    state.buff_stockpile = save.buff_stockpile ?? {}
     state.heroes = (save.heroes ?? []).map((hero) => normalizeHeroRecord(state, hero))
+    state.recruitPool = (save.recruitPool ?? []).map((hero) => normalizeHeroRecord(state, hero))
 
     for (const [id, data] of Object.entries(save.buildings ?? {})) {
       if (state.buildings[id]) Object.assign(state.buildings[id], data)
+    }
+    for (const [id, data] of Object.entries(save.buildingWorkflows ?? {})) {
+      if (state.buildingWorkflows?.[id]) Object.assign(state.buildingWorkflows[id], data)
+    }
+    for (const [id, data] of Object.entries(save.buildingUpgrades ?? {})) {
+      if (state.buildingUpgrades?.[id]) Object.assign(state.buildingUpgrades[id], data)
     }
     for (const [id, data] of Object.entries(save.upgrades ?? {})) {
       if (state.upgrades[id]) Object.assign(state.upgrades[id], data)
@@ -531,13 +1519,20 @@ export function loadSave(state) {
       if (state.factions[id]) Object.assign(state.factions[id], data)
     }
 
-    // Re-apply upgrade multipliers from saved tiers
-    for (const upg of Object.values(state.upgrades)) {
-      for (let t = 0; t < upg.tier; t++) {
-        applyUpgradeEffect(state, upg.effect ?? {})
+    if (save.multipliers) {
+      state.multipliers = JSON.parse(JSON.stringify(save.multipliers))
+    } else {
+      for (const upg of Object.values(state.upgrades)) {
+        for (let t = 0; t < upg.tier; t++) {
+          applyUpgradeEffect(state, upg.effect ?? {})
+        }
       }
     }
 
+    for (const buildingId of Object.keys(state.buildings ?? {})) {
+      refreshWorkflowUnlocksForBuilding(state, buildingId)
+    }
+    syncAllHeroStats(state)
     checkActProgress(state, { silent: true })
 
     return true

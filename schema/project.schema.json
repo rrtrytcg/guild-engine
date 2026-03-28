@@ -1,93 +1,185 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "guild-engine/project.schema.json",
-  "version": "0.1.0",
+  "version": "1.2.0",
   "title": "Guild Engine Project Schema",
   "description": "Defines all node types, field shapes, and connection rules for a guild-engine project.json.",
-
   "definitions": {
-
     "rarity": {
       "type": "string",
-      "enum": ["common", "uncommon", "rare", "epic", "legendary"]
+      "enum": [
+        "common",
+        "uncommon",
+        "rare",
+        "epic",
+        "legendary"
+      ]
     },
-
     "slot": {
       "type": "string",
-      "enum": ["weapon", "armor", "accessory", "relic"]
+      "enum": [
+        "weapon",
+        "armor",
+        "accessory",
+        "relic"
+      ]
     },
-
     "stat_block": {
       "type": "object",
       "description": "Flat key-value map of stat name to numeric modifier.",
-      "additionalProperties": { "type": "number" },
-      "examples": [{ "attack": 5, "defense": 2, "speed": -1 }]
+      "additionalProperties": {
+        "type": "number"
+      },
+      "examples": [
+        {
+          "attack": 5,
+          "defense": 2,
+          "speed": -1
+        }
+      ]
     },
-
     "cost": {
       "type": "array",
       "description": "List of resource amounts required to perform an action.",
       "items": {
         "type": "object",
-        "required": ["resource_id", "amount"],
+        "required": [
+          "resource_id",
+          "amount"
+        ],
         "properties": {
-          "resource_id": { "type": "string" },
-          "amount": { "type": "number", "minimum": 0 }
+          "resource_id": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "minimum": 0
+          }
         }
       }
     },
-
     "unlock_condition": {
       "type": "object",
       "description": "A single condition that must be true for something to become available.",
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["resource_gte", "building_level", "act_reached", "faction_rep_gte", "upgrade_owned", "hero_count_gte", "prestige_count_gte"]
+          "enum": [
+            "resource_gte",
+            "building_level",
+            "act_reached",
+            "faction_rep_gte",
+            "upgrade_owned",
+            "hero_count_gte",
+            "prestige_count_gte"
+          ]
         },
-        "target_id": { "type": "string", "description": "ID of the referenced node." },
-        "value": { "type": "number" }
+        "target_id": {
+          "type": "string",
+          "description": "ID of the referenced node."
+        },
+        "value": {
+          "type": "number"
+        }
       }
     },
-
     "loot_entry": {
       "type": "object",
-      "required": ["item_id", "weight"],
+      "required": [
+        "item_id",
+        "weight"
+      ],
       "properties": {
-        "item_id": { "type": "string", "description": "References an item node id." },
-        "weight": { "type": "number", "minimum": 1, "description": "Relative drop weight. Higher = more common." },
-        "min_qty": { "type": "integer", "minimum": 1, "default": 1 },
-        "max_qty": { "type": "integer", "minimum": 1, "default": 1 },
-        "guaranteed": { "type": "boolean", "default": false, "description": "If true, always drops regardless of roll." }
+        "item_id": {
+          "type": "string",
+          "description": "References an item node id."
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Relative drop weight. Higher = more common."
+        },
+        "min_qty": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "max_qty": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "guaranteed": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, always drops regardless of roll."
+        }
       }
     },
-
     "expedition_event": {
       "type": "object",
       "description": "A mid-run random event that fires during an expedition countdown.",
-      "required": ["id", "label", "trigger_chance", "choices"],
+      "required": [
+        "id",
+        "label",
+        "trigger_chance",
+        "choices"
+      ],
       "properties": {
-        "id": { "type": "string" },
-        "label": { "type": "string", "description": "Short description shown in the event log." },
-        "trigger_chance": { "type": "number", "minimum": 0, "maximum": 1, "description": "0.0–1.0 probability this event fires per tick." },
-        "condition": { "$ref": "#/definitions/unlock_condition" },
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string",
+          "description": "Short description shown in the event log."
+        },
+        "trigger_chance": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "0.0–1.0 probability this event fires per tick."
+        },
+        "condition": {
+          "$ref": "#/definitions/unlock_condition"
+        },
         "choices": {
           "type": "array",
           "minItems": 1,
           "maxItems": 4,
           "items": {
             "type": "object",
-            "required": ["label", "outcome"],
+            "required": [
+              "label",
+              "outcome"
+            ],
             "properties": {
-              "label": { "type": "string" },
+              "label": {
+                "type": "string"
+              },
               "outcome": {
                 "type": "object",
                 "properties": {
-                  "resource_delta": { "$ref": "#/definitions/stat_block" },
-                  "hero_status": { "type": "string", "enum": ["injured", "inspired", "cursed", "none"] },
-                  "loot_table_id": { "type": "string" },
-                  "log_message": { "type": "string" }
+                  "resource_delta": {
+                    "$ref": "#/definitions/stat_block"
+                  },
+                  "hero_status": {
+                    "type": "string",
+                    "enum": [
+                      "injured",
+                      "inspired",
+                      "cursed",
+                      "none"
+                    ]
+                  },
+                  "loot_table_id": {
+                    "type": "string"
+                  },
+                  "log_message": {
+                    "type": "string"
+                  }
                 }
               }
             }
@@ -95,87 +187,731 @@
         }
       }
     },
-
     "boss_phase": {
       "type": "object",
-      "required": ["phase_number", "hp_threshold", "label"],
+      "required": [
+        "phase_number",
+        "hp_threshold",
+        "label"
+      ],
       "properties": {
-        "phase_number": { "type": "integer", "minimum": 1 },
-        "hp_threshold": { "type": "number", "minimum": 0, "maximum": 1, "description": "Phase activates when boss HP drops below this fraction (0.0–1.0)." },
-        "label": { "type": "string" },
-        "modifier": { "$ref": "#/definitions/stat_block", "description": "Stat changes applied to boss in this phase." },
-        "event_id": { "type": "string", "description": "Optional expedition_event fired on phase transition." },
-        "log_message": { "type": "string" }
+        "phase_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "hp_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Phase activates when boss HP drops below this fraction (0.0–1.0)."
+        },
+        "label": {
+          "type": "string"
+        },
+        "modifier": {
+          "$ref": "#/definitions/stat_block",
+          "description": "Stat changes applied to boss in this phase."
+        },
+        "event_id": {
+          "type": "string",
+          "description": "Optional expedition_event fired on phase transition."
+        },
+        "log_message": {
+          "type": "string"
+        }
       }
     },
-
     "canvas_position": {
       "type": "object",
-      "required": ["x", "y"],
+      "required": [
+        "x",
+        "y"
+      ],
       "properties": {
-        "x": { "type": "number" },
-        "y": { "type": "number" }
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      }
+    },
+    "output_rule": {
+      "type": "object",
+      "description": "One entry in an output_rules array. Covers all five output types.",
+      "required": [
+        "output_type"
+      ],
+      "properties": {
+        "output_type": {
+          "type": "string",
+          "enum": [
+            "resource",
+            "item",
+            "consumable",
+            "world_effect",
+            "hero_instance"
+          ],
+          "description": "resource: adds to resource pool. item: adds to hero/guild inventory. consumable: adds to buff stockpile. world_effect: mutates world state directly. hero_instance: creates a new recruitable hero."
+        },
+        "target": {
+          "type": "string",
+          "description": "For resource/item/consumable: the id of the resource or item node. For world_effect: the id of the node to affect. For hero_instance: omit, use target_class instead."
+        },
+        "target_class": {
+          "type": "string",
+          "description": "hero_instance only. The hero_class id to instantiate."
+        },
+        "yield_formula": {
+          "type": "string",
+          "description": "resource only. Formula string. Variables from x-formula-variable-registry."
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "item/consumable. Fixed quantity produced per job."
+        },
+        "chance": {
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "string",
+              "description": "Formula string resolving to 0.0-1.0"
+            }
+          ],
+          "description": "Probability this output fires. 1.0 = always."
+        },
+        "effect_type": {
+          "type": "string",
+          "enum": [
+            "unlock_node",
+            "apply_modifier",
+            "trigger_event"
+          ],
+          "description": "world_effect only."
+        },
+        "modifier_target": {
+          "type": "string",
+          "description": "apply_modifier only. The stat or node property to modify."
+        },
+        "modifier_value": {
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string",
+              "description": "Formula string"
+            }
+          ],
+          "description": "apply_modifier only. The multiplier or addend."
+        },
+        "modifier_operation": {
+          "type": "string",
+          "enum": [
+            "multiply",
+            "add",
+            "set"
+          ],
+          "default": "multiply"
+        },
+        "rarity_table": {
+          "type": "array",
+          "description": "hero_instance only. Weighted rarity distribution.",
+          "items": {
+            "type": "object",
+            "required": [
+              "rarity",
+              "weight"
+            ],
+            "properties": {
+              "rarity": {
+                "type": "string",
+                "enum": [
+                  "common",
+                  "uncommon",
+                  "rare",
+                  "epic",
+                  "legendary"
+                ]
+              },
+              "weight": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "stat_roll": {
+          "type": "string",
+          "enum": [
+            "random_within_rarity_band",
+            "minimum_rarity_band",
+            "maximum_rarity_band"
+          ],
+          "description": "hero_instance only. How stats are rolled within the rarity tier.",
+          "default": "random_within_rarity_band"
+        }
+      }
+    },
+    "success_table": {
+      "type": "object",
+      "description": "RNG resolution model for a workflow. Roll order: failure first, then crit, then normal. This means crits only fire on non-failures.",
+      "required": [
+        "base_failure",
+        "base_crit"
+      ],
+      "properties": {
+        "base_failure": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Starting failure probability before formula modifiers. Set 0.0 for buildings where failure makes no sense (barracks)."
+        },
+        "base_crit": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Starting crit probability before formula modifiers."
+        },
+        "failure_chance_formula": {
+          "type": "string",
+          "description": "Overrides base_failure if present. Formula resolving to 0.0-1.0. Use max(0, ...) to floor at zero."
+        },
+        "crit_chance_formula": {
+          "type": "string",
+          "description": "Overrides base_crit if present."
+        },
+        "crit_multiplier": {
+          "type": "number",
+          "minimum": 1,
+          "default": 2,
+          "description": "Used when crit_behavior is double_output."
+        },
+        "crit_behavior": {
+          "type": "string",
+          "enum": [
+            "double_output",
+            "quality_upgrade",
+            "rarity_upgrade",
+            "breakthrough",
+            "extend_duration"
+          ],
+          "description": "double_output: quantity ×crit_multiplier. quality_upgrade: item output becomes crit_output_item instead. rarity_upgrade: hero_instance rarity bumped one tier. breakthrough: fires breakthrough_table in addition to normal output. extend_duration: consumable buff duration ×crit_multiplier."
+        },
+        "crit_output_item": {
+          "type": "string",
+          "description": "quality_upgrade only. The item id produced on crit instead of the base output item."
+        },
+        "breakthrough_table": {
+          "type": "array",
+          "description": "breakthrough only. Weighted pool of bonus world_effects that fire on crit in addition to normal output.",
+          "items": {
+            "type": "object",
+            "required": [
+              "effect_type",
+              "target",
+              "weight"
+            ],
+            "properties": {
+              "effect_type": {
+                "type": "string",
+                "enum": [
+                  "unlock_node",
+                  "apply_modifier",
+                  "trigger_event"
+                ]
+              },
+              "target": {
+                "type": "string"
+              },
+              "weight": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "modifier_value": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "failure_behavior": {
+          "type": "string",
+          "enum": [
+            "consume_inputs_no_output",
+            "partial_refund",
+            "reset_progress_refund_inputs"
+          ],
+          "description": "consume_inputs_no_output: forge default. partial_refund: apothecary default, returns 50% of inputs. reset_progress_refund_inputs: library default, resets tick progress, returns all inputs."
+        },
+        "failure_refund_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.5,
+          "description": "partial_refund only. Fraction of inputs returned."
+        },
+        "failure_grants_xp": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether the artisan gains XP on failure. Recommended true — learning from mistakes."
+        },
+        "failure_xp_multiplier": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.5,
+          "description": "XP multiplier applied on failure. 0.5 = half XP."
+        }
+      }
+    },
+    "momentum_config": {
+      "type": "object",
+      "description": "Research momentum system. Library-type buildings. Rewards continuous operation. Decays on idle.",
+      "required": [
+        "gain_per_job",
+        "decay_per_idle_tick",
+        "thresholds"
+      ],
+      "properties": {
+        "gain_per_job": {
+          "type": "number",
+          "description": "Momentum points added on each completed job."
+        },
+        "decay_per_idle_tick": {
+          "type": "number",
+          "description": "Momentum lost per tick when no job is processing."
+        },
+        "thresholds": {
+          "type": "array",
+          "description": "Ascending momentum values that trigger flow states.",
+          "items": {
+            "type": "object",
+            "required": [
+              "momentum",
+              "label"
+            ],
+            "properties": {
+              "momentum": {
+                "type": "number"
+              },
+              "label": {
+                "type": "string"
+              },
+              "speed_bonus": {
+                "type": "number",
+                "description": "Duration reduction as a fraction. 0.25 = 25% faster."
+              },
+              "crit_bonus": {
+                "type": "number",
+                "description": "Added to crit_chance at this threshold."
+              }
+            }
+          }
+        }
+      }
+    },
+    "streak_bonus": {
+      "type": "object",
+      "description": "Concentration system. Apothecary-type buildings. Rewards same-recipe repetition.",
+      "required": [
+        "threshold"
+      ],
+      "properties": {
+        "threshold": {
+          "type": "integer",
+          "minimum": 2,
+          "description": "Consecutive same-recipe jobs needed to activate."
+        },
+        "duration_reduction": {
+          "type": "number",
+          "description": "Duration reduction fraction while streak is active. 0.20 = 20% faster."
+        },
+        "crit_bonus": {
+          "type": "number",
+          "description": "Added to crit_chance while streak is active."
+        },
+        "label": {
+          "type": "string",
+          "description": "UI label shown during streak e.g. 'Focused Brewing'."
+        }
+      }
+    },
+    "buff_config": {
+      "type": "object",
+      "description": "Consumable buff definition. Used when item_type is consumable.",
+      "required": [
+        "apply_scope",
+        "duration_type",
+        "duration_value",
+        "effect"
+      ],
+      "properties": {
+        "apply_scope": {
+          "type": "string",
+          "enum": [
+            "party",
+            "hero",
+            "hero_class"
+          ],
+          "description": "party: all heroes benefit. hero: applied to one specific hero slot. hero_class: only heroes of matching class."
+        },
+        "apply_target": {
+          "type": "string",
+          "description": "hero_class only. The hero_class id that receives the buff."
+        },
+        "duration_type": {
+          "type": "string",
+          "enum": [
+            "expedition_count",
+            "expedition_success",
+            "permanent_until_death"
+          ],
+          "description": "expedition_count: consumed after N expeditions regardless of outcome. expedition_success: only decrements on success. permanent_until_death: consumed on hero death."
+        },
+        "duration_value": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of expeditions the buff lasts."
+        },
+        "effect": {
+          "type": "object",
+          "required": [
+            "stat",
+            "operation",
+            "value"
+          ],
+          "properties": {
+            "stat": {
+              "type": "string",
+              "description": "The stat to affect e.g. atk, def, spd, lck, xp_gain, loot_bonus."
+            },
+            "operation": {
+              "type": "string",
+              "enum": [
+                "multiply",
+                "add",
+                "set"
+              ]
+            },
+            "value": {
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "description": "Fixed number or formula string."
+            }
+          }
+        },
+        "stack_behavior": {
+          "type": "string",
+          "enum": [
+            "refresh",
+            "extend",
+            "intensify"
+          ],
+          "default": "refresh",
+          "description": "refresh: resets duration to max. extend: adds duration_value to remaining. intensify: stacks effect value up to stack_cap."
+        },
+        "stack_cap": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "intensify only. Maximum number of stacks."
+        },
+        "buff_slot_cost": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3,
+          "default": 1,
+          "description": "How many hero buff slots this consumable occupies. Use 2-3 for powerful endgame buffs."
+        }
+      }
+    },
+    "passive_event": {
+      "type": "object",
+      "description": "Time-based event emitter on a building. Used for walk-in recruits (Tavern), random discoveries, etc. Fires independently of the workflow queue.",
+      "required": [
+        "event_type",
+        "trigger",
+        "interval_formula"
+      ],
+      "properties": {
+        "event_type": {
+          "type": "string",
+          "enum": [
+            "hero_available",
+            "resource_windfall",
+            "world_effect",
+            "random_encounter"
+          ]
+        },
+        "trigger": {
+          "type": "string",
+          "enum": [
+            "time_interval",
+            "building_level_reached",
+            "resource_threshold"
+          ]
+        },
+        "interval_formula": {
+          "type": "string",
+          "description": "Ticks between event fires. Formula string."
+        },
+        "hero_class_pool": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "hero_available only. Class ids that can appear."
+        },
+        "available_for_ticks": {
+          "type": "integer",
+          "description": "hero_available only. How long the offer persists before expiring."
+        },
+        "hire_cost_formula": {
+          "type": "string",
+          "description": "hero_available only. Gold cost formula."
+        },
+        "rarity_table": {
+          "type": "array",
+          "description": "hero_available only.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "rarity": {
+                "type": "string"
+              },
+              "weight": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    },
+    "blueprint_meta": {
+      "type": "object",
+      "description": "Metadata block present on every .blueprint.json file. Enables the blueprint library UI and community sharing.",
+      "required": [
+        "blueprint_id",
+        "label",
+        "version",
+        "requires_schema_version"
+      ],
+      "properties": {
+        "blueprint_id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "created": {
+          "type": "string",
+          "format": "date"
+        },
+        "requires_schema_version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Minimum schema version required to import this blueprint."
+        },
+        "flavor_tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "system_tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "complexity": {
+          "type": "string",
+          "enum": [
+            "starter",
+            "intermediate",
+            "advanced",
+            "expert"
+          ]
+        },
+        "node_count": {
+          "type": "integer"
+        },
+        "description": {
+          "type": "string"
+        },
+        "customization_hints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "generator_origin": {
+          "type": "object",
+          "description": "Present if blueprint was produced or adapted by the generator pipeline.",
+          "properties": {
+            "pass": {
+              "type": "string",
+              "enum": [
+                "pass_1",
+                "pass_2",
+                "pass_3"
+              ]
+            },
+            "world": {
+              "type": "string"
+            },
+            "adapted_from_blueprint": {
+              "type": "string"
+            }
+          }
+        }
       }
     }
   },
-
   "properties": {
-
     "meta": {
       "type": "object",
-      "required": ["schema_version", "title", "author"],
+      "required": [
+        "schema_version",
+        "title",
+        "author"
+      ],
       "properties": {
-        "schema_version": { "type": "string", "const": "0.1.0" },
-        "title": { "type": "string" },
-        "author": { "type": "string" },
-        "description": { "type": "string" },
-        "created_at": { "type": "string", "format": "date-time" },
-        "updated_at": { "type": "string", "format": "date-time" }
+        "schema_version": {
+          "type": "string",
+          "const": "1.2.0"
+        },
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
       }
     },
-
     "nodes": {
       "type": "array",
       "description": "All authored nodes in the project graph.",
       "items": {
         "oneOf": [
-
           {
             "title": "Resource",
             "description": "A tracked quantity in the game economy (gold, wood, mana, etc.).",
-            "required": ["id", "type", "label", "base_cap", "base_income"],
+            "required": [
+              "id",
+              "type",
+              "label",
+              "base_cap",
+              "base_income"
+            ],
             "properties": {
-              "id":          { "type": "string" },
-              "type":        { "type": "string", "const": "resource" },
-              "label":       { "type": "string" },
-              "description": { "type": "string" },
-              "icon":        { "type": "string", "description": "Emoji or asset filename." },
-              "base_cap":    { "type": "number", "minimum": 0, "description": "Starting storage cap. 0 = unlimited." },
-              "base_income": { "type": "number", "description": "Passive gain per second at game start." },
-              "is_material": { "type": "boolean", "default": false, "description": "If true, used as crafting material rather than displayed as a primary resource." },
-              "canvas_pos":  { "$ref": "#/definitions/canvas_position" },
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "resource"
+              },
+              "label": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "icon": {
+                "type": "string",
+                "description": "Emoji or asset filename."
+              },
+              "base_cap": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Starting storage cap. 0 = unlimited."
+              },
+              "base_income": {
+                "type": "number",
+                "description": "Passive gain per second at game start."
+              },
+              "is_material": {
+                "type": "boolean",
+                "default": false,
+                "description": "If true, used as crafting material rather than displayed as a primary resource."
+              },
+              "canvas_pos": {
+                "$ref": "#/definitions/canvas_position"
+              },
               "connections": {
                 "type": "array",
                 "description": "Allowed: building (produces this), recipe (consumes/produces), upgrade (modifies cap/income).",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
               }
             }
           },
-
           {
             "title": "Item",
             "description": "A discrete object — either equipment for heroes or a crafting material.",
-            "required": ["id", "type", "label", "subtype", "rarity"],
+            "required": [
+              "id",
+              "type",
+              "label",
+              "subtype",
+              "rarity"
+            ],
             "properties": {
-              "id":          { "type": "string" },
-              "type":        { "type": "string", "const": "item" },
-              "label":       { "type": "string" },
-              "description": { "type": "string" },
-              "icon":        { "type": "string" },
-              "rarity":      { "$ref": "#/definitions/rarity" },
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "item"
+              },
+              "label": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "icon": {
+                "type": "string"
+              },
+              "rarity": {
+                "$ref": "#/definitions/rarity"
+              },
               "subtype": {
                 "type": "string",
-                "enum": ["equipment", "material"],
+                "enum": [
+                  "equipment",
+                  "material"
+                ],
                 "description": "Equipment goes on heroes; material is consumed by recipes."
               },
               "slot": {
@@ -186,245 +922,769 @@
                 "$ref": "#/definitions/stat_block",
                 "description": "Stat changes granted when equipped. Only for equipment."
               },
-              "stack_limit": { "type": "integer", "minimum": 1, "default": 1, "description": "Max stack size in inventory. Use 99 for materials." },
-              "canvas_pos":  { "$ref": "#/definitions/canvas_position" },
+              "stack_limit": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 1,
+                "description": "Max stack size in inventory. Use 99 for materials."
+              },
+              "canvas_pos": {
+                "$ref": "#/definitions/canvas_position"
+              },
               "connections": {
                 "type": "array",
                 "description": "Allowed: loot_table (drops from), recipe (ingredient or output).",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
+              },
+              "item_type": {
+                "type": "string",
+                "enum": [
+                  "equipment",
+                  "material",
+                  "consumable",
+                  "quest",
+                  "key"
+                ],
+                "default": "equipment",
+                "description": "equipment: goes to hero inventory, occupies a slot. material: crafting input, goes to resource pool. consumable: goes to buff stockpile. quest: non-transferable, triggers events. key: unlocks specific content."
+              },
+              "salvage_profile": {
+                "type": "object",
+                "description": "What this item yields when melted/salvaged. Read by consume_item workflows with use_item_salvage_profile=true.",
+                "properties": {
+                  "outputs": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/definitions/output_rule"
+                    }
+                  }
+                }
+              },
+              "consumable_config": {
+                "$ref": "#/definitions/buff_config",
+                "description": "Present when item_type=consumable."
+              },
+              "stack_max": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "consumable/material only. Maximum stack size in stockpile."
               }
             }
           },
-
           {
             "title": "Loot table",
             "description": "A weighted drop pool referenced by expeditions, bosses, and buildings.",
-            "required": ["id", "type", "label", "rolls", "entries"],
+            "required": [
+              "id",
+              "type",
+              "label",
+              "rolls",
+              "entries"
+            ],
             "properties": {
-              "id":     { "type": "string" },
-              "type":   { "type": "string", "const": "loot_table" },
-              "label":  { "type": "string" },
-              "rolls":  { "type": "integer", "minimum": 1, "description": "Number of independent rolls per drop event." },
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "loot_table"
+              },
+              "label": {
+                "type": "string"
+              },
+              "rolls": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Number of independent rolls per drop event."
+              },
               "entries": {
                 "type": "array",
                 "minItems": 1,
-                "items": { "$ref": "#/definitions/loot_entry" }
+                "items": {
+                  "$ref": "#/definitions/loot_entry"
+                }
               },
-              "canvas_pos":  { "$ref": "#/definitions/canvas_position" },
+              "canvas_pos": {
+                "$ref": "#/definitions/canvas_position"
+              },
               "connections": {
                 "type": "array",
                 "description": "Allowed: expedition, boss_expedition, building (chest/shop source).",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
               }
             }
           },
-
           {
             "title": "Recipe",
             "description": "A crafting formula — inputs consumed, output produced, tied to a building.",
-            "required": ["id", "type", "label", "inputs", "output_item_id", "output_qty", "craft_time_s"],
+            "required": [
+              "id",
+              "type",
+              "label",
+              "inputs",
+              "output_item_id",
+              "output_qty",
+              "craft_time_s"
+            ],
             "properties": {
-              "id":             { "type": "string" },
-              "type":           { "type": "string", "const": "recipe" },
-              "label":          { "type": "string" },
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "recipe"
+              },
+              "label": {
+                "type": "string"
+              },
               "inputs": {
                 "type": "array",
                 "minItems": 1,
                 "items": {
                   "type": "object",
-                  "required": ["item_id", "qty"],
+                  "required": [
+                    "item_id",
+                    "qty"
+                  ],
                   "properties": {
-                    "item_id": { "type": "string" },
-                    "qty":     { "type": "integer", "minimum": 1 }
+                    "item_id": {
+                      "type": "string"
+                    },
+                    "qty": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
                   }
                 }
               },
-              "output_item_id": { "type": "string" },
-              "output_qty":     { "type": "integer", "minimum": 1, "default": 1 },
-              "craft_time_s":   { "type": "number", "minimum": 0, "description": "Seconds to complete one craft. 0 = instant." },
+              "output_item_id": {
+                "type": "string"
+              },
+              "output_qty": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 1
+              },
+              "craft_time_s": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Seconds to complete one craft. 0 = instant."
+              },
               "unlock_conditions": {
                 "type": "array",
-                "items": { "$ref": "#/definitions/unlock_condition" }
+                "items": {
+                  "$ref": "#/definitions/unlock_condition"
+                }
               },
-              "canvas_pos":  { "$ref": "#/definitions/canvas_position" },
+              "canvas_pos": {
+                "$ref": "#/definitions/canvas_position"
+              },
               "connections": {
                 "type": "array",
                 "description": "Allowed: building (station that runs this recipe), item (inputs/output).",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
               }
             }
           },
-
           {
             "title": "Hero class",
             "description": "A class template from which hero instances are generated.",
-            "required": ["id", "type", "label", "base_stats", "slots"],
+            "required": [
+              "id",
+              "type",
+              "label",
+              "base_stats",
+              "slots"
+            ],
             "properties": {
-              "id":          { "type": "string" },
-              "type":        { "type": "string", "const": "hero_class" },
-              "label":       { "type": "string" },
-              "description": { "type": "string" },
-              "icon":        { "type": "string" },
-              "base_stats":  { "$ref": "#/definitions/stat_block", "description": "attack, defense, speed, hp, luck." },
-              "stat_growth": { "$ref": "#/definitions/stat_block", "description": "Stat increase per level." },
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "hero_class"
+              },
+              "label": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "icon": {
+                "type": "string"
+              },
+              "base_stats": {
+                "$ref": "#/definitions/stat_block",
+                "description": "attack, defense, speed, hp, luck."
+              },
+              "stat_growth": {
+                "$ref": "#/definitions/stat_block",
+                "description": "Stat increase per level."
+              },
               "slots": {
                 "type": "array",
-                "items": { "$ref": "#/definitions/slot" },
+                "items": {
+                  "$ref": "#/definitions/slot"
+                },
                 "description": "Equipment slots this class can use."
               },
-              "recruit_cost": { "$ref": "#/definitions/cost" },
+              "recruit_cost": {
+                "$ref": "#/definitions/cost"
+              },
               "unlock_conditions": {
                 "type": "array",
-                "items": { "$ref": "#/definitions/unlock_condition" }
+                "items": {
+                  "$ref": "#/definitions/unlock_condition"
+                }
               },
-              "canvas_pos":  { "$ref": "#/definitions/canvas_position" },
+              "canvas_pos": {
+                "$ref": "#/definitions/canvas_position"
+              },
               "connections": {
                 "type": "array",
                 "description": "Allowed: ability (abilities this class can learn), building (training location), expedition.",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
+              },
+              "hero_type": {
+                "type": "string",
+                "enum": [
+                  "combat",
+                  "artisan"
+                ],
+                "default": "combat",
+                "description": "combat: can go on expeditions. artisan: assigned to buildings, cannot go on expeditions."
+              },
+              "combat_eligible": {
+                "type": "boolean",
+                "default": true,
+                "description": "Derived from hero_type but explicit for compiler clarity."
+              },
+              "primary_stat": {
+                "type": "string",
+                "description": "artisan only. The stat that feeds into worker_skill in formula context. e.g. craft_skill, alchemy_skill, research_skill."
+              },
+              "xp_source": {
+                "type": "string",
+                "enum": [
+                  "expedition_completion",
+                  "building_jobs_completed",
+                  "both"
+                ],
+                "default": "expedition_completion"
+              },
+              "specializations": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "artisan only. Available specialization labels. One is chosen on recruit. Matching action_type on a workflow grants bonus.",
+                "maxItems": 4
+              },
+              "assignment_target": {
+                "type": "string",
+                "enum": [
+                  "expedition",
+                  "building"
+                ],
+                "description": "artisan = building. combat = expedition."
+              },
+              "building_affinity": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "artisan only. Building IDs where this artisan receives full bonuses. Can be assigned elsewhere at reduced efficiency."
+              },
+              "unique_passive": {
+                "type": "object",
+                "description": "Optional passive ability that activates under a defined condition.",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "condition": {
+                    "type": "string",
+                    "description": "Formula or condition string. e.g. 'same_building_slot_count >= 2'"
+                  },
+                  "effect": {
+                    "type": "object",
+                    "properties": {
+                      "stat": {
+                        "type": "string"
+                      },
+                      "operation": {
+                        "type": "string",
+                        "enum": [
+                          "multiply",
+                          "add"
+                        ]
+                      },
+                      "value": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              },
+              "recruitment": {
+                "type": "object",
+                "description": "Controls where and how this hero_class can be recruited.",
+                "properties": {
+                  "base_tier_rarities": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Rarities available from the guild roster without prerequisites."
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "guild_roster",
+                      "building_only",
+                      "event_only"
+                    ],
+                    "default": "guild_roster"
+                  },
+                  "rare_epic_unlock": {
+                    "type": "object",
+                    "description": "Rare and epic tier recruitment requires this building.",
+                    "properties": {
+                      "requires_building": {
+                        "type": "string"
+                      },
+                      "building_level": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
               }
             }
           },
-
           {
             "title": "Ability",
             "description": "An active or passive skill attached to a hero class.",
-            "required": ["id", "type", "label", "trigger", "effect"],
+            "required": [
+              "id",
+              "type",
+              "label",
+              "trigger",
+              "effect"
+            ],
             "properties": {
-              "id":          { "type": "string" },
-              "type":        { "type": "string", "const": "ability" },
-              "label":       { "type": "string" },
-              "description": { "type": "string" },
-              "icon":        { "type": "string" },
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "ability"
+              },
+              "label": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "icon": {
+                "type": "string"
+              },
               "trigger": {
                 "type": "string",
-                "enum": ["passive", "on_combat_start", "on_hit", "on_kill", "on_expedition_complete", "on_status_applied"]
+                "enum": [
+                  "passive",
+                  "on_combat_start",
+                  "on_hit",
+                  "on_kill",
+                  "on_expedition_complete",
+                  "on_status_applied"
+                ]
               },
               "effect": {
                 "type": "object",
                 "properties": {
-                  "stat_modifier":   { "$ref": "#/definitions/stat_block" },
-                  "resource_delta":  { "$ref": "#/definitions/stat_block" },
-                  "apply_status":    { "type": "string", "enum": ["injured", "inspired", "cursed"] },
-                  "loot_bonus_pct":  { "type": "number", "description": "Percentage bonus to loot roll weights." },
-                  "success_bonus":   { "type": "number", "description": "Flat addition to expedition success chance (0.0–1.0)." }
+                  "stat_modifier": {
+                    "$ref": "#/definitions/stat_block"
+                  },
+                  "resource_delta": {
+                    "$ref": "#/definitions/stat_block"
+                  },
+                  "apply_status": {
+                    "type": "string",
+                    "enum": [
+                      "injured",
+                      "inspired",
+                      "cursed"
+                    ]
+                  },
+                  "loot_bonus_pct": {
+                    "type": "number",
+                    "description": "Percentage bonus to loot roll weights."
+                  },
+                  "success_bonus": {
+                    "type": "number",
+                    "description": "Flat addition to expedition success chance (0.0–1.0)."
+                  }
                 }
               },
-              "unlock_level": { "type": "integer", "minimum": 1, "default": 1 },
-              "canvas_pos":  { "$ref": "#/definitions/canvas_position" },
+              "unlock_level": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 1
+              },
+              "canvas_pos": {
+                "$ref": "#/definitions/canvas_position"
+              },
               "connections": {
                 "type": "array",
                 "description": "Allowed: hero_class (owner).",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
               }
             }
           },
-
           {
             "title": "Building",
             "description": "A structure the player builds. May produce resources, assign heroes, host crafting recipes, or unlock content.",
-            "required": ["id", "type", "label", "max_level", "levels"],
+            "required": [
+              "id",
+              "type",
+              "label",
+              "max_level",
+              "levels"
+            ],
             "properties": {
-              "id":          { "type": "string" },
-              "type":        { "type": "string", "const": "building" },
-              "label":       { "type": "string" },
-              "description": { "type": "string" },
-              "icon":        { "type": "string" },
-              "max_level":   { "type": "integer", "minimum": 1 },
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "building"
+              },
+              "label": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "icon": {
+                "type": "string"
+              },
+              "max_level": {
+                "type": "integer",
+                "minimum": 1
+              },
               "levels": {
                 "type": "array",
                 "description": "One entry per level (index 0 = level 1).",
                 "items": {
                   "type": "object",
-                  "required": ["build_cost"],
+                  "required": [
+                    "build_cost"
+                  ],
                   "properties": {
-                    "build_cost":      { "$ref": "#/definitions/cost" },
-                    "build_time_s":    { "type": "number", "minimum": 0 },
-                    "production":      { "$ref": "#/definitions/stat_block", "description": "Resource id → per-second production at this level." },
-                    "hero_slots":      { "type": "integer", "minimum": 0, "default": 0 },
-                    "recipe_slots":    { "type": "integer", "minimum": 0, "default": 0, "description": "Concurrent crafting queue length." },
-                    "unlock_node_ids": { "type": "array", "items": { "type": "string" }, "description": "Node IDs that become visible when this level is reached." }
+                    "build_cost": {
+                      "$ref": "#/definitions/cost"
+                    },
+                    "build_time_s": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "production": {
+                      "$ref": "#/definitions/stat_block",
+                      "description": "Resource id → per-second production at this level."
+                    },
+                    "hero_slots": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "default": 0
+                    },
+                    "recipe_slots": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "default": 0,
+                      "description": "Concurrent crafting queue length."
+                    },
+                    "unlock_node_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Node IDs that become visible when this level is reached."
+                    }
                   }
                 }
               },
-              "is_crafting_station": { "type": "boolean", "default": false },
-              "loot_table_id": { "type": "string", "description": "Optional: building generates loot (shop/chest)." },
+              "is_crafting_station": {
+                "type": "boolean",
+                "default": false
+              },
+              "loot_table_id": {
+                "type": "string",
+                "description": "Optional: building generates loot (shop/chest)."
+              },
               "unlock_conditions": {
                 "type": "array",
-                "items": { "$ref": "#/definitions/unlock_condition" }
+                "items": {
+                  "$ref": "#/definitions/unlock_condition"
+                }
               },
-              "canvas_pos":  { "$ref": "#/definitions/canvas_position" },
+              "canvas_pos": {
+                "$ref": "#/definitions/canvas_position"
+              },
               "connections": {
                 "type": "array",
                 "description": "Allowed: resource (produces), recipe (hosts), loot_table (shop), upgrade (enhances), act (gated by).",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
+              },
+              "has_workflows": {
+                "type": "boolean",
+                "default": false,
+                "description": "True if this building hosts building_workflow nodes. Tells the engine to run processBuildingTick for this building."
+              },
+              "artisan_slots": {
+                "type": "object",
+                "description": "Configuration for artisan assignment. Only relevant when has_workflows=true.",
+                "properties": {
+                  "base_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "default": 0
+                  },
+                  "max_count": {
+                    "type": "integer"
+                  },
+                  "expand_by": {
+                    "type": "string",
+                    "enum": [
+                      "building_upgrade",
+                      "none"
+                    ]
+                  }
+                }
+              },
+              "buff_slots": {
+                "type": "object",
+                "description": "Hero buff slot configuration. Present on hero management buildings (Barracks, etc.).",
+                "properties": {
+                  "base_count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 2
+                  },
+                  "max_count": {
+                    "type": "integer",
+                    "maximum": 8
+                  },
+                  "expand_by": {
+                    "type": "string",
+                    "enum": [
+                      "building_upgrade",
+                      "none"
+                    ]
+                  }
+                }
+              },
+              "passive_events": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/passive_event"
+                },
+                "description": "Time-based events fired by this building independently of the workflow queue."
               }
             }
           },
-
           {
             "title": "Upgrade",
             "description": "A one-time or tiered purchase that modifies game systems.",
-            "required": ["id", "type", "label", "cost", "effect"],
+            "required": [
+              "id",
+              "type",
+              "label",
+              "cost",
+              "effect"
+            ],
             "properties": {
-              "id":          { "type": "string" },
-              "type":        { "type": "string", "const": "upgrade" },
-              "label":       { "type": "string" },
-              "description": { "type": "string" },
-              "icon":        { "type": "string" },
-              "cost":        { "$ref": "#/definitions/cost" },
-              "max_tier":    { "type": "integer", "minimum": 1, "default": 1, "description": "1 = one-time purchase. >1 = tiered upgrade." },
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "upgrade"
+              },
+              "label": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "icon": {
+                "type": "string"
+              },
+              "cost": {
+                "$ref": "#/definitions/cost"
+              },
+              "max_tier": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 1,
+                "description": "1 = one-time purchase. >1 = tiered upgrade."
+              },
               "effect": {
                 "type": "object",
                 "properties": {
-                  "resource_cap_multiplier":    { "$ref": "#/definitions/stat_block" },
-                  "resource_income_multiplier": { "$ref": "#/definitions/stat_block" },
-                  "hero_stat_modifier":         { "$ref": "#/definitions/stat_block" },
-                  "expedition_success_bonus":   { "type": "number" },
-                  "craft_speed_multiplier":     { "type": "number" },
-                  "loot_bonus_pct":             { "type": "number" },
-                  "unlock_node_ids":            { "type": "array", "items": { "type": "string" } }
+                  "resource_cap_multiplier": {
+                    "$ref": "#/definitions/stat_block"
+                  },
+                  "resource_income_multiplier": {
+                    "$ref": "#/definitions/stat_block"
+                  },
+                  "hero_stat_modifier": {
+                    "$ref": "#/definitions/stat_block"
+                  },
+                  "expedition_success_bonus": {
+                    "type": "number"
+                  },
+                  "craft_speed_multiplier": {
+                    "type": "number"
+                  },
+                  "loot_bonus_pct": {
+                    "type": "number"
+                  },
+                  "unlock_node_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
                 }
               },
               "unlock_conditions": {
                 "type": "array",
-                "items": { "$ref": "#/definitions/unlock_condition" }
+                "items": {
+                  "$ref": "#/definitions/unlock_condition"
+                }
               },
-              "canvas_pos":  { "$ref": "#/definitions/canvas_position" },
+              "canvas_pos": {
+                "$ref": "#/definitions/canvas_position"
+              },
               "connections": {
                 "type": "array",
                 "description": "Allowed: resource, building, hero_class, expedition (what this upgrade affects).",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
               }
             }
           },
-
           {
             "title": "Expedition",
             "description": "A standard timed run. Heroes are sent, events fire, loot drops on completion.",
-            "required": ["id", "type", "label", "duration_s", "party_size", "level", "loot_table_id"],
+            "required": [
+              "id",
+              "type",
+              "label",
+              "duration_s",
+              "party_size",
+              "level",
+              "loot_table_id"
+            ],
             "properties": {
-              "id":                   { "type": "string" },
-              "type":                 { "type": "string", "const": "expedition" },
-              "label":                { "type": "string" },
-              "description":          { "type": "string" },
-              "icon":                 { "type": "string" },
-              "duration_s":           { "type": "number", "minimum": 1, "description": "Countdown length in seconds." },
-              "party_size":           { "type": "integer", "minimum": 1, "maximum": 6 },
-              "level":                { "type": "integer", "minimum": 1, "maximum": 20, "description": "Expedition difficulty level used for power checks and XP." },
-              "enemy_atk":            { "type": "number", "default": 10, "description": "Burst damage checked against the party HP floor." },
-              "enemy_hp":             { "type": "number", "default": 100, "description": "Enemy HP pool used for the DPS check." },
-              "base_xp":              { "type": ["number", "null"], "default": null, "description": "Null = auto (level * 15). 0 = explicit zero XP." },
-              "curse_chance":         { "type": "number", "minimum": 0, "maximum": 1, "default": 0 },
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "expedition"
+              },
+              "label": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "icon": {
+                "type": "string"
+              },
+              "duration_s": {
+                "type": "number",
+                "minimum": 1,
+                "description": "Countdown length in seconds."
+              },
+              "party_size": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 6
+              },
+              "level": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20,
+                "description": "Expedition difficulty level used for power checks and XP."
+              },
+              "enemy_atk": {
+                "type": "number",
+                "default": 10,
+                "description": "Burst damage checked against the party HP floor."
+              },
+              "enemy_hp": {
+                "type": "number",
+                "default": 100,
+                "description": "Enemy HP pool used for the DPS check."
+              },
+              "base_xp": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "default": null,
+                "description": "Null = auto (level * 15). 0 = explicit zero XP."
+              },
+              "curse_chance": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "default": 0
+              },
               "resource_rewards": {
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": ["resource_id", "amount", "on"],
+                  "required": [
+                    "resource_id",
+                    "amount",
+                    "on"
+                  ],
                   "properties": {
-                    "resource_id": { "type": "string" },
-                    "amount": { "type": "number" },
-                    "on": { "type": "string", "enum": ["any", "success", "dominant"], "default": "success" }
+                    "resource_id": {
+                      "type": "string"
+                    },
+                    "amount": {
+                      "type": "number"
+                    },
+                    "on": {
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "success",
+                        "dominant"
+                      ],
+                      "default": "success"
+                    }
                   }
                 }
               },
@@ -432,199 +1692,437 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": ["faction_id", "rep", "on"],
+                  "required": [
+                    "faction_id",
+                    "rep",
+                    "on"
+                  ],
                   "properties": {
-                    "faction_id": { "type": "string" },
-                    "rep": { "type": "number" },
-                    "on": { "type": "string", "enum": ["any", "success", "dominant"], "default": "success" }
+                    "faction_id": {
+                      "type": "string"
+                    },
+                    "rep": {
+                      "type": "number"
+                    },
+                    "on": {
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "success",
+                        "dominant"
+                      ],
+                      "default": "success"
+                    }
                   }
                 }
               },
               "on_success_unlock": {
                 "type": "array",
-                "items": { "type": "string" },
+                "items": {
+                  "type": "string"
+                },
                 "description": "Node IDs that become visible on success."
               },
-              "loot_table_id":        { "type": "string" },
-              "fail_loot_table_id":   { "type": "string", "description": "Optional: consolation loot on failure." },
-              "entry_cost":           { "$ref": "#/definitions/cost" },
+              "loot_table_id": {
+                "type": "string"
+              },
+              "fail_loot_table_id": {
+                "type": "string",
+                "description": "Optional: consolation loot on failure."
+              },
+              "entry_cost": {
+                "$ref": "#/definitions/cost"
+              },
               "events": {
                 "type": "array",
-                "items": { "$ref": "#/definitions/expedition_event" },
+                "items": {
+                  "$ref": "#/definitions/expedition_event"
+                },
                 "description": "Mid-run events that can fire during the countdown."
               },
-              "recommended_stats":    { "$ref": "#/definitions/stat_block", "description": "Shown to player as difficulty guidance." },
+              "recommended_stats": {
+                "$ref": "#/definitions/stat_block",
+                "description": "Shown to player as difficulty guidance."
+              },
               "unlock_conditions": {
                 "type": "array",
-                "items": { "$ref": "#/definitions/unlock_condition" }
+                "items": {
+                  "$ref": "#/definitions/unlock_condition"
+                }
               },
-              "canvas_pos":  { "$ref": "#/definitions/canvas_position" },
+              "canvas_pos": {
+                "$ref": "#/definitions/canvas_position"
+              },
               "connections": {
                 "type": "array",
                 "description": "Allowed: loot_table, act (gated by), hero_class (preferred classes), upgrade.",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
               }
             }
           },
-
           {
             "title": "Boss expedition",
             "description": "A multi-phase boss fight with an HP bar, phase transitions, and unique guaranteed loot.",
-            "required": ["id", "type", "label", "duration_s", "party_size", "boss_hp", "phases", "loot_table_id"],
+            "required": [
+              "id",
+              "type",
+              "label",
+              "duration_s",
+              "party_size",
+              "boss_hp",
+              "phases",
+              "loot_table_id"
+            ],
             "properties": {
-              "id":             { "type": "string" },
-              "type":           { "type": "string", "const": "boss_expedition" },
-              "label":          { "type": "string" },
-              "description":    { "type": "string" },
-              "icon":           { "type": "string" },
-              "duration_s":     { "type": "number", "minimum": 1 },
-              "party_size":     { "type": "integer", "minimum": 1, "maximum": 6 },
-              "boss_hp":        { "type": "number", "minimum": 1 },
-              "boss_stats":     { "$ref": "#/definitions/stat_block" },
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "boss_expedition"
+              },
+              "label": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "icon": {
+                "type": "string"
+              },
+              "duration_s": {
+                "type": "number",
+                "minimum": 1
+              },
+              "party_size": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 6
+              },
+              "boss_hp": {
+                "type": "number",
+                "minimum": 1
+              },
+              "boss_stats": {
+                "$ref": "#/definitions/stat_block"
+              },
               "phases": {
                 "type": "array",
                 "minItems": 1,
-                "items": { "$ref": "#/definitions/boss_phase" }
+                "items": {
+                  "$ref": "#/definitions/boss_phase"
+                }
               },
-              "loot_table_id":          { "type": "string", "description": "Guaranteed loot on kill." },
-              "fail_loot_table_id":     { "type": "string" },
-              "entry_cost":             { "$ref": "#/definitions/cost" },
-              "repeatable":             { "type": "boolean", "default": false },
+              "loot_table_id": {
+                "type": "string",
+                "description": "Guaranteed loot on kill."
+              },
+              "fail_loot_table_id": {
+                "type": "string"
+              },
+              "entry_cost": {
+                "$ref": "#/definitions/cost"
+              },
+              "repeatable": {
+                "type": "boolean",
+                "default": false
+              },
               "unlock_conditions": {
                 "type": "array",
-                "items": { "$ref": "#/definitions/unlock_condition" }
+                "items": {
+                  "$ref": "#/definitions/unlock_condition"
+                }
               },
-              "canvas_pos":  { "$ref": "#/definitions/canvas_position" },
+              "canvas_pos": {
+                "$ref": "#/definitions/canvas_position"
+              },
               "connections": {
                 "type": "array",
                 "description": "Allowed: loot_table, act, hero_class.",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
               }
             }
           },
-
           {
             "title": "Act",
             "description": "A story chapter. Gates content behind world-state progression milestones.",
-            "required": ["id", "type", "label", "act_number", "completion_conditions"],
+            "required": [
+              "id",
+              "type",
+              "label",
+              "act_number",
+              "completion_conditions"
+            ],
             "properties": {
-              "id":                     { "type": "string" },
-              "type":                   { "type": "string", "const": "act" },
-              "label":                  { "type": "string" },
-              "description":            { "type": "string" },
-              "act_number":             { "type": "integer", "minimum": 1 },
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "act"
+              },
+              "label": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "act_number": {
+                "type": "integer",
+                "minimum": 1
+              },
               "completion_conditions": {
                 "type": "array",
-                "items": { "$ref": "#/definitions/unlock_condition" },
+                "items": {
+                  "$ref": "#/definitions/unlock_condition"
+                },
                 "description": "All conditions must be true for the act to complete."
               },
-              "expedition_ids":         { "type": "array", "items": { "type": "string" }, "description": "Expedition node IDs owned by this act." },
-              "boss_expedition_id":     { "type": "string", "description": "Boss expedition node ID owned by this act." },
-              "on_complete_events":     { "type": "array", "items": { "type": "string" }, "description": "event node IDs fired on act completion." },
-              "unlocks_node_ids":       { "type": "array", "items": { "type": "string" } },
-              "narrative_log":          { "type": "string", "description": "Flavour text shown in the event log on act start/complete." },
-              "canvas_pos":  { "$ref": "#/definitions/canvas_position" },
+              "expedition_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Expedition node IDs owned by this act."
+              },
+              "boss_expedition_id": {
+                "type": "string",
+                "description": "Boss expedition node ID owned by this act."
+              },
+              "on_complete_events": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "event node IDs fired on act completion."
+              },
+              "unlocks_node_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "narrative_log": {
+                "type": "string",
+                "description": "Flavour text shown in the event log on act start/complete."
+              },
+              "canvas_pos": {
+                "$ref": "#/definitions/canvas_position"
+              },
               "connections": {
                 "type": "array",
                 "description": "Allowed: event (fires on complete), building, expedition, boss_expedition (unlocks).",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
               }
             }
           },
-
           {
             "title": "Event",
             "description": "A narrative or world-state event triggered by acts, buildings, or factions.",
-            "required": ["id", "type", "label"],
+            "required": [
+              "id",
+              "type",
+              "label"
+            ],
             "properties": {
-              "id":          { "type": "string" },
-              "type":        { "type": "string", "const": "event" },
-              "label":       { "type": "string" },
-              "description": { "type": "string" },
-              "log_message": { "type": "string", "description": "Text shown in the expedition/world event log." },
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "event"
+              },
+              "label": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "log_message": {
+                "type": "string",
+                "description": "Text shown in the expedition/world event log."
+              },
               "choices": {
                 "type": "array",
                 "maxItems": 4,
                 "items": {
                   "type": "object",
-                  "required": ["label", "outcome"],
+                  "required": [
+                    "label",
+                    "outcome"
+                  ],
                   "properties": {
-                    "label":   { "type": "string" },
+                    "label": {
+                      "type": "string"
+                    },
                     "outcome": {
                       "type": "object",
                       "properties": {
-                        "resource_delta":   { "$ref": "#/definitions/stat_block" },
-                        "unlock_node_ids":  { "type": "array", "items": { "type": "string" } },
-                        "faction_rep_delta":{ "$ref": "#/definitions/stat_block" },
-                        "log_message":      { "type": "string" }
+                        "resource_delta": {
+                          "$ref": "#/definitions/stat_block"
+                        },
+                        "unlock_node_ids": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "faction_rep_delta": {
+                          "$ref": "#/definitions/stat_block"
+                        },
+                        "log_message": {
+                          "type": "string"
+                        }
                       }
                     }
                   }
                 }
               },
-              "canvas_pos":  { "$ref": "#/definitions/canvas_position" },
+              "canvas_pos": {
+                "$ref": "#/definitions/canvas_position"
+              },
               "connections": {
                 "type": "array",
                 "description": "Allowed: act (triggered by), faction (affects rep).",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
               }
             }
           },
-
           {
             "title": "Faction",
             "description": "A named group with a reputation meter. Reputation gates vendors, story branches, and upgrades.",
-            "required": ["id", "type", "label", "rep_tiers"],
+            "required": [
+              "id",
+              "type",
+              "label",
+              "rep_tiers"
+            ],
             "properties": {
-              "id":          { "type": "string" },
-              "type":        { "type": "string", "const": "faction" },
-              "label":       { "type": "string" },
-              "description": { "type": "string" },
-              "icon":        { "type": "string" },
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "faction"
+              },
+              "label": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "icon": {
+                "type": "string"
+              },
               "rep_tiers": {
                 "type": "array",
                 "description": "Ordered list of reputation thresholds and what they unlock.",
                 "items": {
                   "type": "object",
-                  "required": ["threshold", "label"],
+                  "required": [
+                    "threshold",
+                    "label"
+                  ],
                   "properties": {
-                    "threshold":       { "type": "number", "description": "Minimum rep value to reach this tier." },
-                    "label":           { "type": "string", "description": "Tier name, e.g. Neutral, Honored, Exalted." },
-                    "unlock_node_ids": { "type": "array", "items": { "type": "string" } },
-                    "discount_pct":    { "type": "number", "description": "Cost discount on faction-linked shop items." }
+                    "threshold": {
+                      "type": "number",
+                      "description": "Minimum rep value to reach this tier."
+                    },
+                    "label": {
+                      "type": "string",
+                      "description": "Tier name, e.g. Neutral, Honored, Exalted."
+                    },
+                    "unlock_node_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "discount_pct": {
+                      "type": "number",
+                      "description": "Cost discount on faction-linked shop items."
+                    }
                   }
                 }
               },
-              "starting_rep": { "type": "number", "default": 0 },
-              "canvas_pos":   { "$ref": "#/definitions/canvas_position" },
+              "starting_rep": {
+                "type": "number",
+                "default": 0
+              },
+              "canvas_pos": {
+                "$ref": "#/definitions/canvas_position"
+              },
               "connections": {
                 "type": "array",
                 "description": "Allowed: event (modifies rep), building (faction vendor), upgrade (faction-locked).",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
               }
             }
           },
-
           {
             "title": "Prestige",
             "description": "Defines one prestige/rebirth layer — reset conditions, what carries over, and permanent bonuses earned.",
-            "required": ["id", "type", "label", "trigger_conditions", "currency_id", "bonuses"],
+            "required": [
+              "id",
+              "type",
+              "label",
+              "trigger_conditions",
+              "currency_id",
+              "bonuses"
+            ],
             "properties": {
-              "id":    { "type": "string" },
-              "type":  { "type": "string", "const": "prestige" },
-              "label": { "type": "string" },
-              "description": { "type": "string" },
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "prestige"
+              },
+              "label": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
               "trigger_conditions": {
                 "type": "array",
                 "minItems": 1,
-                "items": { "$ref": "#/definitions/unlock_condition" },
+                "items": {
+                  "$ref": "#/definitions/unlock_condition"
+                },
                 "description": "All must be true for prestige to become available."
               },
-              "currency_id": { "type": "string", "description": "Resource id used as prestige currency (e.g. soul_shards)." },
-              "currency_formula": { "type": "string", "description": "JS expression string evaluated at prestige time. Available vars: gold, act, hero_count." },
+              "currency_id": {
+                "type": "string",
+                "description": "Resource id used as prestige currency (e.g. soul_shards)."
+              },
+              "currency_formula": {
+                "type": "string",
+                "description": "JS expression string evaluated at prestige time. Available vars: gold, act, hero_count."
+              },
               "resets": {
                 "type": "array",
-                "items": { "type": "string", "enum": ["resources", "buildings", "heroes", "upgrades", "expeditions", "factions"] },
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "resources",
+                    "buildings",
+                    "heroes",
+                    "upgrades",
+                    "expeditions",
+                    "factions"
+                  ]
+                },
                 "description": "Which categories reset on prestige. Anything not listed carries over."
               },
               "bonuses": {
@@ -632,39 +2130,599 @@
                 "description": "Permanent bonuses purchased with prestige currency.",
                 "items": {
                   "type": "object",
-                  "required": ["id", "label", "cost", "effect"],
+                  "required": [
+                    "id",
+                    "label",
+                    "cost",
+                    "effect"
+                  ],
                   "properties": {
-                    "id":     { "type": "string" },
-                    "label":  { "type": "string" },
-                    "max_tier": { "type": "integer", "minimum": 1, "default": 1 },
-                    "cost":   { "type": "number", "description": "Prestige currency cost per tier." },
-                    "effect": { "$ref": "#/definitions/stat_block" }
+                    "id": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "max_tier": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "default": 1
+                    },
+                    "cost": {
+                      "type": "number",
+                      "description": "Prestige currency cost per tier."
+                    },
+                    "effect": {
+                      "$ref": "#/definitions/stat_block"
+                    }
                   }
                 }
               },
-              "canvas_pos":  { "$ref": "#/definitions/canvas_position" },
+              "canvas_pos": {
+                "$ref": "#/definitions/canvas_position"
+              },
               "connections": {
                 "type": "array",
                 "description": "Allowed: resource (prestige currency), act (trigger gate).",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
               }
             }
+          },
+          {
+            "description": "Defines one action a crafting building can perform. Generic — works for forge (melt/craft), apothecary (brew/distill), library (research), mine (produce), barracks (recruit), and all future buildings. The engine does not know what 'melt' means — it executes the configured behavior against the formula context.",
+            "required": [
+              "id",
+              "type",
+              "behavior",
+              "host_building",
+              "output_rules",
+              "success_table"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string",
+                "description": "Designer-facing display name."
+              },
+              "behavior": {
+                "type": "string",
+                "enum": [
+                  "consume_item",
+                  "consume_resource",
+                  "produce_resource",
+                  "modify_item",
+                  "recruit_hero"
+                ],
+                "description": "Engine behavior class. consume_item: takes an item from inventory as input. consume_resource: takes resources. produce_resource: no input, passive output. modify_item: alters an existing item in-place (enchanter). recruit_hero: produces a hero_instance."
+              },
+              "action_type": {
+                "type": "string",
+                "description": "Designer-facing label for the action. Free string — 'melt', 'brew', 'research', 'mine', 'recruit'. No engine logic attached; used for display and streak_bonus matching."
+              },
+              "workflow_mode": {
+                "type": "string",
+                "enum": [
+                  "queued",
+                  "passive"
+                ],
+                "default": "queued",
+                "description": "queued: player explicitly adds jobs. passive: runs continuously while artisan is assigned or building is active, no queue management."
+              },
+              "host_building": {
+                "type": "string",
+                "description": "ID of the building node this workflow belongs to."
+              },
+              "target_filter": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "description": "consume_item only. Filters which items the player can select for this workflow. null = no item input required.",
+                "properties": {
+                  "item_tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "item_rarity": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "exclude_equipped": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "exclude_tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "inputs": {
+                "type": "array",
+                "description": "consume_resource only. Resources consumed per job.",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "resource",
+                    "amount"
+                  ],
+                  "properties": {
+                    "resource": {
+                      "type": "string"
+                    },
+                    "amount": {
+                      "oneOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              "use_item_salvage_profile": {
+                "type": "boolean",
+                "default": false,
+                "description": "consume_item + behavior=consume_item only. If true, output_rules are read from the source item's salvage_profile instead of this workflow. Enables one generic melt workflow for all item types."
+              },
+              "duration_formula": {
+                "type": "string",
+                "description": "Ticks to complete one job. Formula string. For batch efficiency: 'base_duration * (1 + (batch_size - 1) * 0.3)'"
+              },
+              "duration_base_ticks": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Base ticks before formula modifiers. Referenced as 'base_duration' in formula string."
+              },
+              "batch_config": {
+                "type": "object",
+                "properties": {
+                  "max_size": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 1
+                  },
+                  "unlock_higher_batch_by": {
+                    "type": "string",
+                    "enum": [
+                      "building_upgrade",
+                      "none"
+                    ],
+                    "default": "building_upgrade"
+                  }
+                }
+              },
+              "output_rules": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/definitions/output_rule"
+                }
+              },
+              "success_table": {
+                "$ref": "#/definitions/success_table"
+              },
+              "streak_bonus": {
+                "$ref": "#/definitions/streak_bonus",
+                "description": "Optional. Apothecary-type buildings. Omit if not needed."
+              },
+              "momentum_config": {
+                "$ref": "#/definitions/momentum_config",
+                "description": "Optional. Library-type buildings. Omit if not needed."
+              },
+              "xp_on_complete": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "XP granted to assigned artisan on job completion (before failure_xp_multiplier)."
+              },
+              "total_ticks_required": {
+                "type": "integer",
+                "description": "passive mode only. Total accumulated ticks needed to fire output_rules once."
+              },
+              "unlocked_by": {
+                "type": "object",
+                "properties": {
+                  "building_level": {
+                    "type": "integer"
+                  },
+                  "building_prerequisites": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "building_upgrade IDs that must be completed first."
+                  }
+                }
+              },
+              "auto_repeat": {
+                "type": "object",
+                "properties": {
+                  "available": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "false until unlocked by building_upgrade."
+                  },
+                  "unlock_by": {
+                    "type": "string",
+                    "enum": [
+                      "building_upgrade",
+                      "always"
+                    ]
+                  },
+                  "auto_select_priority": {
+                    "type": "string",
+                    "enum": [
+                      "highest_rarity_first",
+                      "lowest_rarity_first",
+                      "oldest_first",
+                      "newest_first"
+                    ],
+                    "default": "highest_rarity_first"
+                  }
+                }
+              },
+              "type": {
+                "type": "string",
+                "const": "building_workflow"
+              }
+            },
+            "title": "Building Workflow"
+          },
+          {
+            "description": "One upgrade tier for a building. Controls slot count, batch size, workflow unlocks, auto-repeat unlocks, and cross-building dependency gates. Displayed in the Upgrade Tree tuning panel.",
+            "required": [
+              "id",
+              "type",
+              "host_building",
+              "level",
+              "cost"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "host_building": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "level": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "cost": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "resource",
+                    "amount"
+                  ],
+                  "properties": {
+                    "resource": {
+                      "type": "string"
+                    },
+                    "amount": {
+                      "type": "number"
+                    }
+                  }
+                }
+              },
+              "effects": {
+                "type": "object",
+                "properties": {
+                  "slots_added": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "batch_size_increase": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "unlocks_workflows": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "building_workflow IDs made available."
+                  },
+                  "unlocks_auto_repeat_on": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "building_workflow IDs on which auto_repeat becomes available."
+                  },
+                  "apply_modifier": {
+                    "type": "object",
+                    "description": "Optional permanent modifier applied to a stat or formula variable when this upgrade completes.",
+                    "properties": {
+                      "target": {
+                        "type": "string"
+                      },
+                      "operation": {
+                        "type": "string",
+                        "enum": [
+                          "multiply",
+                          "add"
+                        ]
+                      },
+                      "value": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              },
+              "ui_discovery": {
+                "type": "object",
+                "description": "Controls how this upgrade appears before it is unlocked.",
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "mystery",
+                      "transparent"
+                    ],
+                    "default": "mystery"
+                  },
+                  "unknown_label": {
+                    "type": "string",
+                    "default": "??"
+                  },
+                  "hint_on_hover": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "hint_text": {
+                    "type": "string"
+                  },
+                  "show_effects_preview": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                }
+              },
+              "requires": {
+                "type": "object",
+                "properties": {
+                  "building_level": {
+                    "type": "integer"
+                  },
+                  "cross_building": {
+                    "type": "array",
+                    "description": "Cross-building prerequisites. Compiler validates these references exist and have sufficient max_level.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "building_id",
+                        "level"
+                      ],
+                      "properties": {
+                        "building_id": {
+                          "type": "string"
+                        },
+                        "level": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "type": {
+                "type": "string",
+                "const": "building_upgrade"
+              }
+            },
+            "title": "Building Upgrade"
+          },
+          {
+            "description": "A specific recipe used by a building_workflow with behavior=consume_resource. Defines inputs, outputs, and craft time. Referenced by building_workflow via used_by connection.",
+            "required": [
+              "id",
+              "type",
+              "output_item",
+              "inputs",
+              "required_workflow"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "output_item": {
+                "type": "string",
+                "description": "Item node ID produced."
+              },
+              "output_quantity": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 1
+              },
+              "inputs": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "resource",
+                    "amount"
+                  ],
+                  "properties": {
+                    "resource": {
+                      "type": "string"
+                    },
+                    "amount": {
+                      "type": "number"
+                    }
+                  }
+                }
+              },
+              "craft_time_formula": {
+                "type": "string"
+              },
+              "required_workflow": {
+                "type": "string",
+                "description": "The building_workflow ID that must be active for this recipe to appear."
+              },
+              "required_building_level": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "success_table_override": {
+                "oneOf": [
+                  {
+                    "$ref": "#/definitions/success_table"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "null = inherits host building_workflow success_table. Set to override per-recipe."
+              },
+              "crit_output": {
+                "type": "object",
+                "description": "What happens on crit for this specific recipe.",
+                "properties": {
+                  "behavior": {
+                    "type": "string",
+                    "enum": [
+                      "quality_upgrade",
+                      "double_output",
+                      "bonus_material"
+                    ]
+                  },
+                  "result_item": {
+                    "type": "string",
+                    "description": "quality_upgrade only. The upgraded item id."
+                  },
+                  "bonus_resource": {
+                    "type": "string",
+                    "description": "bonus_material only. Resource id added."
+                  },
+                  "bonus_amount": {
+                    "type": "number"
+                  }
+                }
+              },
+              "type": {
+                "type": "string",
+                "const": "crafting_recipe"
+              }
+            },
+            "title": "Crafting Recipe"
+          },
+          {
+            "description": "A saved subgraph that can be placed on the canvas as a unit. Shipped presets (forge_standard, apothecary_standard, library_standard) and user-created/community-shared blueprints use this same format.",
+            "required": [
+              "id",
+              "type",
+              "blueprint_meta",
+              "nodes",
+              "edges"
+            ],
+            "properties": {
+              "blueprint_meta": {
+                "$ref": "#/definitions/blueprint_meta"
+              },
+              "nodes": {
+                "type": "array",
+                "description": "Complete node definitions. IDs will be namespaced on import to prevent collisions.",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "edges": {
+                "type": "array",
+                "description": "Edge definitions referencing node IDs within this blueprint. Namespaced on import.",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "source",
+                    "target",
+                    "relation"
+                  ],
+                  "properties": {
+                    "source": {
+                      "type": "string"
+                    },
+                    "target": {
+                      "type": "string"
+                    },
+                    "relation": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "canvas_layout": {
+                "type": "object",
+                "description": "x/y positions for each node id. Used to place the subgraph on the canvas at import.",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "number"
+                    },
+                    "y": {
+                      "type": "number"
+                    }
+                  }
+                }
+              },
+              "type": {
+                "type": "string",
+                "const": "blueprint"
+              },
+              "id": {
+                "type": "string"
+              }
+            },
+            "title": "Blueprint"
           }
-
         ]
       }
     },
-
     "edges": {
       "type": "array",
       "description": "Directed connections between nodes, authored in the canvas.",
       "items": {
         "type": "object",
-        "required": ["id", "source", "target", "relation"],
+        "required": [
+          "id",
+          "source",
+          "target",
+          "relation"
+        ],
         "properties": {
-          "id":       { "type": "string" },
-          "source":   { "type": "string", "description": "Node id." },
-          "target":   { "type": "string", "description": "Node id." },
+          "id": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "description": "Node id."
+          },
+          "target": {
+            "type": "string",
+            "description": "Node id."
+          },
           "relation": {
             "type": "string",
             "enum": [
@@ -678,33 +2736,358 @@
               "triggers",
               "modifies",
               "preferred_class",
-              "affects_rep"
+              "affects_rep",
+              "available_at",
+              "hosts",
+              "used_by",
+              "assigned_to",
+              "requires_building"
             ],
             "description": "Semantic label describing why these two nodes are connected."
           }
         }
       }
     }
-
   },
-
-  "required": ["meta", "nodes", "edges"],
-
+  "required": [
+    "meta",
+    "nodes",
+    "edges"
+  ],
   "x-connection-rules": {
     "description": "Enforced by the compiler. Source type → allowed target types per relation.",
-    "resource":         { "produces": ["building"], "modifies": ["upgrade"] },
-    "item":             { "drops_from": ["loot_table"], "consumes": ["recipe"] },
-    "loot_table":       { "drops_from": ["expedition", "boss_expedition", "building"] },
-    "recipe":           { "hosts_recipe": ["building"], "consumes": ["item"], "produces": ["item"] },
-    "hero_class":       { "trains": ["building"], "preferred_class": ["expedition", "boss_expedition"] },
-    "ability":          { "trains": ["hero_class"] },
-    "building":         { "produces": ["resource"], "hosts_recipe": ["recipe"], "unlocks": ["upgrade", "expedition", "boss_expedition"], "gates": ["act"] },
-    "upgrade":          { "modifies": ["resource", "building", "hero_class", "expedition"] },
-    "expedition":       { "drops_from": ["loot_table"], "gates": ["act"], "triggers": ["event"] },
-    "boss_expedition":  { "drops_from": ["loot_table"], "gates": ["act"], "triggers": ["event"] },
-    "act":              { "unlocks": ["building", "expedition", "boss_expedition", "upgrade"], "triggers": ["event"] },
-    "event":            { "affects_rep": ["faction"], "triggers": ["act"] },
-    "faction":          { "gates": ["upgrade", "building", "expedition"], "affects_rep": ["event"] },
-    "prestige":         { "gates": ["act"], "produces": ["resource"] }
+    "resource": {
+      "produces": [
+        "building"
+      ],
+      "modifies": [
+        "upgrade"
+      ]
+    },
+    "item": {
+      "drops_from": [
+        "loot_table"
+      ],
+      "consumes": [
+        "recipe"
+      ]
+    },
+    "loot_table": {
+      "drops_from": [
+        "expedition",
+        "boss_expedition",
+        "building"
+      ]
+    },
+    "recipe": {
+      "hosts_recipe": [
+        "building"
+      ],
+      "consumes": [
+        "item"
+      ],
+      "produces": [
+        "item"
+      ]
+    },
+    "hero_class": {
+      "trains": [
+        "building"
+      ],
+      "preferred_class": [
+        "expedition",
+        "boss_expedition"
+      ]
+    },
+    "ability": {
+      "trains": [
+        "hero_class"
+      ]
+    },
+    "building": {
+      "produces": [
+        "resource"
+      ],
+      "hosts_recipe": [
+        "recipe"
+      ],
+      "unlocks": [
+        "upgrade",
+        "expedition",
+        "boss_expedition"
+      ],
+      "gates": [
+        "act"
+      ]
+    },
+    "upgrade": {
+      "modifies": [
+        "resource",
+        "building",
+        "hero_class",
+        "expedition"
+      ]
+    },
+    "expedition": {
+      "drops_from": [
+        "loot_table"
+      ],
+      "gates": [
+        "act"
+      ],
+      "triggers": [
+        "event"
+      ]
+    },
+    "boss_expedition": {
+      "drops_from": [
+        "loot_table"
+      ],
+      "gates": [
+        "act"
+      ],
+      "triggers": [
+        "event"
+      ]
+    },
+    "act": {
+      "unlocks": [
+        "building",
+        "expedition",
+        "boss_expedition",
+        "upgrade"
+      ],
+      "triggers": [
+        "event"
+      ]
+    },
+    "event": {
+      "affects_rep": [
+        "faction"
+      ],
+      "triggers": [
+        "act"
+      ]
+    },
+    "faction": {
+      "gates": [
+        "upgrade",
+        "building",
+        "expedition"
+      ],
+      "affects_rep": [
+        "event"
+      ]
+    },
+    "prestige": {
+      "gates": [
+        "act"
+      ],
+      "produces": [
+        "resource"
+      ]
+    },
+    "building_workflow->building": {
+      "relation": "available_at",
+      "direction": "building_workflow references building",
+      "cardinality": "many_to_one",
+      "required": true
+    },
+    "building_upgrade->building": {
+      "relation": "hosts",
+      "direction": "building_upgrade references building",
+      "cardinality": "many_to_one",
+      "required": true
+    },
+    "building_upgrade->building_workflow": {
+      "relation": "unlocks",
+      "direction": "building_upgrade references building_workflow ids",
+      "cardinality": "many_to_many"
+    },
+    "crafting_recipe->building_workflow": {
+      "relation": "used_by",
+      "direction": "crafting_recipe references building_workflow",
+      "cardinality": "many_to_one"
+    },
+    "hero_class[artisan]->building": {
+      "relation": "assigned_to",
+      "direction": "artisan hero_class references building affinity",
+      "cardinality": "many_to_many",
+      "condition": "hero_class.hero_type === 'artisan'"
+    },
+    "building_upgrade->building[cross]": {
+      "relation": "requires_building",
+      "direction": "building_upgrade.requires.cross_building references other building ids",
+      "cardinality": "many_to_many",
+      "compiler_check": "referenced building must exist in graph and have sufficient max_level"
+    }
+  },
+  "x-changelog": {
+    "1.2.0": {
+      "date": "2026-03-29",
+      "adds_node_types": [
+        "building_workflow",
+        "building_upgrade",
+        "crafting_recipe",
+        "blueprint"
+      ],
+      "extends_node_types": [
+        "hero_class",
+        "item",
+        "building"
+      ],
+      "adds_shared_definitions": [
+        "output_rule",
+        "success_table",
+        "formula_variable_registry",
+        "momentum_config",
+        "streak_bonus",
+        "passive_event",
+        "buff_config",
+        "blueprint_meta"
+      ],
+      "adds_connection_rules": 6,
+      "adds_output_types": [
+        "resource",
+        "item",
+        "consumable",
+        "world_effect",
+        "hero_instance"
+      ],
+      "notes": "building_workflow replaces and supersedes the previous per-building crafting approach. All crafting buildings (forge, apothecary, library, mine, farm, barracks) use this single node type."
+    }
+  },
+  "x-formula-variable-registry": {
+    "description": "Every variable available inside any formula string across the schema. The engine populates all of these before evaluating any formula. Designer can reference any of these by name.",
+    "variables": {
+      "item_level": {
+        "type": "integer",
+        "range": [
+          1,
+          100
+        ],
+        "source": "source item instance"
+      },
+      "item_rarity_tier": {
+        "type": "integer",
+        "range": [
+          0,
+          4
+        ],
+        "source": "source item definition. 0=common, 1=uncommon, 2=rare, 3=epic, 4=legendary"
+      },
+      "item_quality_tier": {
+        "type": "integer",
+        "range": [
+          0,
+          3
+        ],
+        "source": "consumable items only. Set at craft time. 0=base, 1=superior, 2=masterwork, 3=legendary"
+      },
+      "item_craft_cost_{resource_id}": {
+        "type": "number",
+        "range": [
+          0,
+          null
+        ],
+        "source": "item definition. Replace {resource_id} with actual id e.g. item_craft_cost_iron"
+      },
+      "item_base_stat_{stat}": {
+        "type": "number",
+        "range": [
+          0,
+          null
+        ],
+        "source": "item definition. Replace {stat} with stat name e.g. item_base_stat_atk"
+      },
+      "building_level": {
+        "type": "integer",
+        "range": [
+          1,
+          10
+        ],
+        "source": "building instance current level"
+      },
+      "worker_skill": {
+        "type": "integer",
+        "range": [
+          0,
+          100
+        ],
+        "source": "assigned artisan primary_stat value. 0 if slot unassigned"
+      },
+      "worker_specialization_match": {
+        "type": "integer",
+        "range": [
+          0,
+          1
+        ],
+        "source": "1 if assigned artisan specialization matches workflow action_type, else 0"
+      },
+      "worker_level": {
+        "type": "integer",
+        "range": [
+          1,
+          20
+        ],
+        "source": "assigned artisan hero level. 1 if unassigned"
+      },
+      "batch_size": {
+        "type": "integer",
+        "range": [
+          1,
+          50
+        ],
+        "source": "current job batch count"
+      },
+      "momentum": {
+        "type": "number",
+        "range": [
+          0,
+          100
+        ],
+        "source": "library-type buildings only. Current momentum value"
+      },
+      "streak_count": {
+        "type": "integer",
+        "range": [
+          0,
+          null
+        ],
+        "source": "apothecary-type buildings. Consecutive same-recipe job count"
+      },
+      "resource_{id}": {
+        "type": "number",
+        "range": [
+          0,
+          null
+        ],
+        "source": "current resource pool amount. Replace {id} with resource id"
+      },
+      "base_failure": {
+        "type": "number",
+        "range": [
+          0,
+          1
+        ],
+        "source": "success_table.base_failure of current workflow"
+      },
+      "base_crit": {
+        "type": "number",
+        "range": [
+          0,
+          1
+        ],
+        "source": "success_table.base_crit of current workflow"
+      },
+      "forge_level": {
+        "type": "integer",
+        "range": [
+          1,
+          10
+        ],
+        "source": "alias for building_level. Kept for readability in forge formulas"
+      }
+    }
   }
 }

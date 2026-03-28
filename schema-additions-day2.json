@@ -1,0 +1,890 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "guild-engine-schema-day2-additions",
+  "version": "1.2.0",
+  "description": "Day 2 schema additions. Extends project.schema.json v1.1.0 (676 lines, 14 node types). Adds 4 new node types, extends 3 existing types, adds 1 new shared definition block, adds blueprint system, adds tuning config.",
+
+  "x-changelog": {
+    "1.2.0": {
+      "date": "2026-03-29",
+      "adds_node_types": ["building_workflow", "building_upgrade", "crafting_recipe", "blueprint"],
+      "extends_node_types": ["hero_class", "item", "building"],
+      "adds_shared_definitions": ["output_rule", "success_table", "formula_variable_registry", "momentum_config", "streak_bonus", "passive_event", "buff_config", "blueprint_meta"],
+      "adds_connection_rules": 6,
+      "adds_output_types": ["resource", "item", "consumable", "world_effect", "hero_instance"],
+      "notes": "building_workflow replaces and supersedes the previous per-building crafting approach. All crafting buildings (forge, apothecary, library, mine, farm, barracks) use this single node type."
+    }
+  },
+
+  "x-connection-rules-additions": {
+    "building_workflow->building": {
+      "relation": "available_at",
+      "direction": "building_workflow references building",
+      "cardinality": "many_to_one",
+      "required": true
+    },
+    "building_upgrade->building": {
+      "relation": "hosts",
+      "direction": "building_upgrade references building",
+      "cardinality": "many_to_one",
+      "required": true
+    },
+    "building_upgrade->building_workflow": {
+      "relation": "unlocks",
+      "direction": "building_upgrade references building_workflow ids",
+      "cardinality": "many_to_many"
+    },
+    "crafting_recipe->building_workflow": {
+      "relation": "used_by",
+      "direction": "crafting_recipe references building_workflow",
+      "cardinality": "many_to_one"
+    },
+    "hero_class[artisan]->building": {
+      "relation": "assigned_to",
+      "direction": "artisan hero_class references building affinity",
+      "cardinality": "many_to_many",
+      "condition": "hero_class.hero_type === 'artisan'"
+    },
+    "building_upgrade->building[cross]": {
+      "relation": "requires_building",
+      "direction": "building_upgrade.requires.cross_building references other building ids",
+      "cardinality": "many_to_many",
+      "compiler_check": "referenced building must exist in graph and have sufficient max_level"
+    }
+  },
+
+  "x-formula-variable-registry": {
+    "description": "Every variable available inside any formula string across the schema. The engine populates all of these before evaluating any formula. Designer can reference any of these by name.",
+    "variables": {
+      "item_level":                   { "type": "integer", "range": [1, 100],  "source": "source item instance" },
+      "item_rarity_tier":             { "type": "integer", "range": [0, 4],    "source": "source item definition. 0=common, 1=uncommon, 2=rare, 3=epic, 4=legendary" },
+      "item_quality_tier":            { "type": "integer", "range": [0, 3],    "source": "consumable items only. Set at craft time. 0=base, 1=superior, 2=masterwork, 3=legendary" },
+      "item_craft_cost_{resource_id}":{ "type": "number",  "range": [0, null], "source": "item definition. Replace {resource_id} with actual id e.g. item_craft_cost_iron" },
+      "item_base_stat_{stat}":        { "type": "number",  "range": [0, null], "source": "item definition. Replace {stat} with stat name e.g. item_base_stat_atk" },
+      "building_level":               { "type": "integer", "range": [1, 10],   "source": "building instance current level" },
+      "worker_skill":                 { "type": "integer", "range": [0, 100],  "source": "assigned artisan primary_stat value. 0 if slot unassigned" },
+      "worker_specialization_match":  { "type": "integer", "range": [0, 1],    "source": "1 if assigned artisan specialization matches workflow action_type, else 0" },
+      "worker_level":                 { "type": "integer", "range": [1, 20],   "source": "assigned artisan hero level. 1 if unassigned" },
+      "batch_size":                   { "type": "integer", "range": [1, 50],   "source": "current job batch count" },
+      "momentum":                     { "type": "number",  "range": [0, 100],  "source": "library-type buildings only. Current momentum value" },
+      "streak_count":                 { "type": "integer", "range": [0, null], "source": "apothecary-type buildings. Consecutive same-recipe job count" },
+      "resource_{id}":                { "type": "number",  "range": [0, null], "source": "current resource pool amount. Replace {id} with resource id" },
+      "base_failure":                 { "type": "number",  "range": [0, 1],    "source": "success_table.base_failure of current workflow" },
+      "base_crit":                    { "type": "number",  "range": [0, 1],    "source": "success_table.base_crit of current workflow" },
+      "forge_level":                  { "type": "integer", "range": [1, 10],   "source": "alias for building_level. Kept for readability in forge formulas" }
+    }
+  },
+
+  "definitions": {
+
+    "output_rule": {
+      "type": "object",
+      "description": "One entry in an output_rules array. Covers all five output types.",
+      "required": ["output_type"],
+      "properties": {
+        "output_type": {
+          "type": "string",
+          "enum": ["resource", "item", "consumable", "world_effect", "hero_instance"],
+          "description": "resource: adds to resource pool. item: adds to hero/guild inventory. consumable: adds to buff stockpile. world_effect: mutates world state directly. hero_instance: creates a new recruitable hero."
+        },
+        "target": {
+          "type": "string",
+          "description": "For resource/item/consumable: the id of the resource or item node. For world_effect: the id of the node to affect. For hero_instance: omit, use target_class instead."
+        },
+        "target_class": {
+          "type": "string",
+          "description": "hero_instance only. The hero_class id to instantiate."
+        },
+        "yield_formula": {
+          "type": "string",
+          "description": "resource only. Formula string. Variables from x-formula-variable-registry."
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "item/consumable. Fixed quantity produced per job."
+        },
+        "chance": {
+          "oneOf": [
+            { "type": "number", "minimum": 0, "maximum": 1 },
+            { "type": "string", "description": "Formula string resolving to 0.0-1.0" }
+          ],
+          "description": "Probability this output fires. 1.0 = always."
+        },
+        "effect_type": {
+          "type": "string",
+          "enum": ["unlock_node", "apply_modifier", "trigger_event"],
+          "description": "world_effect only."
+        },
+        "modifier_target": {
+          "type": "string",
+          "description": "apply_modifier only. The stat or node property to modify."
+        },
+        "modifier_value": {
+          "oneOf": [
+            { "type": "number" },
+            { "type": "string", "description": "Formula string" }
+          ],
+          "description": "apply_modifier only. The multiplier or addend."
+        },
+        "modifier_operation": {
+          "type": "string",
+          "enum": ["multiply", "add", "set"],
+          "default": "multiply"
+        },
+        "rarity_table": {
+          "type": "array",
+          "description": "hero_instance only. Weighted rarity distribution.",
+          "items": {
+            "type": "object",
+            "required": ["rarity", "weight"],
+            "properties": {
+              "rarity":  { "type": "string", "enum": ["common", "uncommon", "rare", "epic", "legendary"] },
+              "weight":  { "type": "integer", "minimum": 1 }
+            }
+          }
+        },
+        "stat_roll": {
+          "type": "string",
+          "enum": ["random_within_rarity_band", "minimum_rarity_band", "maximum_rarity_band"],
+          "description": "hero_instance only. How stats are rolled within the rarity tier.",
+          "default": "random_within_rarity_band"
+        }
+      }
+    },
+
+    "success_table": {
+      "type": "object",
+      "description": "RNG resolution model for a workflow. Roll order: failure first, then crit, then normal. This means crits only fire on non-failures.",
+      "required": ["base_failure", "base_crit"],
+      "properties": {
+        "base_failure": {
+          "type": "number", "minimum": 0, "maximum": 1,
+          "description": "Starting failure probability before formula modifiers. Set 0.0 for buildings where failure makes no sense (barracks)."
+        },
+        "base_crit": {
+          "type": "number", "minimum": 0, "maximum": 1,
+          "description": "Starting crit probability before formula modifiers."
+        },
+        "failure_chance_formula": {
+          "type": "string",
+          "description": "Overrides base_failure if present. Formula resolving to 0.0-1.0. Use max(0, ...) to floor at zero."
+        },
+        "crit_chance_formula": {
+          "type": "string",
+          "description": "Overrides base_crit if present."
+        },
+        "crit_multiplier": {
+          "type": "number", "minimum": 1,
+          "default": 2.0,
+          "description": "Used when crit_behavior is double_output."
+        },
+        "crit_behavior": {
+          "type": "string",
+          "enum": ["double_output", "quality_upgrade", "rarity_upgrade", "breakthrough", "extend_duration"],
+          "description": "double_output: quantity ×crit_multiplier. quality_upgrade: item output becomes crit_output_item instead. rarity_upgrade: hero_instance rarity bumped one tier. breakthrough: fires breakthrough_table in addition to normal output. extend_duration: consumable buff duration ×crit_multiplier."
+        },
+        "crit_output_item": {
+          "type": "string",
+          "description": "quality_upgrade only. The item id produced on crit instead of the base output item."
+        },
+        "breakthrough_table": {
+          "type": "array",
+          "description": "breakthrough only. Weighted pool of bonus world_effects that fire on crit in addition to normal output.",
+          "items": {
+            "type": "object",
+            "required": ["effect_type", "target", "weight"],
+            "properties": {
+              "effect_type":  { "type": "string", "enum": ["unlock_node", "apply_modifier", "trigger_event"] },
+              "target":       { "type": "string" },
+              "weight":       { "type": "integer", "minimum": 1 },
+              "modifier_value": { "type": "number" }
+            }
+          }
+        },
+        "failure_behavior": {
+          "type": "string",
+          "enum": ["consume_inputs_no_output", "partial_refund", "reset_progress_refund_inputs"],
+          "description": "consume_inputs_no_output: forge default. partial_refund: apothecary default, returns 50% of inputs. reset_progress_refund_inputs: library default, resets tick progress, returns all inputs."
+        },
+        "failure_refund_rate": {
+          "type": "number", "minimum": 0, "maximum": 1,
+          "default": 0.5,
+          "description": "partial_refund only. Fraction of inputs returned."
+        },
+        "failure_grants_xp": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether the artisan gains XP on failure. Recommended true — learning from mistakes."
+        },
+        "failure_xp_multiplier": {
+          "type": "number", "minimum": 0, "maximum": 1,
+          "default": 0.5,
+          "description": "XP multiplier applied on failure. 0.5 = half XP."
+        }
+      }
+    },
+
+    "momentum_config": {
+      "type": "object",
+      "description": "Research momentum system. Library-type buildings. Rewards continuous operation. Decays on idle.",
+      "required": ["gain_per_job", "decay_per_idle_tick", "thresholds"],
+      "properties": {
+        "gain_per_job":       { "type": "number", "description": "Momentum points added on each completed job." },
+        "decay_per_idle_tick":{ "type": "number", "description": "Momentum lost per tick when no job is processing." },
+        "thresholds": {
+          "type": "array",
+          "description": "Ascending momentum values that trigger flow states.",
+          "items": {
+            "type": "object",
+            "required": ["momentum", "label"],
+            "properties": {
+              "momentum":     { "type": "number" },
+              "label":        { "type": "string" },
+              "speed_bonus":  { "type": "number", "description": "Duration reduction as a fraction. 0.25 = 25% faster." },
+              "crit_bonus":   { "type": "number", "description": "Added to crit_chance at this threshold." }
+            }
+          }
+        }
+      }
+    },
+
+    "streak_bonus": {
+      "type": "object",
+      "description": "Concentration system. Apothecary-type buildings. Rewards same-recipe repetition.",
+      "required": ["threshold"],
+      "properties": {
+        "threshold":          { "type": "integer", "minimum": 2, "description": "Consecutive same-recipe jobs needed to activate." },
+        "duration_reduction": { "type": "number",  "description": "Duration reduction fraction while streak is active. 0.20 = 20% faster." },
+        "crit_bonus":         { "type": "number",  "description": "Added to crit_chance while streak is active." },
+        "label":              { "type": "string",  "description": "UI label shown during streak e.g. 'Focused Brewing'." }
+      }
+    },
+
+    "buff_config": {
+      "type": "object",
+      "description": "Consumable buff definition. Used when item_type is consumable.",
+      "required": ["apply_scope", "duration_type", "duration_value", "effect"],
+      "properties": {
+        "apply_scope": {
+          "type": "string",
+          "enum": ["party", "hero", "hero_class"],
+          "description": "party: all heroes benefit. hero: applied to one specific hero slot. hero_class: only heroes of matching class."
+        },
+        "apply_target": {
+          "type": "string",
+          "description": "hero_class only. The hero_class id that receives the buff."
+        },
+        "duration_type": {
+          "type": "string",
+          "enum": ["expedition_count", "expedition_success", "permanent_until_death"],
+          "description": "expedition_count: consumed after N expeditions regardless of outcome. expedition_success: only decrements on success. permanent_until_death: consumed on hero death."
+        },
+        "duration_value": {
+          "type": "integer", "minimum": 1,
+          "description": "Number of expeditions the buff lasts."
+        },
+        "effect": {
+          "type": "object",
+          "required": ["stat", "operation", "value"],
+          "properties": {
+            "stat":      { "type": "string", "description": "The stat to affect e.g. atk, def, spd, lck, xp_gain, loot_bonus." },
+            "operation": { "type": "string", "enum": ["multiply", "add", "set"] },
+            "value":     { "oneOf": [{ "type": "number" }, { "type": "string" }], "description": "Fixed number or formula string." }
+          }
+        },
+        "stack_behavior": {
+          "type": "string",
+          "enum": ["refresh", "extend", "intensify"],
+          "default": "refresh",
+          "description": "refresh: resets duration to max. extend: adds duration_value to remaining. intensify: stacks effect value up to stack_cap."
+        },
+        "stack_cap": {
+          "type": "integer", "minimum": 1,
+          "description": "intensify only. Maximum number of stacks."
+        },
+        "buff_slot_cost": {
+          "type": "integer", "minimum": 1, "maximum": 3,
+          "default": 1,
+          "description": "How many hero buff slots this consumable occupies. Use 2-3 for powerful endgame buffs."
+        }
+      }
+    },
+
+    "passive_event": {
+      "type": "object",
+      "description": "Time-based event emitter on a building. Used for walk-in recruits (Tavern), random discoveries, etc. Fires independently of the workflow queue.",
+      "required": ["event_type", "trigger", "interval_formula"],
+      "properties": {
+        "event_type": {
+          "type": "string",
+          "enum": ["hero_available", "resource_windfall", "world_effect", "random_encounter"]
+        },
+        "trigger":           { "type": "string", "enum": ["time_interval", "building_level_reached", "resource_threshold"] },
+        "interval_formula":  { "type": "string", "description": "Ticks between event fires. Formula string." },
+        "hero_class_pool":   { "type": "array",  "items": { "type": "string" }, "description": "hero_available only. Class ids that can appear." },
+        "available_for_ticks":{ "type": "integer", "description": "hero_available only. How long the offer persists before expiring." },
+        "hire_cost_formula": { "type": "string",  "description": "hero_available only. Gold cost formula." },
+        "rarity_table": {
+          "type": "array",
+          "description": "hero_available only.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "rarity": { "type": "string" },
+              "weight": { "type": "integer" }
+            }
+          }
+        }
+      }
+    },
+
+    "blueprint_meta": {
+      "type": "object",
+      "description": "Metadata block present on every .blueprint.json file. Enables the blueprint library UI and community sharing.",
+      "required": ["blueprint_id", "label", "version", "requires_schema_version"],
+      "properties": {
+        "blueprint_id":           { "type": "string" },
+        "label":                  { "type": "string" },
+        "author":                 { "type": "string" },
+        "version":                { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "created":                { "type": "string", "format": "date" },
+        "requires_schema_version":{ "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$", "description": "Minimum schema version required to import this blueprint." },
+        "flavor_tags":            { "type": "array", "items": { "type": "string" } },
+        "system_tags":            { "type": "array", "items": { "type": "string" } },
+        "complexity":             { "type": "string", "enum": ["starter", "intermediate", "advanced", "expert"] },
+        "node_count":             { "type": "integer" },
+        "description":            { "type": "string" },
+        "customization_hints":    { "type": "array", "items": { "type": "string" } },
+        "generator_origin": {
+          "type": "object",
+          "description": "Present if blueprint was produced or adapted by the generator pipeline.",
+          "properties": {
+            "pass":                 { "type": "string", "enum": ["pass_1", "pass_2", "pass_3"] },
+            "world":                { "type": "string" },
+            "adapted_from_blueprint":{ "type": "string" }
+          }
+        }
+      }
+    }
+  },
+
+  "node_types": {
+
+    "building_workflow": {
+      "description": "Defines one action a crafting building can perform. Generic — works for forge (melt/craft), apothecary (brew/distill), library (research), mine (produce), barracks (recruit), and all future buildings. The engine does not know what 'melt' means — it executes the configured behavior against the formula context.",
+      "required": ["id", "node_type", "behavior", "host_building", "output_rules", "success_table"],
+      "properties": {
+        "id":             { "type": "string" },
+        "node_type":      { "type": "string", "const": "building_workflow" },
+        "label":          { "type": "string", "description": "Designer-facing display name." },
+        "behavior": {
+          "type": "string",
+          "enum": ["consume_item", "consume_resource", "produce_resource", "modify_item", "recruit_hero"],
+          "description": "Engine behavior class. consume_item: takes an item from inventory as input. consume_resource: takes resources. produce_resource: no input, passive output. modify_item: alters an existing item in-place (enchanter). recruit_hero: produces a hero_instance."
+        },
+        "action_type": {
+          "type": "string",
+          "description": "Designer-facing label for the action. Free string — 'melt', 'brew', 'research', 'mine', 'recruit'. No engine logic attached; used for display and streak_bonus matching."
+        },
+        "workflow_mode": {
+          "type": "string",
+          "enum": ["queued", "passive"],
+          "default": "queued",
+          "description": "queued: player explicitly adds jobs. passive: runs continuously while artisan is assigned or building is active, no queue management."
+        },
+        "host_building":  { "type": "string", "description": "ID of the building node this workflow belongs to." },
+        "target_filter": {
+          "type": ["object", "null"],
+          "description": "consume_item only. Filters which items the player can select for this workflow. null = no item input required.",
+          "properties": {
+            "item_tags":       { "type": "array", "items": { "type": "string" } },
+            "item_rarity":     { "type": "array", "items": { "type": "string" } },
+            "exclude_equipped":{ "type": "boolean", "default": true },
+            "exclude_tags":    { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "inputs": {
+          "type": "array",
+          "description": "consume_resource only. Resources consumed per job.",
+          "items": {
+            "type": "object",
+            "required": ["resource", "amount"],
+            "properties": {
+              "resource": { "type": "string" },
+              "amount":   { "oneOf": [{ "type": "number" }, { "type": "string" }] }
+            }
+          }
+        },
+        "use_item_salvage_profile": {
+          "type": "boolean",
+          "default": false,
+          "description": "consume_item + behavior=consume_item only. If true, output_rules are read from the source item's salvage_profile instead of this workflow. Enables one generic melt workflow for all item types."
+        },
+        "duration_formula": {
+          "type": "string",
+          "description": "Ticks to complete one job. Formula string. For batch efficiency: 'base_duration * (1 + (batch_size - 1) * 0.3)'"
+        },
+        "duration_base_ticks": {
+          "type": "integer", "minimum": 1,
+          "description": "Base ticks before formula modifiers. Referenced as 'base_duration' in formula string."
+        },
+        "batch_config": {
+          "type": "object",
+          "properties": {
+            "max_size":                { "type": "integer", "minimum": 1, "default": 1 },
+            "unlock_higher_batch_by":  { "type": "string", "enum": ["building_upgrade", "none"], "default": "building_upgrade" }
+          }
+        },
+        "output_rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/output_rule" }
+        },
+        "success_table": { "$ref": "#/definitions/success_table" },
+        "streak_bonus":   { "$ref": "#/definitions/streak_bonus", "description": "Optional. Apothecary-type buildings. Omit if not needed." },
+        "momentum_config":{ "$ref": "#/definitions/momentum_config", "description": "Optional. Library-type buildings. Omit if not needed." },
+        "xp_on_complete": {
+          "type": "integer", "minimum": 0,
+          "description": "XP granted to assigned artisan on job completion (before failure_xp_multiplier)."
+        },
+        "total_ticks_required": {
+          "type": "integer",
+          "description": "passive mode only. Total accumulated ticks needed to fire output_rules once."
+        },
+        "unlocked_by": {
+          "type": "object",
+          "properties": {
+            "building_level":        { "type": "integer" },
+            "building_prerequisites":{ "type": "array", "items": { "type": "string" }, "description": "building_upgrade IDs that must be completed first." }
+          }
+        },
+        "auto_repeat": {
+          "type": "object",
+          "properties": {
+            "available":           { "type": "boolean", "default": false, "description": "false until unlocked by building_upgrade." },
+            "unlock_by":           { "type": "string", "enum": ["building_upgrade", "always"] },
+            "auto_select_priority":{ "type": "string", "enum": ["highest_rarity_first", "lowest_rarity_first", "oldest_first", "newest_first"], "default": "highest_rarity_first" }
+          }
+        }
+      }
+    },
+
+    "building_upgrade": {
+      "description": "One upgrade tier for a building. Controls slot count, batch size, workflow unlocks, auto-repeat unlocks, and cross-building dependency gates. Displayed in the Upgrade Tree tuning panel.",
+      "required": ["id", "node_type", "host_building", "level", "cost"],
+      "properties": {
+        "id":             { "type": "string" },
+        "node_type":      { "type": "string", "const": "building_upgrade" },
+        "host_building":  { "type": "string" },
+        "label":          { "type": "string" },
+        "level":          { "type": "integer", "minimum": 1 },
+        "cost": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["resource", "amount"],
+            "properties": {
+              "resource": { "type": "string" },
+              "amount":   { "type": "number" }
+            }
+          }
+        },
+        "effects": {
+          "type": "object",
+          "properties": {
+            "slots_added":              { "type": "integer", "minimum": 0 },
+            "batch_size_increase":      { "type": "integer", "minimum": 0 },
+            "unlocks_workflows":        { "type": "array", "items": { "type": "string" }, "description": "building_workflow IDs made available." },
+            "unlocks_auto_repeat_on":   { "type": "array", "items": { "type": "string" }, "description": "building_workflow IDs on which auto_repeat becomes available." },
+            "apply_modifier": {
+              "type": "object",
+              "description": "Optional permanent modifier applied to a stat or formula variable when this upgrade completes.",
+              "properties": {
+                "target":    { "type": "string" },
+                "operation": { "type": "string", "enum": ["multiply", "add"] },
+                "value":     { "type": "number" }
+              }
+            }
+          }
+        },
+        "ui_discovery": {
+          "type": "object",
+          "description": "Controls how this upgrade appears before it is unlocked.",
+          "properties": {
+            "mode":                { "type": "string", "enum": ["mystery", "transparent"], "default": "mystery" },
+            "unknown_label":       { "type": "string", "default": "??" },
+            "hint_on_hover":       { "type": "boolean", "default": true },
+            "hint_text":           { "type": "string" },
+            "show_effects_preview":{ "type": "boolean", "default": true }
+          }
+        },
+        "requires": {
+          "type": "object",
+          "properties": {
+            "building_level": { "type": "integer" },
+            "cross_building": {
+              "type": "array",
+              "description": "Cross-building prerequisites. Compiler validates these references exist and have sufficient max_level.",
+              "items": {
+                "type": "object",
+                "required": ["building_id", "level"],
+                "properties": {
+                  "building_id": { "type": "string" },
+                  "level":       { "type": "integer" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "crafting_recipe": {
+      "description": "A specific recipe used by a building_workflow with behavior=consume_resource. Defines inputs, outputs, and craft time. Referenced by building_workflow via used_by connection.",
+      "required": ["id", "node_type", "output_item", "inputs", "required_workflow"],
+      "properties": {
+        "id":               { "type": "string" },
+        "node_type":        { "type": "string", "const": "crafting_recipe" },
+        "label":            { "type": "string" },
+        "output_item":      { "type": "string", "description": "Item node ID produced." },
+        "output_quantity":  { "type": "integer", "minimum": 1, "default": 1 },
+        "inputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["resource", "amount"],
+            "properties": {
+              "resource": { "type": "string" },
+              "amount":   { "type": "number" }
+            }
+          }
+        },
+        "craft_time_formula":       { "type": "string" },
+        "required_workflow":        { "type": "string", "description": "The building_workflow ID that must be active for this recipe to appear." },
+        "required_building_level":  { "type": "integer", "minimum": 1 },
+        "success_table_override":   {
+          "oneOf": [
+            { "$ref": "#/definitions/success_table" },
+            { "type": "null" }
+          ],
+          "description": "null = inherits host building_workflow success_table. Set to override per-recipe."
+        },
+        "crit_output": {
+          "type": "object",
+          "description": "What happens on crit for this specific recipe.",
+          "properties": {
+            "behavior":    { "type": "string", "enum": ["quality_upgrade", "double_output", "bonus_material"] },
+            "result_item": { "type": "string", "description": "quality_upgrade only. The upgraded item id." },
+            "bonus_resource": { "type": "string", "description": "bonus_material only. Resource id added." },
+            "bonus_amount":   { "type": "number" }
+          }
+        }
+      }
+    },
+
+    "blueprint": {
+      "description": "A saved subgraph that can be placed on the canvas as a unit. Shipped presets (forge_standard, apothecary_standard, library_standard) and user-created/community-shared blueprints use this same format.",
+      "required": ["blueprint_meta", "nodes", "edges"],
+      "properties": {
+        "blueprint_meta": { "$ref": "#/definitions/blueprint_meta" },
+        "nodes": {
+          "type": "array",
+          "description": "Complete node definitions. IDs will be namespaced on import to prevent collisions.",
+          "items": { "type": "object" }
+        },
+        "edges": {
+          "type": "array",
+          "description": "Edge definitions referencing node IDs within this blueprint. Namespaced on import.",
+          "items": {
+            "type": "object",
+            "required": ["source", "target", "relation"],
+            "properties": {
+              "source":   { "type": "string" },
+              "target":   { "type": "string" },
+              "relation": { "type": "string" }
+            }
+          }
+        },
+        "canvas_layout": {
+          "type": "object",
+          "description": "x/y positions for each node id. Used to place the subgraph on the canvas at import.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "x": { "type": "number" },
+              "y": { "type": "number" }
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "node_type_extensions": {
+
+    "hero_class": {
+      "description": "Additions to the existing hero_class node type from Day 1.",
+      "new_properties": {
+        "hero_type": {
+          "type": "string",
+          "enum": ["combat", "artisan"],
+          "default": "combat",
+          "description": "combat: can go on expeditions. artisan: assigned to buildings, cannot go on expeditions."
+        },
+        "combat_eligible": {
+          "type": "boolean",
+          "default": true,
+          "description": "Derived from hero_type but explicit for compiler clarity."
+        },
+        "primary_stat": {
+          "type": "string",
+          "description": "artisan only. The stat that feeds into worker_skill in formula context. e.g. craft_skill, alchemy_skill, research_skill."
+        },
+        "xp_source": {
+          "type": "string",
+          "enum": ["expedition_completion", "building_jobs_completed", "both"],
+          "default": "expedition_completion"
+        },
+        "specializations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "artisan only. Available specialization labels. One is chosen on recruit. Matching action_type on a workflow grants bonus.",
+          "maxItems": 4
+        },
+        "assignment_target": {
+          "type": "string",
+          "enum": ["expedition", "building"],
+          "description": "artisan = building. combat = expedition."
+        },
+        "building_affinity": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "artisan only. Building IDs where this artisan receives full bonuses. Can be assigned elsewhere at reduced efficiency."
+        },
+        "unique_passive": {
+          "type": "object",
+          "description": "Optional passive ability that activates under a defined condition.",
+          "properties": {
+            "id":          { "type": "string" },
+            "description": { "type": "string" },
+            "condition":   { "type": "string", "description": "Formula or condition string. e.g. 'same_building_slot_count >= 2'" },
+            "effect": {
+              "type": "object",
+              "properties": {
+                "stat":      { "type": "string" },
+                "operation": { "type": "string", "enum": ["multiply", "add"] },
+                "value":     { "type": "number" }
+              }
+            }
+          }
+        },
+        "recruitment": {
+          "type": "object",
+          "description": "Controls where and how this hero_class can be recruited.",
+          "properties": {
+            "base_tier_rarities": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Rarities available from the guild roster without prerequisites."
+            },
+            "source": {
+              "type": "string",
+              "enum": ["guild_roster", "building_only", "event_only"],
+              "default": "guild_roster"
+            },
+            "rare_epic_unlock": {
+              "type": "object",
+              "description": "Rare and epic tier recruitment requires this building.",
+              "properties": {
+                "requires_building":       { "type": "string" },
+                "building_level":          { "type": "integer" }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "item": {
+      "description": "Additions to the existing item node type from Day 1.",
+      "new_properties": {
+        "item_type": {
+          "type": "string",
+          "enum": ["equipment", "material", "consumable", "quest", "key"],
+          "default": "equipment",
+          "description": "equipment: goes to hero inventory, occupies a slot. material: crafting input, goes to resource pool. consumable: goes to buff stockpile. quest: non-transferable, triggers events. key: unlocks specific content."
+        },
+        "salvage_profile": {
+          "type": "object",
+          "description": "What this item yields when melted/salvaged. Read by consume_item workflows with use_item_salvage_profile=true.",
+          "properties": {
+            "outputs": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/output_rule" }
+            }
+          }
+        },
+        "consumable_config": {
+          "$ref": "#/definitions/buff_config",
+          "description": "Present when item_type=consumable."
+        },
+        "stack_max": {
+          "type": "integer", "minimum": 1,
+          "description": "consumable/material only. Maximum stack size in stockpile."
+        }
+      }
+    },
+
+    "building": {
+      "description": "Additions to the existing building node type from Day 1.",
+      "new_properties": {
+        "has_workflows": {
+          "type": "boolean",
+          "default": false,
+          "description": "True if this building hosts building_workflow nodes. Tells the engine to run processBuildingTick for this building."
+        },
+        "artisan_slots": {
+          "type": "object",
+          "description": "Configuration for artisan assignment. Only relevant when has_workflows=true.",
+          "properties": {
+            "base_count":    { "type": "integer", "minimum": 0, "default": 0 },
+            "max_count":     { "type": "integer" },
+            "expand_by":     { "type": "string", "enum": ["building_upgrade", "none"] }
+          }
+        },
+        "buff_slots": {
+          "type": "object",
+          "description": "Hero buff slot configuration. Present on hero management buildings (Barracks, etc.).",
+          "properties": {
+            "base_count":    { "type": "integer", "minimum": 1, "default": 2 },
+            "max_count":     { "type": "integer", "maximum": 8 },
+            "expand_by":     { "type": "string", "enum": ["building_upgrade", "none"] }
+          }
+        },
+        "passive_events": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/passive_event" },
+          "description": "Time-based events fired by this building independently of the workflow queue."
+        }
+      }
+    }
+  },
+
+  "x-tuning-config": {
+    "description": "Configuration for the Tuning utility tab in the editor. Defines danger zone thresholds for the Formula Lab panel.",
+    "formula_lab": {
+      "danger_zones": [
+        { "variable": "failure_chance", "red_above": 0.30,  "yellow_above": 0.15, "label": "High failure rate" },
+        { "variable": "crit_chance",    "red_above": 0.40,  "yellow_above": 0.25, "label": "Crit rate may trivialize content" },
+        { "variable": "duration_ticks", "red_below": 10,    "yellow_below": 30,   "label": "Very short jobs may cause performance issues" },
+        { "variable": "batch_size",     "red_above": 20,    "yellow_above": 10,   "label": "Large batches may cause UI lag" }
+      ]
+    },
+    "xp_curves": {
+      "available_shapes": ["linear", "polynomial", "exponential", "s_curve"],
+      "shape_parameters": {
+        "linear":      ["slope", "intercept"],
+        "polynomial":  ["coefficient", "exponent", "intercept"],
+        "exponential": ["base", "multiplier"],
+        "s_curve":     ["min_xp", "max_xp", "inflection_level", "steepness"]
+      }
+    },
+    "economy_balance": {
+      "simulation_hours": 10,
+      "tick_rate": 4,
+      "flags": {
+        "deadlock_threshold":    0,
+        "bottleneck_ratio":      10,
+        "sink_warning_after_act": 1
+      }
+    }
+  },
+
+  "x-preset-blueprints": {
+    "description": "The three reference blueprints shipped with the editor. Each is a complete building system ready to drop on the canvas.",
+    "forge_standard": {
+      "flavor": "fantasy",
+      "complexity": "intermediate",
+      "node_count": 14,
+      "systems": ["building_workflow×4", "building_upgrade×3", "crafting_recipe×4", "hero_class×1 (Forgemaster)", "item×2 (iron_sword, iron_sword_masterwork)"],
+      "upgrade_path": ["Basic Smelter (L1)", "Smelter II (L2)", "Master Forge (L3)"],
+      "artisan": "Forgemaster",
+      "artisan_specializations": ["smelter", "weaponsmith", "armorsmith"],
+      "crit_behavior": "quality_upgrade",
+      "failure_behavior": "consume_inputs_no_output"
+    },
+    "apothecary_standard": {
+      "flavor": "fantasy",
+      "complexity": "intermediate",
+      "node_count": 13,
+      "systems": ["building_workflow×3", "building_upgrade×5", "crafting_recipe×3", "hero_class×1 (Alchemist)", "item×2 (health_potion, health_potion_superior)"],
+      "upgrade_path": ["Basic Brewery (L1)", "Distillery (L2)", "Essence Extractor (L3)", "Master's Crucible (L4)", "Grand Apothecary (L5)"],
+      "artisan": "Alchemist",
+      "artisan_specializations": ["brewer", "distiller", "extraction_specialist"],
+      "special_mechanic": "streak_bonus (Focused Brewing, threshold 5)",
+      "crit_behavior": "quality_upgrade (produces superior tier consumable)",
+      "failure_behavior": "partial_refund (0.5)"
+    },
+    "library_standard": {
+      "flavor": "fantasy",
+      "complexity": "advanced",
+      "node_count": 11,
+      "systems": ["building_workflow×3 (2 queued, 1 passive)", "building_upgrade×5", "hero_class×1 (Scholar)", "world_effect×3"],
+      "upgrade_path": ["Reading Room (L1)", "Archives (L2)", "Cartography Wing (L3)", "Artificer's Annex (L4)", "Grand Library (L5)"],
+      "artisan": "Scholar",
+      "artisan_specializations": ["archivist", "cartographer", "artificer"],
+      "special_mechanic": "momentum_config (Focused → Inspired → Brilliant)",
+      "crit_behavior": "breakthrough (fires breakthrough_table bonus world_effect)",
+      "failure_behavior": "reset_progress_refund_inputs"
+    }
+  },
+
+  "x-compiler-additions": {
+    "new_validation_rules": [
+      {
+        "rule": "cross_building_prerequisite_exists",
+        "phase": 4,
+        "description": "Every building_id in building_upgrade.requires.cross_building must reference an existing building node in the graph.",
+        "error": "building_upgrade '{id}' requires building '{building_id}' which does not exist in the graph."
+      },
+      {
+        "rule": "cross_building_max_level_sufficient",
+        "phase": 4,
+        "description": "The referenced building must have at least one building_upgrade at or above the required level.",
+        "error": "building_upgrade '{id}' requires building '{building_id}' at level {level}, but that building only reaches level {max_level}."
+      },
+      {
+        "rule": "no_circular_building_prerequisites",
+        "phase": 4,
+        "description": "building_upgrade.requires.cross_building must not form a cycle. e.g. Forge L2 requires Mine L2, Mine L2 requires Forge L2 = deadlock.",
+        "error": "Circular building prerequisite detected: {cycle_path}. This will deadlock the player."
+      },
+      {
+        "rule": "output_rule_resource_exists",
+        "phase": 4,
+        "description": "Every output_rule with output_type=resource must reference an existing resource node.",
+        "error": "building_workflow '{id}' output_rule references resource '{target}' which does not exist in the graph."
+      },
+      {
+        "rule": "output_rule_item_exists",
+        "phase": 4,
+        "description": "Every output_rule with output_type=item or consumable must reference an existing item node.",
+        "error": "building_workflow '{id}' output_rule references item '{target}' which does not exist in the graph."
+      },
+      {
+        "rule": "hero_class_artisan_assignment_valid",
+        "phase": 3,
+        "description": "A hero_class with hero_type=artisan must have combat_eligible=false.",
+        "error": "hero_class '{id}' is hero_type=artisan but has combat_eligible=true. Artisans cannot join expeditions."
+      },
+      {
+        "rule": "blueprint_schema_version_compatible",
+        "phase": 1,
+        "description": "On blueprint import, requires_schema_version must be <= current schema version.",
+        "error": "Blueprint '{blueprint_id}' requires schema version {requires_schema_version} but current version is {current_version}. Run migration tool first."
+      }
+    ]
+  }
+}

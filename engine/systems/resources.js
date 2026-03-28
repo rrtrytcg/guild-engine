@@ -74,7 +74,7 @@ export function spendItems(state, inputs) {
 export function giveItem(state, itemId, qty = 1) {
   const def = state.itemDefs[itemId]
   if (!def) return
-  const limit = def.stack_limit ?? 99
+  const limit = def.stack_max ?? def.stack_limit ?? 99
   state.inventory[itemId] = Math.min((state.inventory[itemId] ?? 0) + qty, limit)
 }
 

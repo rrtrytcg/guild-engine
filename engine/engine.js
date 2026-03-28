@@ -8,7 +8,7 @@ import {
   selectAutoPartyHeroes,
   summarizeExpeditionReadiness,
 } from './systems/expeditions.js'
-import { tickCrafting, buildBuilding, recruitHero, buyUpgrade, equipItem, unequipItem, startCraft, saveGame, loadSave } from './systems/buildings.js'
+import { tickCrafting, processBuildingTick, buildBuilding, recruitHero, buyUpgrade, equipItem, unequipItem, startCraft, saveGame, loadSave } from './systems/buildings.js'
 
 // ── Engine singleton ──────────────────────────────────────────────────────────
 let state = null
@@ -38,6 +38,7 @@ export function initEngine(project, onRender) {
     tickResources(state, dt)
     tickExpeditions(state, dt)
     tickCrafting(state, dt)
+    processBuildingTick(state, dt)
 
     // Auto-save every 60 ticks (~15s)
     if (state.tick % 60 === 0) saveGame(state)
