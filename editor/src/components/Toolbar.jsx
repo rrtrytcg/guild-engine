@@ -1,9 +1,28 @@
+import { useRef } from 'react'
 import useStore from '../store/useStore'
 
 export default function Toolbar() {
   const exportProject = useStore((s) => s.exportProject)
+  const importProject = useStore((s) => s.importProject)
   const nodeCount = useStore((s) => s.nodes.length)
   const edgeCount = useStore((s) => s.edges.length)
+  const fileInputRef = useRef(null)
+
+  const onFileChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const project = JSON.parse(ev.target.result)
+        importProject(project)
+      } catch {
+        alert('Invalid project.json — could not parse file.')
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
 
   return (
     <div
@@ -46,6 +65,41 @@ export default function Toolbar() {
       <span style={{ fontSize: 11, color: '#444460' }}>
         {nodeCount} node{nodeCount !== 1 ? 's' : ''} · {edgeCount} edge{edgeCount !== 1 ? 's' : ''}
       </span>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,application/json"
+        onChange={onFileChange}
+        style={{ display: 'none' }}
+      />
+
+      {/* Import */}
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        style={{
+          background: 'transparent',
+          border: '1px solid #2a2a3e',
+          borderRadius: 7,
+          color: '#8888aa',
+          fontSize: 12,
+          fontWeight: 600,
+          padding: '6px 14px',
+          cursor: 'pointer',
+          letterSpacing: '0.02em',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = '#444460'
+          e.currentTarget.style.color = '#c0c0d8'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = '#2a2a3e'
+          e.currentTarget.style.color = '#8888aa'
+        }}
+      >
+        Import project.json
+      </button>
 
       {/* Export */}
       <button

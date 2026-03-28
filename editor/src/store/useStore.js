@@ -55,6 +55,45 @@ const useStore = create((set, get) => ({
       selectedNodeId: get().selectedNodeId === id ? null : get().selectedNodeId,
     }),
 
+
+  // --- Import project.json ---
+  importProject: (project) => {
+    if (!project?.nodes || !project?.edges) {
+      alert('Invalid project.json — missing nodes or edges array.')
+      return
+    }
+
+    // Auto-layout: space nodes on a grid if canvas_pos is missing
+    const COLS = 4
+    const GAP_X = 260
+    const GAP_Y = 180
+    const OFFSET_X = 80
+    const OFFSET_Y = 80
+
+    const rfNodes = project.nodes.map((nodeData, i) => {
+      const pos = nodeData.canvas_pos ?? {
+        x: OFFSET_X + (i % COLS) * GAP_X,
+        y: OFFSET_Y + Math.floor(i / COLS) * GAP_Y,
+      }
+      return {
+        id: nodeData.id,
+        type: nodeData.type,
+        position: { x: pos.x, y: pos.y },
+        data: nodeData,
+      }
+    })
+
+    const rfEdges = project.edges.map((e) => ({
+      id: e.id ?? `e-${e.source}-${e.target}`,
+      source: e.source,
+      target: e.target,
+      data: { relation: e.relation },
+      style: { stroke: '#444466', strokeWidth: 1.5 },
+    }))
+
+    set({ nodes: rfNodes, edges: rfEdges, selectedNodeId: null })
+  },
+
   // --- Export project.json ---
   exportProject: () => {
     const { nodes, edges } = get()
