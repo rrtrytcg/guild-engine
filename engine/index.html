@@ -767,9 +767,10 @@ function getActionKey(action, targetId) {
 
 function buildWorldRenderHash(s) {
   return JSON.stringify({
-    resources: s.resources.map((r) => ({ id: r.id, amount: r.amount, cap: r.cap, income: r.effective_income ?? r.income })),
+    resources: s.resources.map((r) => ({ id: r.id, icon: r.icon, amount: r.amount, cap: r.cap, income: r.effective_income ?? r.income })),
     buildings: s.buildings.map((b) => ({
       id: b.id,
+      icon: b.icon,
       visible: b.visible,
       level: b.level,
       max_level: b.max_level,
@@ -782,8 +783,8 @@ function buildWorldRenderHash(s) {
         production: lvl.production ?? {},
       })),
     })),
-    heroClasses: s.heroClasses.map((cls) => ({ id: cls.id, recruit_cost: cls.recruit_cost ?? [] })),
-    upgrades: s.upgrades.map((u) => ({ id: u.id, tier: u.tier, max_tier: u.max_tier, cost: u.cost ?? [] })),
+    heroClasses: s.heroClasses.map((cls) => ({ id: cls.id, icon: cls.icon, recruit_cost: cls.recruit_cost ?? [] })),
+    upgrades: s.upgrades.map((u) => ({ id: u.id, icon: u.icon, tier: u.tier, max_tier: u.max_tier, cost: u.cost ?? [] })),
     pending: [...pendingActions].filter((key) =>
       key.startsWith('build-building:') || key.startsWith('recruit-hero:') || key.startsWith('buy-upgrade:')
     ),
@@ -847,6 +848,7 @@ function buildExpeditionRenderHash(s) {
   return JSON.stringify({
     expeditions: s.expeditions.map((exp) => ({
       id: exp.id,
+      icon: exp.icon,
       party_size: exp.party_size,
       duration_s: exp.duration_s,
       visible: exp.visible,
