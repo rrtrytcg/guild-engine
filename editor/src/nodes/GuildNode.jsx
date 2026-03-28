@@ -9,11 +9,6 @@ const GuildNode = memo(({ id, data, selected }) => {
 
   return (
     <div
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData('text/plain', `${id}::${data.type}`)
-        e.dataTransfer.effectAllowed = 'copy'
-      }}
       onClick={() => selectNode(id)}
       style={{
         minWidth: 180,
@@ -37,9 +32,40 @@ const GuildNode = memo(({ id, data, selected }) => {
           padding: '6px 10px',
           display: 'flex',
           alignItems: 'center',
-          gap: 6,
+          gap: 8,
         }}
       >
+        <div
+          draggable
+          className="nodrag nopan"
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onDragStart={(e) => {
+            e.stopPropagation()
+            e.dataTransfer.setData('application/guild-engine-node-id', id)
+            e.dataTransfer.setData('application/guild-engine-node-type', data.type)
+            e.dataTransfer.setData('text/plain', `${id}::${data.type}`)
+            e.dataTransfer.effectAllowed = 'copy'
+          }}
+          title="Drag to an ID field"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 18,
+            height: 18,
+            borderRadius: 4,
+            color: config.textColor,
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: 'grab',
+            flexShrink: 0,
+            userSelect: 'none',
+            background: 'rgba(255,255,255,0.12)',
+          }}
+        >
+          ⠿
+        </div>
         <span style={{ fontSize: 14 }}>{data.icon ?? config.emoji}</span>
         <span
           style={{

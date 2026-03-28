@@ -203,17 +203,27 @@ export function StatBlock({ label, value = {}, onChange }) {
 export function DroppableField({ label, value, onChange, type = 'text', placeholder = '' }) {
   const [over, setOver] = useState(false)
 
-  const handleDragOver = (e) => { e.preventDefault(); setOver(true) }
-  const handleDragLeave = () => setOver(false)
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setOver(true)
+  }
+  const handleDragLeave = (e) => {
+    e.stopPropagation()
+    setOver(false)
+  }
   const handleDrop = (e) => {
     e.preventDefault()
+    e.stopPropagation()
     setOver(false)
-    const raw = e.dataTransfer.getData('text/plain')
+    const raw =
+      e.dataTransfer.getData('application/guild-engine-node-id') ||
+      e.dataTransfer.getData('text/plain')
     if (raw) onChange(raw.split('::')[0])
   }
 
   return (
-    <div style={{ marginBottom: 12 }}>
+    <div style={{ marginBottom: 12, position: 'relative' }}>
       <label style={{ display: 'block', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666680', marginBottom: 4 }}>
         {label}
       </label>
@@ -228,15 +238,33 @@ export function DroppableField({ label, value, onChange, type = 'text', placehol
         style={{
           width: '100%',
           background: '#1e1e2e',
-          border: `1px ${over ? 'dashed' : 'solid'} ${over ? '#7F77DD' : '#2a2a3e'}`,
+          border: `1px solid ${over ? '#7F77DD' : '#2a2a3e'}`,
           borderRadius: 6,
           padding: '6px 8px',
+          paddingRight: over ? 74 : 8,
           color: '#e0e0f0',
           fontSize: 12,
           outline: 'none',
           boxSizing: 'border-box',
+          boxShadow: over ? '0 0 0 1px rgba(127,119,221,0.18)' : 'none',
         }}
       />
+      {over && (
+        <span
+          style={{
+            position: 'absolute',
+            right: 8,
+            top: 24,
+            fontSize: 10,
+            color: '#7F77DD',
+            pointerEvents: 'none',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+          }}
+        >
+          drop here
+        </span>
+      )}
     </div>
   )
 }

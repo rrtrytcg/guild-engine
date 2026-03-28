@@ -67,6 +67,7 @@ export default function Canvas() {
         onPaneClick={clearSelection}
         onInit={(instance) => (reactFlowInstance.current = instance)}
         nodeTypes={nodeTypes}
+        nodesDraggable={false}
         fitView
         deleteKeyCode="Delete"
         snapToGrid
