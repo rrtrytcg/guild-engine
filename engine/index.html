@@ -34,6 +34,24 @@
   .nav-btn{background:transparent;border:none;padding:6px 10px;border-radius:6px;color:#666680;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px}
   .nav-btn.active,.nav-btn:hover{background:#1e1e2e;color:#e0e0f0}
   .rarity-common{color:#B4B2A9} .rarity-uncommon{color:#5DCAA5} .rarity-rare{color:#378ADD} .rarity-epic{color:#7F77DD} .rarity-legendary{color:#EF9F27}
+  .hero-card-header{width:100%;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;background:transparent;border:none;color:inherit;text-align:left;cursor:pointer;padding:0}
+  .hero-card-header:hover .hero-name{color:#ffffff}
+  .equipment-grid{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+  .equipment-row{border:1px solid #2a2a3e;border-radius:8px;background:#171724;padding:8px}
+  .equipment-row-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .equipment-slot-label{font-size:11px;color:#c0c0d8;display:flex;align-items:center;gap:6px;font-weight:600}
+  .equipment-slot-empty{color:#666680}
+  .equipment-slot-value{font-size:11px;color:#e0e0f0;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .equipment-mini-btn{border:none;background:#2a2a3e;color:#c0c0d8;border-radius:6px;width:20px;height:20px;line-height:20px;font-size:12px;cursor:pointer}
+  .equipment-mini-btn:hover{background:#444460;color:#fff}
+  .equipment-popover{margin-top:8px;border:1px solid #2a2a3e;background:#11111b;border-radius:8px;padding:8px}
+  .equipment-preview{border:1px solid #2a2a3e;background:#171724;border-radius:8px;padding:8px;margin-bottom:8px}
+  .equipment-option{width:100%;display:flex;justify-content:space-between;gap:8px;align-items:flex-start;border:1px solid #2a2a3e;background:#1a1a2e;color:#e0e0f0;border-radius:8px;padding:7px 8px;cursor:pointer;text-align:left}
+  .equipment-option:hover{border-color:#7F77DD66;background:#202034}
+  .equipment-option .item-meta{font-size:10px;color:#8888aa;margin-top:2px}
+  .inventory-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid #2a2a3e;border-radius:999px;padding:3px 8px;font-size:10px;background:#1a1a2e;color:#c0c0d8}
+  .inventory-chip.material{opacity:.7;background:#171724;color:#8888aa}
+  .inventory-chip.equipment{border-color:currentColor}
   #notification{position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:999;padding:8px 18px;border-radius:8px;font-size:12px;font-weight:600;pointer-events:none;opacity:0;transition:opacity .2s}
   #notification.show{opacity:1}
   #restart-modal{position:fixed;inset:0;z-index:1200;background:rgba(5,5,12,.78);display:none;align-items:center;justify-content:center;padding:16px}
@@ -86,6 +104,10 @@
         <div class="section-label" style="padding:4px 6px">Event log</div>
         <div id="event-log" style="padding:0 2px"></div>
       </div>
+      <div style="border-top:1px solid #2a2a3e;padding:8px">
+        <div class="section-label" style="padding:4px 6px">Inventory</div>
+        <div id="inventory-list" style="padding:0 2px 2px"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -135,6 +157,48 @@ const renderCache = {
 }
 let worldActionsBound = false
 let expeditionActionsBound = false
+let heroActionsBound = false
+
+const EQUIPMENT_SLOTS = [
+  { slot: 'weapon', icon: '⚔️', label: 'Weapon' },
+  { slot: 'armor', icon: '🛡️', label: 'Armor' },
+  { slot: 'accessory', icon: '💍', label: 'Accessory' },
+  { slot: 'relic', icon: '🔮', label: 'Relic' },
+]
+
+const HERO_UI = {
+  expandedHeroId: null,
+  openSlotKey: null,
+  hoveredItemId: null,
+}
+const heroUiState = HERO_UI
+const expeditionUiState = {
+  selectedPartyByExpedition: {},
+}
+
+const STAT_LABELS = {
+  attack: 'ATK',
+  defense: 'DEF',
+  speed: 'SPD',
+  hp: 'HP',
+  luck: 'LCK',
+}
+
+const RARITY_ORDER = {
+  common: 0,
+  uncommon: 1,
+  rare: 2,
+  epic: 3,
+  legendary: 4,
+}
+
+const RARITY_COLORS = {
+  common: '#B4B2A9',
+  uncommon: '#5DCAA5',
+  rare: '#378ADD',
+  epic: '#7F77DD',
+  legendary: '#EF9F27',
+}
 
 // ── Load screen shown immediately ─────────────────────────────────────────────
 const noProject = document.getElementById('no-project')
@@ -165,6 +229,10 @@ function startGame(project) {
   pendingActions.clear()
   for (const timer of pendingActionTimers.values()) clearTimeout(timer)
   pendingActionTimers.clear()
+  heroUiState.expandedHeroId = null
+  heroUiState.openSlotKey = null
+  heroUiState.hoveredItemId = null
+  expeditionUiState.selectedPartyByExpedition = {}
   renderCache.worldHash = null
   renderCache.expeditionHash = null
   snapshot = initEngine(project, (snap) => { snapshot = snap; render(snap) })
@@ -178,7 +246,8 @@ window.confirmRestart = () => restartCurrentGame()
 window.setScreen = (s) => { engineActions.setScreen(s); if (snapshot) render(snapshot) }
 window.sendParty = (expedId, partySize) => {
   if (!snapshot) return
-  const selectedParty = snapshot.selectExpeditionParty?.(expedId) ?? []
+  const exp = snapshot.expeditions?.find((entry) => entry.id === expedId)
+  const selectedParty = exp ? getExpeditionSelectedParty(snapshot, exp) : []
   actions.startExpedition(expedId, selectedParty)
 }
 
@@ -273,6 +342,107 @@ function renderReadinessParty(readiness) {
   </div>`
 }
 
+function isHeroSelectableForExpedition(s, hero) {
+  if (!hero || hero.status === 'dead') return false
+  if (!['ready', 'inspired'].includes(hero.status)) return false
+  return !(s.activeRuns ?? []).some((run) => !run.done && run.party?.includes(hero.id))
+}
+
+function getSelectableHeroesForExpedition(s) {
+  return (s.heroes ?? []).filter((hero) => isHeroSelectableForExpedition(s, hero))
+}
+
+function getExpeditionSelectedParty(s, exp) {
+  const partySize = exp.party_size ?? 0
+  const stored = expeditionUiState.selectedPartyByExpedition[exp.id]
+  if (!Array.isArray(stored)) return []
+
+  const selectableIds = new Set(getSelectableHeroesForExpedition(s).map((hero) => hero.id))
+  const next = stored.filter((heroId) => selectableIds.has(heroId)).slice(0, partySize)
+  expeditionUiState.selectedPartyByExpedition[exp.id] = next
+  return next
+}
+
+function setExpeditionSelectedParty(expId, party) {
+  expeditionUiState.selectedPartyByExpedition[expId] = Array.from(new Set((party ?? []).filter(Boolean)))
+}
+
+function toggleExpeditionPartyMember(s, exp, heroId) {
+  const current = getExpeditionSelectedParty(s, exp)
+  const partySize = exp.party_size ?? 0
+  if (current.includes(heroId)) {
+    setExpeditionSelectedParty(exp.id, current.filter((id) => id !== heroId))
+    return { ok: true }
+  }
+
+  if (current.length >= partySize) {
+    return { ok: false, reason: `Party is full. ${partySize} heroes max.` }
+  }
+
+  setExpeditionSelectedParty(exp.id, [...current, heroId])
+  return { ok: true }
+}
+
+function clearExpeditionParty(expId) {
+  expeditionUiState.selectedPartyByExpedition[expId] = []
+}
+
+function autoFillExpeditionParty(s, exp) {
+  setExpeditionSelectedParty(exp.id, s.selectExpeditionParty?.(exp.id) ?? [])
+}
+
+function syncExpeditionPartySelections(s) {
+  for (const exp of s.expeditions ?? []) {
+    getExpeditionSelectedParty(s, exp)
+  }
+}
+
+function renderExpeditionPartyPicker(s, exp) {
+  const selectedParty = getExpeditionSelectedParty(s, exp)
+  const selectedHeroes = selectedParty
+    .map((heroId) => s.heroes.find((hero) => hero.id === heroId))
+    .filter(Boolean)
+  const availableHeroes = getSelectableHeroesForExpedition(s)
+  const partySize = exp.party_size ?? selectedHeroes.length
+
+  const selectedHtml = selectedHeroes.length
+    ? selectedHeroes.map((hero) => {
+        const statuses = getHeroStatusList(hero)
+        const primary = statuses[0] ?? 'ready'
+        const meta = HERO_STATUS_META[primary] ?? HERO_STATUS_META.ready
+        return `<button class="badge" data-action="remove-expedition-party" data-expedition-id="${exp.id}" data-hero-id="${hero.id}" style="background:${meta.bg};color:${meta.color};border:1px solid ${meta.color}33;cursor:pointer">
+          ${hero.name} &middot; Lv.${hero.level} &middot; ${meta.icon} ${meta.label} <span style="margin-left:4px">×</span>
+        </button>`
+      }).join('')
+    : '<div style="font-size:10px;color:#666680">No heroes selected yet.</div>'
+
+  const availableHtml = availableHeroes.length
+    ? availableHeroes.map((hero) => {
+        const statuses = getHeroStatusList(hero)
+        const primary = statuses[0] ?? 'ready'
+        const meta = HERO_STATUS_META[primary] ?? HERO_STATUS_META.ready
+        const isSelected = selectedParty.includes(hero.id)
+        return `<button class="badge" data-action="toggle-expedition-party" data-expedition-id="${exp.id}" data-hero-id="${hero.id}" style="background:${isSelected ? `${meta.color}22` : '#1a1a2e'};color:${isSelected ? meta.color : '#c0c0d8'};border:1px solid ${isSelected ? `${meta.color}44` : '#2a2a3e'};cursor:pointer">
+          ${hero.name} &middot; ${meta.icon} ${meta.label}
+        </button>`
+      }).join('')
+    : '<div style="font-size:10px;color:#666680">No available heroes right now.</div>'
+
+  return `<div style="margin-top:8px;padding:8px;border:1px solid #2a2a3e;border-radius:8px;background:#171724">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#666680">Choose party</div>
+      <div style="font-size:10px;color:#8888aa">${selectedHeroes.length}/${partySize} selected</div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">${selectedHtml}</div>
+    <div style="font-size:10px;color:#666680;margin-bottom:4px">Available heroes</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px">${availableHtml}</div>
+    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+      <button class="btn btn-ghost" data-action="auto-fill-expedition-party" data-expedition-id="${exp.id}">Auto-fill</button>
+      <button class="btn btn-ghost" data-action="clear-expedition-party" data-expedition-id="${exp.id}">Clear</button>
+    </div>
+  </div>`
+}
+
 function buildExpeditionGroups(s) {
   const expeditionById = new Map((s.expeditions ?? []).map((exp) => [exp.id, exp]))
   const assigned = new Set()
@@ -293,13 +463,15 @@ function buildExpeditionGroups(s) {
 
 function renderExpeditionCard(s, exp, readiness, { boss = false, note = '' } = {}) {
   const onRun = (s.activeRuns ?? []).some((r) => !r.done)
-  const selectableCount = readiness?.selectableParty?.length ?? 0
+  const selectedParty = getExpeditionSelectedParty(s, exp)
+  const selectedReadiness = readiness
+  const selectableCount = selectedParty.length
   const canSend = exp.visible && !onRun && selectableCount > 0
   const actionKey = getActionKey('start-expedition', exp.id)
   const pending = pendingActions.has(actionKey)
   const sendLabel = selectableCount > 0
     ? `Send ${selectableCount}${exp.party_size && selectableCount < exp.party_size ? `/${exp.party_size}` : ''} heroes`
-    : 'No heroes ready'
+    : 'Select a party'
   const buttonLabel = !exp.visible
     ? 'Locked'
     : pending
@@ -319,12 +491,13 @@ function renderExpeditionCard(s, exp, readiness, { boss = false, note = '' } = {
         <div style="font-size:10px;color:#666680;margin-top:2px">Lv.${exp.level ?? 1} · ${exp.duration_s ?? 0}s · Party ${exp.party_size ?? 0}</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
-        ${renderReadinessBadge(readiness)}
+        ${renderReadinessBadge(selectedReadiness)}
         <div style="font-size:10px;color:#666680;margin-top:3px">${selectableCount}/${exp.party_size ?? selectableCount} selected</div>
       </div>
     </div>
-    ${renderReadinessBar(readiness)}
-    ${renderReadinessParty(readiness)}
+    ${renderReadinessBar(selectedReadiness)}
+    ${renderReadinessParty(selectedReadiness)}
+    ${renderExpeditionPartyPicker(s, exp)}
     <div style="font-size:11px;color:#666680;margin:8px 0 10px">${exp.visible ? (exp.description || 'No description provided.') : (note || exp.description || 'Locked.')}</div>
     <button class="btn ${canSend && !pending ? 'btn-primary' : 'btn-ghost'}" ${canSend && !pending ? '' : 'disabled'} data-action="start-expedition" data-expedition-id="${exp.id}" data-party-size="${exp.party_size}" data-action-key="${actionKey}">
       ${buttonLabel}
@@ -334,14 +507,15 @@ function renderExpeditionCard(s, exp, readiness, { boss = false, note = '' } = {
 
 function render(s) {
   renderResources(s)
-  renderHeroes(s)
+  renderHeroesV2(s)
   renderEventLog(s)
+  renderInventoryPanel(s)
   renderActs(s)
   renderNav(s)
   renderNotification(s)
   if (s.ui.screen === 'world') renderWorldScreen(s)
   if (s.ui.screen === 'expedition') renderExpeditionScreen(s)
-  if (s.ui.screen === 'forge') renderForgeScreen(s)
+  if (s.ui.screen === 'forge') renderForgeScreenV2(s)
 }
 
 // ── Resources (left panel) ────────────────────────────────────────────────────
@@ -363,6 +537,97 @@ function renderResources(s) {
 }
 
 // ── Heroes (right panel) ──────────────────────────────────────────────────────
+function getHeroClassForHero(s, hero) {
+  return s.heroClasses.find((entry) => entry.id === hero.class_id)
+}
+
+function getSlotKey(heroId, slot) {
+  return `${heroId}:${slot}`
+}
+
+function heroCanUseSlot(heroClass, slot) {
+  return Array.isArray(heroClass?.slots) && heroClass.slots.includes(slot)
+}
+
+function getItemDefById(s, itemId) {
+  return s.itemDefs?.[itemId] ?? null
+}
+
+function formatStatLabel(stat) {
+  return STAT_LABELS[stat] ?? stat.slice(0, 3).toUpperCase()
+}
+
+function formatItemStatSummary(itemDef) {
+  const entries = Object.entries(itemDef?.stat_modifiers ?? {}).filter(([, value]) => value)
+  if (!entries.length) return 'No stat changes'
+  return entries
+    .map(([stat, value]) => `${value > 0 ? '+' : ''}${Math.round(value)} ${formatStatLabel(stat)}`)
+    .join(', ')
+}
+
+function getInventoryItemsForSlot(s, hero, slot) {
+  const heroClass = getHeroClassForHero(s, hero)
+  if (!heroCanUseSlot(heroClass, slot)) return []
+
+  return (s.inventory ?? [])
+    .filter((entry) => entry.qty > 0 && entry.def?.subtype === 'equipment' && entry.def?.slot === slot)
+    .slice()
+    .sort((a, b) => {
+      const rarityDelta = (RARITY_ORDER[b.def?.rarity ?? 'common'] ?? 0) - (RARITY_ORDER[a.def?.rarity ?? 'common'] ?? 0)
+      if (rarityDelta !== 0) return rarityDelta
+      return (a.def?.label ?? a.id).localeCompare(b.def?.label ?? b.id)
+    })
+}
+
+function renderEquipmentDiff(hero, itemDef) {
+  const diffs = Object.entries(itemDef?.stat_modifiers ?? {})
+    .filter(([, value]) => value)
+    .map(([stat, value]) => {
+      const current = Number(hero.stats?.[stat] ?? 0)
+      const next = current + value
+      const delta = value > 0 ? `+${Math.round(value)}` : `${Math.round(value)}`
+      return `<div style="font-size:10px;color:#5DCAA5">${formatStatLabel(stat)}: ${Math.round(current)} → ${Math.round(next)} (${delta})</div>`
+    })
+
+  return diffs.length
+    ? diffs.join('')
+    : '<div style="font-size:10px;color:#666680">No stat changes.</div>'
+}
+
+function renderEquipmentSelection(s, hero, slot) {
+  const slotKey = getSlotKey(hero.id, slot)
+  const items = getInventoryItemsForSlot(s, hero, slot)
+  const hoveredItem = heroUiState.hoveredItemId ? items.find((entry) => entry.id === heroUiState.hoveredItemId) : null
+  const previewHtml = hoveredItem
+    ? `<div class="equipment-preview">
+        <div style="font-size:10px;color:#666680;margin-bottom:4px">Preview</div>
+        <div style="font-size:11px;font-weight:600;color:#e0e0f0;margin-bottom:4px">${hoveredItem.def?.icon ?? '📦'} ${hoveredItem.def?.label ?? hoveredItem.id}</div>
+        ${renderEquipmentDiff(hero, hoveredItem.def)}
+      </div>`
+    : `<div class="equipment-preview"><div style="font-size:10px;color:#666680">Hover an item to preview stat changes.</div></div>`
+
+  const itemHtml = items.length
+    ? items.map((entry) => {
+        const rarity = entry.def?.rarity ?? 'common'
+        const borderColor = RARITY_COLORS[rarity] ?? '#2a2a3e'
+        return `<button class="equipment-option" data-action="equip-item" data-hero-id="${hero.id}" data-item-id="${entry.id}" data-slot="${slot}" style="border-color:${borderColor}55">
+          <div style="min-width:0">
+            <div style="font-size:11px;font-weight:600;color:#e0e0f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${entry.def?.icon ?? '📦'} ${entry.def?.label ?? entry.id}</div>
+            <div class="item-meta">${formatItemStatSummary(entry.def)}</div>
+          </div>
+          <div style="flex-shrink:0;text-align:right">
+            <div class="badge rarity-${rarity}" style="background:${borderColor}22;color:${borderColor};border:1px solid ${borderColor}44;margin-bottom:3px">x${entry.qty}</div>
+          </div>
+        </button>`
+      }).join('')
+    : `<div style="font-size:10px;color:#666680;padding:2px 0">No items available for this slot.</div>`
+
+  return `<div class="equipment-popover" data-slot-popover="${slotKey}">
+    ${previewHtml}
+    <div style="display:flex;flex-direction:column;gap:6px">${itemHtml}</div>
+  </div>`
+}
+
 function renderHeroes(s) {
   const el = document.getElementById('heroes-list')
   if (!s.heroes.length) { el.innerHTML = '<div style="font-size:11px;color:#444460;padding:8px 6px">No heroes yet.</div>'; return }
@@ -410,6 +675,99 @@ function renderHeroes(s) {
 }
 
 // ── Event log ─────────────────────────────────────────────────────────────────
+function renderHeroesV2(s) {
+  const el = document.getElementById('heroes-list')
+  ensureHeroActionDelegation()
+
+  if (!s.heroes.length) {
+    el.innerHTML = '<div style="font-size:11px;color:#444460;padding:8px 6px">No heroes yet.</div>'
+    return
+  }
+
+  if (!s.heroes.some((hero) => hero.id === heroUiState.expandedHeroId)) {
+    heroUiState.expandedHeroId = s.heroes[0]?.id ?? null
+    heroUiState.openSlotKey = null
+    heroUiState.hoveredItemId = null
+  }
+
+  const heroMarkup = s.heroes.map((hero) => {
+    const heroClass = getHeroClassForHero(s, hero)
+    const heroStatuses = getHeroStatusList(hero)
+    const primaryStatus = heroStatuses[0] ?? 'ready'
+    const statusMeta = HERO_STATUS_META[primaryStatus] ?? HERO_STATUS_META.ready
+    const xpNext = Math.max(1, hero.xp_next ?? 1)
+    const xpPct = Math.max(0, Math.min(100, ((hero.xp ?? 0) / xpNext) * 100))
+    const expanded = heroUiState.expandedHeroId === hero.id
+    const equipmentSlots = EQUIPMENT_SLOTS.map((slotMeta) => {
+      const equippedId = hero.equipment?.[slotMeta.slot]
+      const equippedDef = equippedId ? getItemDefById(s, equippedId) : null
+      const slotUsable = heroCanUseSlot(heroClass, slotMeta.slot)
+      const slotKey = getSlotKey(hero.id, slotMeta.slot)
+      const isOpen = heroUiState.openSlotKey === slotKey
+      const rarity = equippedDef?.rarity ?? 'common'
+      const rarityColor = RARITY_COLORS[rarity] ?? '#c0c0d8'
+      const valueHtml = equippedDef
+        ? `<span class="equipment-slot-value rarity-${rarity}" style="color:${rarityColor}">${equippedDef.icon ?? '📦'} ${equippedDef.label ?? equippedId}</span>`
+        : `<span class="equipment-slot-empty">Empty</span>`
+
+      if (!slotUsable) {
+        return `<div class="equipment-row">
+          <div class="equipment-row-head">
+            <div class="equipment-slot-label">${slotMeta.icon} ${slotMeta.label}</div>
+            <span class="equipment-slot-empty">Unavailable</span>
+          </div>
+          <div style="font-size:10px;color:#666680;margin-top:6px">This class cannot use this slot.</div>
+        </div>`
+      }
+
+      if (equippedDef) {
+        return `<div class="equipment-row">
+          <button class="equipment-row-head hero-card-header" data-action="toggle-slot" data-hero-id="${hero.id}" data-slot="${slotMeta.slot}">
+            <div class="equipment-slot-label">${slotMeta.icon} ${slotMeta.label}</div>
+            ${valueHtml}
+          </button>
+          <div style="display:flex;justify-content:flex-end;margin-top:6px">
+            <button class="equipment-mini-btn" title="Unequip" data-action="unequip-item" data-hero-id="${hero.id}" data-slot="${slotMeta.slot}">×</button>
+          </div>
+          ${isOpen ? renderEquipmentSelection(s, hero, slotMeta.slot) : ''}
+        </div>`
+      }
+
+      return `<div class="equipment-row">
+        <button class="equipment-row-head hero-card-header" data-action="toggle-slot" data-hero-id="${hero.id}" data-slot="${slotMeta.slot}">
+          <div class="equipment-slot-label">${slotMeta.icon} ${slotMeta.label}</div>
+          ${valueHtml}
+        </button>
+        ${isOpen ? renderEquipmentSelection(s, hero, slotMeta.slot) : ''}
+      </div>`
+    }).join('')
+
+    return `<div class="card hero-card" data-hero-id="${hero.id}" style="margin:4px 6px 0">
+      <button class="hero-card-header" data-action="toggle-hero" data-hero-id="${hero.id}">
+        <div style="min-width:0;flex:1">
+          <div class="hero-name" style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${hero.name}</div>
+          <div style="font-size:10px;color:#666680">${heroClass?.label ?? '?'} &middot; Lv.${hero.level}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <span class="badge" style="background:${statusMeta.bg};color:${statusMeta.color};border:1px solid ${statusMeta.color}33">${statusMeta.icon} ${statusMeta.label}</span>
+          <span style="font-size:12px;color:#666680">${expanded ? '▾' : '▸'}</span>
+        </div>
+      </button>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${renderHeroStatusBadges(hero)}</div>
+      <div style="margin-top:8px">
+        <div class="progress-bar-outer" style="height:8px;margin-bottom:4px"><div class="progress-bar-inner" style="width:${xpPct}%;background:#7F77DD"></div></div>
+        <div style="font-size:10px;color:#666680">XP ${s.fmt(hero.xp ?? 0)} / ${s.fmt(xpNext)}</div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+        ${Object.entries(hero.stats ?? {}).map(([k, v]) => `<span style="font-size:10px;color:#8888aa">${k.slice(0, 3).toUpperCase()} <strong style="color:#c0c0d8">${Math.round(v)}</strong></span>`).join('')}
+      </div>
+      ${expanded ? `<div class="equipment-grid">${equipmentSlots}</div>` : ''}
+    </div>`
+  }).join('')
+
+  el.innerHTML = heroMarkup
+}
+
 function renderEventLog(s) {
   const colors = { success:'#1D9E75', danger:'#E24B4A', system:'#7F77DD', info:'#666680' }
   const html = s.eventLog.map((e) =>
@@ -419,6 +777,30 @@ function renderEventLog(s) {
 }
 
 // ── Acts ──────────────────────────────────────────────────────────────────────
+function renderInventoryPanel(s) {
+  const el = document.getElementById('inventory-list')
+  const items = (s.inventory ?? []).filter((entry) => entry.qty > 0)
+
+  if (!items.length) {
+    el.innerHTML = '<div style="font-size:11px;color:#444460;padding:4px 6px">Inventory empty.</div>'
+    return
+  }
+
+  el.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:4px;padding:0 2px">
+    ${items.map((entry) => {
+      const def = entry.def ?? {}
+      const isMaterial = def.subtype === 'material'
+      const rarity = def.rarity ?? 'common'
+      const rarityColor = RARITY_COLORS[rarity] ?? '#c0c0d8'
+      const chipClass = isMaterial ? 'inventory-chip material' : `inventory-chip equipment rarity-${rarity}`
+      const chipStyle = isMaterial
+        ? ''
+        : `color:${rarityColor};border-color:${rarityColor}55`
+      return `<span class="${chipClass}" style="${chipStyle}">${def.icon ?? '📦'} ${def.label ?? entry.id} ×${entry.qty}</span>`
+    }).join('')}
+  </div>`
+}
+
 function renderActs(s) {
   const acts = s.acts ?? []
   const actMarkup = acts.length
@@ -558,6 +940,7 @@ function renderWorldScreen(s) {
 function renderExpeditionScreen(s) {
   const el = document.getElementById('screen-expedition')
   ensureExpeditionActionDelegation()
+  syncExpeditionPartySelections(s)
   const expeditionHash = buildExpeditionRenderHash(s)
   if (renderCache.expeditionHash === expeditionHash) return
   renderCache.expeditionHash = expeditionHash
@@ -597,9 +980,12 @@ function renderExpeditionScreen(s) {
       : `Defeat ${previousAct?.label ?? 'the previous act'} boss first.`
     const innerMarkup = act.visible
       ? [
-          ...expeditions.map((exp) => renderExpeditionCard(s, exp, s.getExpeditionReadiness(exp.id))),
+          ...expeditions.map((exp) => {
+            const selectedParty = getExpeditionSelectedParty(s, exp)
+            return renderExpeditionCard(s, exp, s.getExpeditionReadiness(exp.id, selectedParty))
+          }),
           bossExpedition
-            ? renderExpeditionCard(s, bossExpedition, s.getExpeditionReadiness(bossExpedition.id), {
+            ? renderExpeditionCard(s, bossExpedition, s.getExpeditionReadiness(bossExpedition.id, getExpeditionSelectedParty(s, bossExpedition)), {
                 boss: true,
                 note: bossExpedition.visible ? '' : 'Complete all above first.',
               })
@@ -626,7 +1012,7 @@ function renderExpeditionScreen(s) {
     ? `<section class="card" style="margin-bottom:12px">
         <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#666680;margin-bottom:8px">Standalone Expeditions</div>
         <div style="display:flex;flex-direction:column;gap:8px">
-          ${expeditionGroups.standalone.map((exp) => renderExpeditionCard(s, exp, s.getExpeditionReadiness(exp.id), {
+          ${expeditionGroups.standalone.map((exp) => renderExpeditionCard(s, exp, s.getExpeditionReadiness(exp.id, getExpeditionSelectedParty(s, exp)), {
             note: exp.visible ? '' : 'Unlock conditions not met.',
           })).join('')}
         </div>
@@ -727,20 +1113,134 @@ function handleExpeditionActionClick(e) {
   const action = btn.dataset.action
   if (action === 'start-expedition') {
     const expeditionId = btn.dataset.expeditionId
-    const selectedParty = snapshot?.selectExpeditionParty?.(expeditionId) ?? []
+    const exp = snapshot?.expeditions?.find((entry) => entry.id === expeditionId)
+    const selectedParty = exp ? getExpeditionSelectedParty(snapshot, exp) : []
     queueAction(btn.dataset.actionKey || getActionKey(action, expeditionId), () => actions.startExpedition(expeditionId, selectedParty))
     return
   }
-  if (action === 'start-expedition') {
-    const expeditionId = btn.dataset.expeditionId
-    const partySize = Number(btn.dataset.partySize) || 0
-    const readyHeroes = snapshot?.heroes
-      .filter((h) => h.status === 'ready')
-      .map((h) => h.id)
-      .slice(0, partySize)
-    queueAction(btn.dataset.actionKey || getActionKey(action, expeditionId), () => actions.startExpedition(expeditionId, readyHeroes))
-  } else if (action === 'resolve-event-choice') {
+  if (action === 'resolve-event-choice') {
     actions.resolveEventChoice(btn.dataset.runId, Number(btn.dataset.choiceIndex))
+  } else if (action === 'toggle-expedition-party') {
+    const expeditionId = btn.dataset.expeditionId
+    const heroId = btn.dataset.heroId
+    const exp = snapshot?.expeditions?.find((entry) => entry.id === expeditionId)
+    if (!exp || !snapshot) return
+    const result = toggleExpeditionPartyMember(snapshot, exp, heroId)
+    if (!result.ok) notify(result.reason, 'danger')
+    if (snapshot) render(snapshot)
+  } else if (action === 'remove-expedition-party') {
+    const expeditionId = btn.dataset.expeditionId
+    const heroId = btn.dataset.heroId
+    const exp = snapshot?.expeditions?.find((entry) => entry.id === expeditionId)
+    if (!exp || !snapshot) return
+    const next = getExpeditionSelectedParty(snapshot, exp).filter((id) => id !== heroId)
+    setExpeditionSelectedParty(expeditionId, next)
+    if (snapshot) render(snapshot)
+  } else if (action === 'auto-fill-expedition-party') {
+    const expeditionId = btn.dataset.expeditionId
+    const exp = snapshot?.expeditions?.find((entry) => entry.id === expeditionId)
+    if (!exp || !snapshot) return
+    autoFillExpeditionParty(snapshot, exp)
+    if (snapshot) render(snapshot)
+  } else if (action === 'clear-expedition-party') {
+    clearExpeditionParty(btn.dataset.expeditionId)
+    if (snapshot) render(snapshot)
+  }
+}
+
+function ensureHeroActionDelegation() {
+  if (heroActionsBound) return
+  const el = document.getElementById('right-panel')
+  if (!el) return
+  el.addEventListener('click', handleHeroActionClick)
+  el.addEventListener('mouseover', handleHeroActionHover)
+  el.addEventListener('mouseout', handleHeroActionHover)
+  heroActionsBound = true
+}
+
+function handleHeroActionClick(e) {
+  const btn = e.target.closest('button[data-action]')
+  if (!btn || btn.disabled || !e.currentTarget.contains(btn)) return
+
+  const action = btn.dataset.action
+  if (action === 'toggle-hero') {
+    const heroId = btn.dataset.heroId
+    if (heroUiState.expandedHeroId === heroId) {
+      heroUiState.expandedHeroId = null
+      heroUiState.openSlotKey = null
+      heroUiState.hoveredItemId = null
+    } else {
+      heroUiState.expandedHeroId = heroId
+      heroUiState.openSlotKey = null
+      heroUiState.hoveredItemId = null
+    }
+    if (snapshot) render(snapshot)
+    return
+  }
+
+  if (action === 'toggle-slot') {
+    const heroId = btn.dataset.heroId
+    const slot = btn.dataset.slot
+    heroUiState.expandedHeroId = heroId
+    const slotKey = getSlotKey(heroId, slot)
+    if (heroUiState.openSlotKey === slotKey) {
+      heroUiState.openSlotKey = null
+      heroUiState.hoveredItemId = null
+    } else {
+      heroUiState.openSlotKey = slotKey
+      heroUiState.hoveredItemId = null
+    }
+    if (snapshot) render(snapshot)
+    return
+  }
+
+  if (action === 'equip-item') {
+    const heroId = btn.dataset.heroId
+    const itemId = btn.dataset.itemId
+    const result = actions.equipItem(heroId, itemId)
+    if (result?.ok) {
+      heroUiState.openSlotKey = null
+      heroUiState.hoveredItemId = null
+    }
+    if (snapshot) render(snapshot)
+    return
+  }
+
+  if (action === 'unequip-item') {
+    const heroId = btn.dataset.heroId
+    const slot = btn.dataset.slot
+    const result = actions.unequipItem(heroId, slot)
+    if (result?.ok) {
+      heroUiState.openSlotKey = null
+      heroUiState.hoveredItemId = null
+    }
+    if (snapshot) render(snapshot)
+    return
+  }
+}
+
+function handleHeroActionHover(e) {
+  const itemBtn = e.target.closest('button[data-item-id]')
+  if (!itemBtn || !e.currentTarget.contains(itemBtn)) {
+    return
+  }
+
+  const itemId = itemBtn.dataset.itemId
+  if (e.type === 'mouseover') {
+    if (heroUiState.hoveredItemId !== itemId) {
+      heroUiState.hoveredItemId = itemId
+      if (snapshot) render(snapshot)
+    }
+    return
+  }
+
+  if (e.type === 'mouseout') {
+    const related = e.relatedTarget
+    if (related && itemBtn.contains(related)) return
+    if (heroUiState.hoveredItemId === itemId) {
+      heroUiState.hoveredItemId = null
+      if (snapshot) render(snapshot)
+    }
   }
 }
 
@@ -842,6 +1342,7 @@ function buildExpeditionRenderHash(s) {
     })),
     heroes: heroSnapshots,
     multipliers: s.multipliers?.hero_stats ?? {},
+    selectedParties: expeditionUiState.selectedPartyByExpedition,
     pending: [...pendingActions].filter((key) => key.startsWith('start-expedition:')),
   })
   return renderHash
@@ -889,6 +1390,25 @@ function renderForgeScreen(s) {
   el.innerHTML = `<h2 style="font-size:15px;font-weight:700;margin-bottom:12px">Forge</h2>
     <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#444460;margin-bottom:8px">Inventory</div>
     <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:4px">${invHtml}</div>
+    ${stations.length ? `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#444460;margin-bottom:8px">Crafting stations</div>${stationsHtml}` : '<div style="color:#444460;font-size:12px">No crafting stations built yet.</div>'}`
+}
+
+function renderForgeScreenV2(s) {
+  const el = document.getElementById('screen-forge')
+  const stations = s.buildings.filter((b) => b.is_crafting_station && b.level > 0)
+  const stationsHtml = stations.map((bld) => {
+    const levelData = bld.levels[bld.level - 1]
+    const slots = levelData?.recipe_slots ?? 1
+    return `<div class="card">
+      <div style="font-weight:600;margin-bottom:6px">${bld.icon ?? '🔨'} ${bld.label} <span style="font-size:10px;color:#666680">${bld.craft_queue.length}/${slots} slots</span></div>
+      ${bld.craft_queue.map((job) => {
+        const pct = Math.min(100, (job.progress_s / job.total_s) * 100)
+        return `<div style="margin-bottom:6px"><div style="font-size:11px;color:#8888aa;margin-bottom:3px">${job.recipe_id}</div><div class="progress-bar-outer"><div class="progress-bar-inner" style="width:${pct}%;background:#BA7517"></div></div></div>`
+      }).join('') || '<div style="font-size:11px;color:#444460">Queue empty</div>'}
+    </div>`
+  }).join('')
+
+  el.innerHTML = `<h2 style="font-size:15px;font-weight:700;margin-bottom:12px">Forge</h2>
     ${stations.length ? `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#444460;margin-bottom:8px">Crafting stations</div>${stationsHtml}` : '<div style="color:#444460;font-size:12px">No crafting stations built yet.</div>'}`
 }
 

@@ -44,20 +44,6 @@ Each entry has:
 - GENERATOR IMPACT: Pass 2 calibration tables updated — enemy_atk, enemy_hp, duration formulas, XP curve, curse_chance defaults, on_success_unlock wiring between acts.
 - WIKI SECTION: Sections 2, 3, 4, 5, 6
 
-### Run log — 2026-03-28
-- INPUT: A dark fantasy guild management game set in a crumbling
-- OUTPUT: world-template.json
-- PASS1 VERSION: v1.1.0
-- NOTES: Invented Shadowbound Guild with 2 acts, 3 resources, 3 hero classes, 3 buildings, and 6 items. Treated iron_ore and shadow_essence as distinct resource/item pairs for the passive economy and crafting material drops.
-
-### Run log — 2026-03-28
-- INPUT: Shadowbound Guild
-- OUTPUT: generated-project.json
-- PASS2 VERSION: v1.1.0
-- NODE COUNT: 32 nodes total
-- WARNINGS: none
-- NOTES: Generated 5 standard expeditions, 2 boss expeditions, 4 loot tables, and 4 upgrades. Pruned template-only metadata from node payloads, kept separate resource/item IDs for iron_ore and shadow_essence, and corrected building production rates to the calibration table.
-
 ---
 
 ## Pending systems (post-MVP — not yet in generators)
@@ -151,3 +137,12 @@ Do not skip step 5. The changelog is how the designer knows what the generator c
 - SUMMARY: Optional repeatable expander. Reads existing generated-project.json and expansion-prompt.txt, adds new acts/zones/heroes/items/events without modifying existing content. Tracks runs in expansion-log.md. New IDs use exp[N] suffix to prevent collisions across runs.
 - GENERATOR IMPACT: New GENERATORPASS3.md prompt. PASS1 and PASS2 unchanged.
 - WIKI SECTION: To be added under "World Generator"
+
+### v1.3.0 — Extract Pass 0 + Translate Pass (IP adaptation pipeline)
+- DATE: 2026-03-28
+- TYPE: SYSTEM
+- SCOPE: BOTH (new pre-pipeline passes)
+- STATUS: IMPLEMENTED
+- SUMMARY: Two new passes for adapting existing IP/creative works. Extract Pass 0 reads source files (txt/md/html/rtf/docx/odt/epub/csv/json/yaml) and extracts world elements using 8 universal translation questions into source-analysis.json. Translate Pass maps source terms to game schema, outputs world-template.json (same format as Pass 1), flags ambiguous translations to translation-flags.md. Pass 2 and Pass 3 unchanged — they read world-template.json regardless of origin.
+- GENERATOR IMPACT: New EXTRACTPASS0.md and TRANSLATEPASS.md prompts. GENERATORPASS1/2/3 unchanged.
+- WIKI SECTION: To be added under "World Generator — IP Adaptation"

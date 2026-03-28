@@ -132,7 +132,7 @@ function getReadinessMeta(key) {
   return READINESS_META[key] ?? READINESS_META.locked
 }
 
-export function summarizeExpeditionReadiness(state, expeditionOrId) {
+export function summarizeExpeditionReadiness(state, expeditionOrId, heroIds = null) {
   const expedition = getExpedition(state, expeditionOrId)
   if (!expedition) {
     return {
@@ -168,7 +168,9 @@ export function summarizeExpeditionReadiness(state, expeditionOrId) {
     }
   }
 
-  const selectableParty = selectAutoPartyHeroes(state, expedition)
+  const selectableParty = Array.isArray(heroIds)
+    ? Array.from(new Set(heroIds.filter(Boolean)))
+    : selectAutoPartyHeroes(state, expedition)
   if (!selectableParty.length) {
     return {
       ...READINESS_META.empty,
@@ -643,7 +645,7 @@ export function checkActProgress(state, options = {}) {
   refreshProgressionVisibility(state)
 }
 
-export function startExpedition(state, expeditionId, heroIds = []) {
+export function startExpedition(state, expeditionId, heroIds = null) {
   clearExpiredHeroStatuses(state)
 
   const expedition = state.expeditions?.[expeditionId]
@@ -653,7 +655,7 @@ export function startExpedition(state, expeditionId, heroIds = []) {
     return { ok: false, reason: 'Another expedition is already running.' }
   }
 
-  const selectedIds = Array.from(new Set((heroIds?.length ? heroIds : selectAutoPartyHeroes(state, expedition)).filter(Boolean)))
+  const selectedIds = Array.from(new Set((Array.isArray(heroIds) ? heroIds : selectAutoPartyHeroes(state, expedition)).filter(Boolean)))
   if (!selectedIds.length) return { ok: false, reason: 'Select at least one hero.' }
   if (selectedIds.length > (expedition.party_size ?? selectedIds.length)) {
     return { ok: false, reason: `Max party size is ${expedition.party_size}.` }

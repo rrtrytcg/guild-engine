@@ -8,7 +8,7 @@ import {
   selectAutoPartyHeroes,
   summarizeExpeditionReadiness,
 } from './systems/expeditions.js'
-import { tickCrafting, buildBuilding, recruitHero, buyUpgrade, equipItem, startCraft, saveGame, loadSave } from './systems/buildings.js'
+import { tickCrafting, buildBuilding, recruitHero, buyUpgrade, equipItem, unequipItem, startCraft, saveGame, loadSave } from './systems/buildings.js'
 
 // ── Engine singleton ──────────────────────────────────────────────────────────
 let state = null
@@ -88,6 +88,11 @@ export const actions = {
     if (!r.ok) notify(r.reason, 'danger')
     return r
   },
+  unequipItem: (heroId, slot) => {
+    const r = unequipItem(state, heroId, slot)
+    if (!r.ok) notify(r.reason, 'danger')
+    return r
+  },
   setScreen: (screen, extra = {}) => {
     state.ui.screen = screen
     Object.assign(state.ui, extra)
@@ -119,6 +124,7 @@ function getSnapshot() {
     buildings: Object.values(state.buildings),
     upgrades: Object.values(state.upgrades).filter((u) => u.visible),
     expeditions: Object.values(state.expeditions),
+    itemDefs: state.itemDefs,
     activeRuns: state.activeRuns,
     acts: Object.values(state.acts).sort((a, b) => (a.act_number ?? 0) - (b.act_number ?? 0)),
     factions: Object.values(state.factions),
@@ -131,7 +137,7 @@ function getSnapshot() {
       (state.resources[resource_id]?.amount ?? 0) >= amount
     ),
     selectExpeditionParty: (expeditionId) => selectAutoPartyHeroes(state, expeditionId),
-    getExpeditionReadiness: (expeditionId) => summarizeExpeditionReadiness(state, expeditionId),
+    getExpeditionReadiness: (expeditionId, heroIds) => summarizeExpeditionReadiness(state, expeditionId, heroIds),
   }
 }
 

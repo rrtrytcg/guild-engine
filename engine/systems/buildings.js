@@ -343,6 +343,21 @@ export function equipItem(state, heroId, itemId) {
   return { ok: true }
 }
 
+export function unequipItem(state, heroId, slot) {
+  const hero = state.heroes.find((h) => h.id === heroId)
+  if (!hero) return { ok: false, reason: 'Hero not found.' }
+
+  const itemId = hero.equipment?.[slot]
+  if (!itemId) return { ok: false, reason: 'No item equipped in that slot.' }
+
+  giveItem(state, itemId, 1)
+  delete hero.equipment[slot]
+
+  syncHeroStats(state, hero)
+
+  return { ok: true }
+}
+
 // ── Buy an upgrade ────────────────────────────────────────────────────────────
 export function buyUpgrade(state, upgradeId) {
   const upg = state.upgrades[upgradeId]
