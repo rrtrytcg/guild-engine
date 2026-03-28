@@ -94,33 +94,7 @@ const useStore = create((set, get) => ({
     set({ nodes: rfNodes, edges: rfEdges, selectedNodeId: null })
   },
 
-  // --- Export project.json ---
-  exportProject: () => {
-    const { nodes, edges } = get()
-    const project = {
-      meta: {
-        schema_version: '0.1.0',
-        title: 'Untitled Project',
-        author: '',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      nodes: nodes.map((n) => n.data),
-      edges: edges.map((e) => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        relation: e.data?.relation ?? 'unlocks',
-      })),
-    }
-    const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'project.json'
-    a.click()
-    URL.revokeObjectURL(url)
-  },
+  // export is handled by compiler.js + CompileModal
 }))
 
 // Default field values when a node is first dropped onto the canvas

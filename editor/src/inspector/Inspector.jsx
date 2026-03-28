@@ -2,6 +2,35 @@ import useStore from '../store/useStore'
 import { NODE_CONFIG } from '../nodes/nodeConfig'
 import ResourceInspector from './ResourceInspector'
 import HeroClassInspector from './HeroClassInspector'
+import ItemInspector from './ItemInspector'
+import LootTableInspector from './LootTableInspector'
+import RecipeInspector from './RecipeInspector'
+import AbilityInspector from './AbilityInspector'
+import BuildingInspector from './BuildingInspector'
+import UpgradeInspector from './UpgradeInspector'
+import ExpeditionInspector from './ExpeditionInspector'
+import BossExpeditionInspector from './BossExpeditionInspector'
+import ActInspector from './ActInspector'
+import EventInspector from './EventInspector'
+import FactionInspector from './FactionInspector'
+import PrestigeInspector from './PrestigeInspector'
+
+const INSPECTOR_MAP = {
+  resource:         ResourceInspector,
+  hero_class:       HeroClassInspector,
+  item:             ItemInspector,
+  loot_table:       LootTableInspector,
+  recipe:           RecipeInspector,
+  ability:          AbilityInspector,
+  building:         BuildingInspector,
+  upgrade:          UpgradeInspector,
+  expedition:       ExpeditionInspector,
+  boss_expedition:  BossExpeditionInspector,
+  act:              ActInspector,
+  event:            EventInspector,
+  faction:          FactionInspector,
+  prestige:         PrestigeInspector,
+}
 
 export default function Inspector() {
   const selectedNodeId = useStore((s) => s.selectedNodeId)
@@ -12,49 +41,30 @@ export default function Inspector() {
 
   if (!node) {
     return (
-      <div
-        style={{
-          width: 280,
-          background: '#13131f',
-          borderLeft: '1px solid #2a2a3e',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#444460',
-          fontSize: 12,
-          textAlign: 'center',
-          padding: 24,
-        }}
-      >
+      <div style={{
+        width: 280, background: '#13131f', borderLeft: '1px solid #2a2a3e',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: '#444460', fontSize: 12, textAlign: 'center', padding: 24,
+      }}>
         Click a node to inspect it
       </div>
     )
   }
 
   const config = NODE_CONFIG[node.data.type] ?? { label: node.data.type, color: '#888' }
+  const Form = INSPECTOR_MAP[node.data.type]
 
   return (
-    <div
-      style={{
-        width: 280,
-        background: '#13131f',
-        borderLeft: '1px solid #2a2a3e',
-        display: 'flex',
-        flexDirection: 'column',
-        overflowY: 'auto',
-      }}
-    >
-      {/* Inspector header */}
-      <div
-        style={{
-          background: config.color,
-          padding: '10px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexShrink: 0,
-        }}
-      >
+    <div style={{
+      width: 280, background: '#13131f', borderLeft: '1px solid #2a2a3e',
+      display: 'flex', flexDirection: 'column', overflowY: 'auto',
+    }}>
+      {/* Header */}
+      <div style={{
+        background: config.color, padding: '10px 14px', flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        position: 'sticky', top: 0, zIndex: 10,
+      }}>
         <div>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' }}>
             {config.label}
@@ -66,47 +76,22 @@ export default function Inspector() {
         <button
           onClick={() => deleteNode(node.id)}
           title="Delete node"
-          style={{
-            background: 'rgba(0,0,0,0.25)',
-            border: 'none',
-            borderRadius: 6,
-            color: '#fff',
-            cursor: 'pointer',
-            fontSize: 16,
-            width: 28,
-            height: 28,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          ×
-        </button>
+          style={{ background: 'rgba(0,0,0,0.25)', border: 'none', borderRadius: 6, color: '#fff', cursor: 'pointer', fontSize: 16, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >×</button>
       </div>
 
-      {/* Node ID chip */}
-      <div style={{ padding: '8px 14px 0', fontFamily: 'monospace', fontSize: 10, color: '#444460' }}>
+      {/* Node ID */}
+      <div style={{ padding: '6px 14px 0', fontFamily: 'monospace', fontSize: 10, color: '#33334a' }}>
         {node.id}
       </div>
 
-      {/* Type-specific form */}
+      {/* Form */}
       <div style={{ padding: '12px 14px', flex: 1 }}>
-        {node.data.type === 'resource' && <ResourceInspector node={node} />}
-        {node.data.type === 'hero_class' && <HeroClassInspector node={node} />}
-        {!['resource', 'hero_class'].includes(node.data.type) && (
-          <ComingSoon type={node.data.type} />
-        )}
+        {Form
+          ? <Form node={node} />
+          : <div style={{ color: '#555570', fontSize: 12 }}>No inspector for type: {node.data.type}</div>
+        }
       </div>
-    </div>
-  )
-}
-
-function ComingSoon({ type }) {
-  return (
-    <div style={{ color: '#555570', fontSize: 12, textAlign: 'center', marginTop: 32 }}>
-      <div style={{ fontSize: 24, marginBottom: 8 }}>🔧</div>
-      Inspector for <strong style={{ color: '#7F77DD' }}>{type}</strong>
-      <br />coming in M3
     </div>
   )
 }
