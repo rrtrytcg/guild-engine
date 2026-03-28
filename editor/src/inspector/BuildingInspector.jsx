@@ -5,14 +5,26 @@ export default function BuildingInspector({ node }) {
   const d = node.data
   const levels = d.levels ?? []
 
+  const normalizeLevel = (lvl = {}) => ({
+    build_cost: Array.isArray(lvl.build_cost) ? lvl.build_cost : [],
+    build_time_s: lvl.build_time_s ?? 0,
+    hero_slots: lvl.hero_slots ?? 0,
+    recipe_slots: lvl.recipe_slots ?? 0,
+    production: lvl.production ?? {},
+  })
+
   const setMaxLevel = (n) => {
     const count = Number(n)
-    const next = Array.from({ length: count }, (_, i) => levels[i] ?? defaultLevel())
+    const next = Array.from({ length: count }, (_, i) => normalizeLevel(levels[i]))
+    console.log('[BuildingInspector] saving levels', next)
     update({ max_level: count, levels: next })
   }
 
-  const updateLevel = (i, patch) =>
-    update({ levels: levels.map((l, idx) => (idx === i ? { ...l, ...patch } : l)) })
+  const updateLevel = (i, patch) => {
+    const next = levels.map((l, idx) => normalizeLevel(idx === i ? { ...l, ...patch } : l))
+    console.log('[BuildingInspector] saving levels', next)
+    update({ levels: next })
+  }
 
   return (
     <div>
@@ -108,7 +120,6 @@ function ProductionEditor({ value, onChange }) {
   )
 }
 
-const defaultLevel = () => ({ build_cost: [], build_time_s: 0, hero_slots: 0, recipe_slots: 0, production: {} })
 const inp = { background: '#1e1e2e', border: '1px solid #2a2a3e', borderRadius: 6, padding: '4px 6px', color: '#e0e0f0', fontSize: 12, outline: 'none' }
 const xBtn = { background: 'none', border: 'none', color: '#555570', cursor: 'pointer', fontSize: 14, padding: '0 2px' }
 const addBtn = { fontSize: 10, padding: '3px 8px', background: '#1e1e2e', border: '1px solid #2a2a3e', borderRadius: 4, color: '#666680', cursor: 'pointer' }

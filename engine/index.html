@@ -105,6 +105,12 @@
 import { initEngine, actions as engineActions } from './engine.js'
 window.actions = engineActions
 let snapshot = null
+const renderCache = {
+  worldKey: null,
+  expeditionKey: null,
+}
+let worldActionsBound = false
+let expeditionActionsBound = false
 
 // ── Load screen shown immediately ─────────────────────────────────────────────
 const noProject = document.getElementById('no-project')
@@ -129,14 +135,21 @@ function startGame(project) {
   document.getElementById('app').style.display = 'flex'
   document.getElementById('game-title').textContent = project.meta?.title ?? 'Guild Engine'
   document.title = project.meta?.title ?? 'Guild Engine'
+  renderCache.worldKey = null
+  renderCache.expeditionKey = null
   snapshot = initEngine(project, (snap) => { snapshot = snap; render(snap) })
   render(snapshot)
 }
 
 window.goToEditor = () => window.history.back()
 window.setScreen = (s) => { engineActions.setScreen(s); if (snapshot) render(snapshot) }
-window.sendParty = (expedId) => {
-  const readyHeroes = snapshot.heroes.filter((h) => h.status === 'ready').map((h) => h.id)
+window.sendParty = (expedId, partySize) => {
+  if (!snapshot) return
+  const maxPartySize = Number(partySize) || snapshot.expeditions.find((e) => e.id === expedId)?.party_size || snapshot.heroes.length
+  const readyHeroes = snapshot.heroes
+    .filter((h) => h.status === 'ready')
+    .map((h) => h.id)
+    .slice(0, maxPartySize)
   actions.startExpedition(expedId, readyHeroes)
 }
 
@@ -239,6 +252,10 @@ function renderNotification(s) {
 // ── World screen ──────────────────────────────────────────────────────────────
 function renderWorldScreen(s) {
   const el = document.getElementById('screen-world')
+  ensureWorldActionDelegation()
+  const worldKey = buildWorldRenderKey(s)
+  if (renderCache.worldKey === worldKey) return
+  renderCache.worldKey = worldKey
 
   const buildingsHtml = s.buildings.filter((b) => b.visible).map((b) => {
     const hasLevels = b.levels && b.levels.length > 0
@@ -259,7 +276,7 @@ function renderWorldScreen(s) {
           ? `<span style="font-size:10px;color:#444460;font-style:italic">not configured</span>`
           : atMax
             ? `<button class="btn btn-ghost" disabled>Max level</button>`
-            : `<button class="btn ${canBuild?'btn-teal':'btn-ghost'}" ${canBuild?'':'disabled'} onclick="actions.buildBuilding('${b.id}')">Build · ${costLabel}</button>`
+            : `<button class="btn ${canBuild?'btn-teal':'btn-ghost'}" ${canBuild?'':'disabled'} data-action="build-building" data-building-id="${b.id}">Build · ${costLabel}</button>`
         }
       </div>
       ${b.level > 0 && hasLevels ? `<div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -281,7 +298,7 @@ function renderWorldScreen(s) {
         <div style="font-weight:600;font-size:12px">${cls.icon ?? '⚔️'} ${cls.label}</div>
         <div style="font-size:10px;color:#666680">${cost.map(c=>s.fmt(c.amount)+' '+(s.resources.find(r=>r.id===c.resource_id)?.label??c.resource_id)).join(', ')||'Free'}</div>
       </div>
-      <button class="btn btn-primary" ${canRecruit?'':'disabled'} onclick="actions.recruitHero('${cls.id}')">Recruit</button>
+      <button class="btn btn-primary" ${canRecruit?'':'disabled'} data-action="recruit-hero" data-class-id="${cls.id}">Recruit</button>
     </div>`
   }).join('')
 
@@ -293,7 +310,7 @@ function renderWorldScreen(s) {
         <div style="font-weight:600;font-size:12px">${u.icon??'⬆️'} ${u.label} ${u.max_tier>1?`(${u.tier}/${u.max_tier})`:''}</div>
         <div style="font-size:10px;color:#666680">${u.description||''}</div>
       </div>
-      <button class="btn btn-primary" ${canBuy?'':'disabled'} onclick="actions.buyUpgrade('${u.id}')">
+      <button class="btn btn-primary" ${canBuy?'':'disabled'} data-action="buy-upgrade" data-upgrade-id="${u.id}">
         ${u.tier>=u.max_tier?'✓ Max':cost.map(c=>s.fmt(c.amount)+' '+(s.resources.find(r=>r.id===c.resource_id)?.label??c.resource_id)).join(' + ')||'Buy'}
       </button>
     </div>`
@@ -310,6 +327,10 @@ function renderWorldScreen(s) {
 // ── Expedition screen ─────────────────────────────────────────────────────────
 function renderExpeditionScreen(s) {
   const el = document.getElementById('screen-expedition')
+  ensureExpeditionActionDelegation()
+  const expeditionKey = buildExpeditionRenderKey(s)
+  if (renderCache.expeditionKey === expeditionKey) return
+  renderCache.expeditionKey = expeditionKey
   const activeRun = s.activeRuns.find((r) => !r.done)
 
   const activeRunHtml = activeRun ? (() => {
@@ -319,7 +340,7 @@ function renderExpeditionScreen(s) {
     const pendingHtml = activeRun.pending_event ? `<div style="background:#2a2a1e;border:1px solid #BA751766;border-radius:8px;padding:10px;margin-top:8px">
       <div style="font-size:12px;font-weight:600;color:#EF9F27;margin-bottom:8px">⚡ ${activeRun.pending_event.event_def.label}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        ${(activeRun.pending_event.event_def.choices??[]).map((c,i)=>`<button class="btn btn-ghost" onclick="actions.resolveEventChoice('${activeRun.run_id}',${i})">${c.label}</button>`).join('')}
+        ${(activeRun.pending_event.event_def.choices??[]).map((c,i)=>`<button class="btn btn-ghost" data-action="resolve-event-choice" data-run-id="${activeRun.run_id}" data-choice-index="${i}">${c.label}</button>`).join('')}
       </div></div>` : ''
     return `<div class="card" style="border-color:#7F77DD44;margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;margin-bottom:8px">
@@ -348,8 +369,8 @@ function renderExpeditionScreen(s) {
         <span style="font-size:11px;color:#666680">${exp.duration_s}s · ${Math.round((exp.base_success_chance??0.75)*100)}% base</span>
       </div>
       <div style="font-size:11px;color:#666680;margin-bottom:8px">${exp.description||''}</div>
-      <button class="btn btn-primary" ${canSend?'':'disabled'} onclick="window.sendParty('${exp.id}')">
-        ${onRun?'Run in progress':readyHeroes.length===0?'No heroes ready':`Send ${readyHeroes.length} hero${readyHeroes.length>1?'es':''}`}
+      <button class="btn btn-primary" ${canSend?'':'disabled'} data-action="start-expedition" data-expedition-id="${exp.id}" data-party-size="${exp.party_size}">
+        ${onRun?'Run in progress':readyHeroes.length===0?'No heroes ready':`Send ${exp.party_size} heroes`}
       </button>
     </div>`
   }).join('')
@@ -360,6 +381,95 @@ function renderExpeditionScreen(s) {
 }
 
 // ── Forge screen ──────────────────────────────────────────────────────────────
+function ensureWorldActionDelegation() {
+  if (worldActionsBound) return
+  const el = document.getElementById('screen-world')
+  if (!el) return
+  el.addEventListener('click', handleWorldActionClick)
+  worldActionsBound = true
+}
+
+function ensureExpeditionActionDelegation() {
+  if (expeditionActionsBound) return
+  const el = document.getElementById('screen-expedition')
+  if (!el) return
+  el.addEventListener('click', handleExpeditionActionClick)
+  expeditionActionsBound = true
+}
+
+function handleWorldActionClick(e) {
+  const btn = e.target.closest('button[data-action]')
+  if (!btn || btn.disabled || !e.currentTarget.contains(btn)) return
+
+  const action = btn.dataset.action
+  if (action === 'build-building') {
+    actions.buildBuilding(btn.dataset.buildingId)
+  } else if (action === 'recruit-hero') {
+    actions.recruitHero(btn.dataset.classId)
+  } else if (action === 'buy-upgrade') {
+    actions.buyUpgrade(btn.dataset.upgradeId)
+  }
+}
+
+function handleExpeditionActionClick(e) {
+  const btn = e.target.closest('button[data-action]')
+  if (!btn || btn.disabled || !e.currentTarget.contains(btn)) return
+
+  const action = btn.dataset.action
+  if (action === 'start-expedition') {
+    window.sendParty(btn.dataset.expeditionId, btn.dataset.partySize)
+  } else if (action === 'resolve-event-choice') {
+    actions.resolveEventChoice(btn.dataset.runId, Number(btn.dataset.choiceIndex))
+  }
+}
+
+function serializeCost(cost = []) {
+  return cost.map((c) => `${c.resource_id}:${c.amount}`).join(',')
+}
+
+function serializeProduction(prod = {}) {
+  return Object.entries(prod).map(([k, v]) => `${k}:${v}`).join(',')
+}
+
+function serializeLevel(level = {}) {
+  return [
+    level.build_time_s ?? 0,
+    level.hero_slots ?? 0,
+    level.recipe_slots ?? 0,
+    serializeCost(level.build_cost ?? []),
+    serializeProduction(level.production ?? {}),
+  ].join(':')
+}
+
+function buildWorldRenderKey(s) {
+  return [
+    s.resources.map((r) => `${r.id}:${Math.floor(r.amount)}:${r.cap}:${Math.floor(r.effective_income ?? r.income)}`).join('|'),
+    s.buildings.map((b) => `${b.id}:${b.visible ? 1 : 0}:${b.level}:${b.max_level}:${b.is_crafting_station ? 1 : 0}:${(b.levels ?? []).map(serializeLevel).join('~')}`).join('|'),
+    s.heroClasses.map((cls) => `${cls.id}:${serializeCost(cls.recruit_cost ?? [])}`).join('|'),
+    s.upgrades.map((u) => `${u.id}:${u.tier}:${u.max_tier}:${serializeCost(u.cost ?? [])}`).join('|'),
+  ].join('||')
+}
+
+function buildExpeditionRenderKey(s) {
+  const activeRun = s.activeRuns.find((r) => !r.done)
+  const runKey = activeRun
+    ? [
+        activeRun.run_id,
+        Math.floor(activeRun.elapsed_s * 4),
+        Math.floor(activeRun.total_s * 4),
+        activeRun.done ? 1 : 0,
+        activeRun.pending_event ? activeRun.pending_event.event_def?.label ?? 'pending' : 'none',
+        activeRun.log.length,
+        activeRun.boss_hp ?? 'na',
+      ].join(':')
+    : 'no-run'
+
+  return [
+    runKey,
+    s.expeditions.map((exp) => `${exp.id}:${exp.party_size}:${exp.duration_s}:${exp.visible ? 1 : 0}:${exp.base_success_chance ?? 0}:${serializeCost(exp.entry_cost ?? [])}`).join('|'),
+  ].join('||')
+}
+
 function renderForgeScreen(s) {
   const el = document.getElementById('screen-forge')
   const stations = s.buildings.filter((b) => b.is_crafting_station && b.level > 0)
