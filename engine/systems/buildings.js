@@ -1,6 +1,8 @@
 import { canAfford, spend, gain, giveItem, spendItems } from './resources.js'
 import { addToEventLog, checkActProgress, unlockNode, evaluateCondition } from './expeditions.js'
 
+export const MIN_ACTION_DELAY_MS = 275
+
 // ── Build a building (or upgrade to next level) ───────────────────────────────
 export function buildBuilding(state, buildingId) {
   const bld = state.buildings[buildingId]

@@ -103,11 +103,16 @@
 
 <script type="module">
 import { initEngine, actions as engineActions } from './engine.js'
+import { MIN_ACTION_DELAY_MS } from './systems/buildings.js'
 window.actions = engineActions
+const actions = engineActions
 let snapshot = null
+const pendingActions = new Set()
+const pendingActionTimers = new Map()
+const ACTION_DELAY_MS = MIN_ACTION_DELAY_MS
 const renderCache = {
-  worldKey: null,
-  expeditionKey: null,
+  worldHash: null,
+  expeditionHash: null,
 }
 let worldActionsBound = false
 let expeditionActionsBound = false
@@ -135,8 +140,11 @@ function startGame(project) {
   document.getElementById('app').style.display = 'flex'
   document.getElementById('game-title').textContent = project.meta?.title ?? 'Guild Engine'
   document.title = project.meta?.title ?? 'Guild Engine'
-  renderCache.worldKey = null
-  renderCache.expeditionKey = null
+  pendingActions.clear()
+  for (const timer of pendingActionTimers.values()) clearTimeout(timer)
+  pendingActionTimers.clear()
+  renderCache.worldHash = null
+  renderCache.expeditionHash = null
   snapshot = initEngine(project, (snap) => { snapshot = snap; render(snap) })
   render(snapshot)
 }
@@ -253,9 +261,9 @@ function renderNotification(s) {
 function renderWorldScreen(s) {
   const el = document.getElementById('screen-world')
   ensureWorldActionDelegation()
-  const worldKey = buildWorldRenderKey(s)
-  if (renderCache.worldKey === worldKey) return
-  renderCache.worldKey = worldKey
+  const worldHash = buildWorldRenderHash(s)
+  if (renderCache.worldHash === worldHash) return
+  renderCache.worldHash = worldHash
 
   const buildingsHtml = s.buildings.filter((b) => b.visible).map((b) => {
     const hasLevels = b.levels && b.levels.length > 0
@@ -263,6 +271,8 @@ function renderWorldScreen(s) {
     const cost = levelData?.build_cost ?? []
     const canBuild = hasLevels && b.level < b.max_level && s.canAffordCost(cost)
     const atMax = b.level >= b.max_level
+    const actionKey = getActionKey('build-building', b.id)
+    const pending = pendingActions.has(actionKey)
     const costLabel = cost.length
       ? cost.map(c => s.fmt(c.amount) + ' ' + (s.resources.find(r=>r.id===c.resource_id)?.label ?? c.resource_id)).join(', ')
       : 'Free'
@@ -276,7 +286,7 @@ function renderWorldScreen(s) {
           ? `<span style="font-size:10px;color:#444460;font-style:italic">not configured</span>`
           : atMax
             ? `<button class="btn btn-ghost" disabled>Max level</button>`
-            : `<button class="btn ${canBuild?'btn-teal':'btn-ghost'}" ${canBuild?'':'disabled'} data-action="build-building" data-building-id="${b.id}">Build · ${costLabel}</button>`
+            : `<button class="btn ${canBuild && !pending ? 'btn-teal' : 'btn-ghost'}" ${canBuild && !pending ? '' : 'disabled'} data-action="build-building" data-building-id="${b.id}" data-action-key="${actionKey}">${pending ? 'Building...' : `Build · ${costLabel}`}</button>`
         }
       </div>
       ${b.level > 0 && hasLevels ? `<div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -293,25 +303,29 @@ function renderWorldScreen(s) {
   const recruitHtml = s.heroClasses.map((cls) => {
     const cost = cls.recruit_cost ?? []
     const canRecruit = s.canAffordCost(cost)
+    const actionKey = getActionKey('recruit-hero', cls.id)
+    const pending = pendingActions.has(actionKey)
     return `<div class="card" style="display:flex;justify-content:space-between;align-items:center">
       <div>
         <div style="font-weight:600;font-size:12px">${cls.icon ?? '⚔️'} ${cls.label}</div>
         <div style="font-size:10px;color:#666680">${cost.map(c=>s.fmt(c.amount)+' '+(s.resources.find(r=>r.id===c.resource_id)?.label??c.resource_id)).join(', ')||'Free'}</div>
       </div>
-      <button class="btn btn-primary" ${canRecruit?'':'disabled'} data-action="recruit-hero" data-class-id="${cls.id}">Recruit</button>
+      <button class="btn ${canRecruit && !pending ? 'btn-primary' : 'btn-ghost'}" ${canRecruit && !pending ? '' : 'disabled'} data-action="recruit-hero" data-class-id="${cls.id}" data-action-key="${actionKey}">${pending ? 'Recruiting...' : 'Recruit'}</button>
     </div>`
   }).join('')
 
   const upgradesHtml = s.upgrades.map((u) => {
     const cost = u.cost ?? []
     const canBuy = s.canAffordCost(cost) && u.tier < u.max_tier
+    const actionKey = getActionKey('buy-upgrade', u.id)
+    const pending = pendingActions.has(actionKey)
     return `<div class="card" style="display:flex;justify-content:space-between;align-items:center">
       <div>
         <div style="font-weight:600;font-size:12px">${u.icon??'⬆️'} ${u.label} ${u.max_tier>1?`(${u.tier}/${u.max_tier})`:''}</div>
         <div style="font-size:10px;color:#666680">${u.description||''}</div>
       </div>
-      <button class="btn btn-primary" ${canBuy?'':'disabled'} data-action="buy-upgrade" data-upgrade-id="${u.id}">
-        ${u.tier>=u.max_tier?'✓ Max':cost.map(c=>s.fmt(c.amount)+' '+(s.resources.find(r=>r.id===c.resource_id)?.label??c.resource_id)).join(' + ')||'Buy'}
+      <button class="btn ${canBuy && !pending ? 'btn-primary' : 'btn-ghost'}" ${canBuy && !pending ? '' : 'disabled'} data-action="buy-upgrade" data-upgrade-id="${u.id}" data-action-key="${actionKey}">
+        ${pending ? 'Buying...' : (u.tier>=u.max_tier?'✓ Max':cost.map(c=>s.fmt(c.amount)+' '+(s.resources.find(r=>r.id===c.resource_id)?.label??c.resource_id)).join(' + ')||'Buy')}
       </button>
     </div>`
   }).join('')
@@ -328,9 +342,9 @@ function renderWorldScreen(s) {
 function renderExpeditionScreen(s) {
   const el = document.getElementById('screen-expedition')
   ensureExpeditionActionDelegation()
-  const expeditionKey = buildExpeditionRenderKey(s)
-  if (renderCache.expeditionKey === expeditionKey) return
-  renderCache.expeditionKey = expeditionKey
+  const expeditionHash = buildExpeditionRenderHash(s)
+  if (renderCache.expeditionHash === expeditionHash) return
+  renderCache.expeditionHash = expeditionHash
   const activeRun = s.activeRuns.find((r) => !r.done)
 
   const activeRunHtml = activeRun ? (() => {
@@ -360,6 +374,8 @@ function renderExpeditionScreen(s) {
     const onRun = s.activeRuns.some((r) => !r.done)
     const readyHeroes = s.heroes.filter((h) => h.status === 'ready')
     const canSend = !onRun && readyHeroes.length > 0
+    const actionKey = getActionKey('start-expedition', exp.id)
+    const pending = pendingActions.has(actionKey)
     return `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <div>
@@ -369,8 +385,8 @@ function renderExpeditionScreen(s) {
         <span style="font-size:11px;color:#666680">${exp.duration_s}s · ${Math.round((exp.base_success_chance??0.75)*100)}% base</span>
       </div>
       <div style="font-size:11px;color:#666680;margin-bottom:8px">${exp.description||''}</div>
-      <button class="btn btn-primary" ${canSend?'':'disabled'} data-action="start-expedition" data-expedition-id="${exp.id}" data-party-size="${exp.party_size}">
-        ${onRun?'Run in progress':readyHeroes.length===0?'No heroes ready':`Send ${exp.party_size} heroes`}
+      <button class="btn ${canSend && !pending ? 'btn-primary' : 'btn-ghost'}" ${canSend && !pending ? '' : 'disabled'} data-action="start-expedition" data-expedition-id="${exp.id}" data-party-size="${exp.party_size}" data-action-key="${actionKey}">
+        ${pending ? 'Sending...' : (onRun?'Run in progress':readyHeroes.length===0?'No heroes ready':`Send ${exp.party_size} heroes`)}
       </button>
     </div>`
   }).join('')
@@ -403,11 +419,11 @@ function handleWorldActionClick(e) {
 
   const action = btn.dataset.action
   if (action === 'build-building') {
-    actions.buildBuilding(btn.dataset.buildingId)
+    queueAction(btn.dataset.actionKey || getActionKey(action, btn.dataset.buildingId), () => actions.buildBuilding(btn.dataset.buildingId))
   } else if (action === 'recruit-hero') {
-    actions.recruitHero(btn.dataset.classId)
+    queueAction(btn.dataset.actionKey || getActionKey(action, btn.dataset.classId), () => actions.recruitHero(btn.dataset.classId))
   } else if (action === 'buy-upgrade') {
-    actions.buyUpgrade(btn.dataset.upgradeId)
+    queueAction(btn.dataset.actionKey || getActionKey(action, btn.dataset.upgradeId), () => actions.buyUpgrade(btn.dataset.upgradeId))
   }
 }
 
@@ -417,57 +433,86 @@ function handleExpeditionActionClick(e) {
 
   const action = btn.dataset.action
   if (action === 'start-expedition') {
-    window.sendParty(btn.dataset.expeditionId, btn.dataset.partySize)
+    const expeditionId = btn.dataset.expeditionId
+    const partySize = Number(btn.dataset.partySize) || 0
+    const readyHeroes = snapshot?.heroes
+      .filter((h) => h.status === 'ready')
+      .map((h) => h.id)
+      .slice(0, partySize)
+    queueAction(btn.dataset.actionKey || getActionKey(action, expeditionId), () => actions.startExpedition(expeditionId, readyHeroes))
   } else if (action === 'resolve-event-choice') {
     actions.resolveEventChoice(btn.dataset.runId, Number(btn.dataset.choiceIndex))
   }
 }
 
-function serializeCost(cost = []) {
-  return cost.map((c) => `${c.resource_id}:${c.amount}`).join(',')
+function queueAction(actionKey, runAction) {
+  if (!actionKey || pendingActions.has(actionKey)) return
+  pendingActions.add(actionKey)
+  if (snapshot) render(snapshot)
+
+  const timer = setTimeout(() => {
+    pendingActionTimers.delete(actionKey)
+    try {
+      runAction()
+    } finally {
+      pendingActions.delete(actionKey)
+    }
+  }, ACTION_DELAY_MS)
+
+  pendingActionTimers.set(actionKey, timer)
 }
 
-function serializeProduction(prod = {}) {
-  return Object.entries(prod).map(([k, v]) => `${k}:${v}`).join(',')
+function getActionKey(action, targetId) {
+  return `${action}:${targetId}`
 }
 
-function serializeLevel(level = {}) {
-  return [
-    level.build_time_s ?? 0,
-    level.hero_slots ?? 0,
-    level.recipe_slots ?? 0,
-    serializeCost(level.build_cost ?? []),
-    serializeProduction(level.production ?? {}),
-  ].join(':')
+function buildWorldRenderHash(s) {
+  return JSON.stringify({
+    resources: s.resources.map((r) => ({ id: r.id, amount: r.amount, cap: r.cap, income: r.effective_income ?? r.income })),
+    buildings: s.buildings.map((b) => ({
+      id: b.id,
+      visible: b.visible,
+      level: b.level,
+      max_level: b.max_level,
+      is_crafting_station: b.is_crafting_station,
+      levels: (b.levels ?? []).map((lvl) => ({
+        build_cost: lvl.build_cost ?? [],
+        build_time_s: lvl.build_time_s ?? 0,
+        hero_slots: lvl.hero_slots ?? 0,
+        recipe_slots: lvl.recipe_slots ?? 0,
+        production: lvl.production ?? {},
+      })),
+    })),
+    heroClasses: s.heroClasses.map((cls) => ({ id: cls.id, recruit_cost: cls.recruit_cost ?? [] })),
+    upgrades: s.upgrades.map((u) => ({ id: u.id, tier: u.tier, max_tier: u.max_tier, cost: u.cost ?? [] })),
+    pending: [...pendingActions].filter((key) =>
+      key.startsWith('build-building:') || key.startsWith('recruit-hero:') || key.startsWith('buy-upgrade:')
+    ),
+  })
 }
 
-function buildWorldRenderKey(s) {
-  return [
-    s.resources.map((r) => `${r.id}:${Math.floor(r.amount)}:${r.cap}:${Math.floor(r.effective_income ?? r.income)}`).join('|'),
-    s.buildings.map((b) => `${b.id}:${b.visible ? 1 : 0}:${b.level}:${b.max_level}:${b.is_crafting_station ? 1 : 0}:${(b.levels ?? []).map(serializeLevel).join('~')}`).join('|'),
-    s.heroClasses.map((cls) => `${cls.id}:${serializeCost(cls.recruit_cost ?? [])}`).join('|'),
-    s.upgrades.map((u) => `${u.id}:${u.tier}:${u.max_tier}:${serializeCost(u.cost ?? [])}`).join('|'),
-  ].join('||')
-}
-
-function buildExpeditionRenderKey(s) {
-  const activeRun = s.activeRuns.find((r) => !r.done)
-  const runKey = activeRun
-    ? [
-        activeRun.run_id,
-        Math.floor(activeRun.elapsed_s * 4),
-        Math.floor(activeRun.total_s * 4),
-        activeRun.done ? 1 : 0,
-        activeRun.pending_event ? activeRun.pending_event.event_def?.label ?? 'pending' : 'none',
-        activeRun.log.length,
-        activeRun.boss_hp ?? 'na',
-      ].join(':')
-    : 'no-run'
-
-  return [
-    runKey,
-    s.expeditions.map((exp) => `${exp.id}:${exp.party_size}:${exp.duration_s}:${exp.visible ? 1 : 0}:${exp.base_success_chance ?? 0}:${serializeCost(exp.entry_cost ?? [])}`).join('|'),
-  ].join('||')
+function buildExpeditionRenderHash(s) {
+  return JSON.stringify({
+    expeditions: s.expeditions.map((exp) => ({
+      id: exp.id,
+      party_size: exp.party_size,
+      duration_s: exp.duration_s,
+      visible: exp.visible,
+      base_success_chance: exp.base_success_chance ?? 0,
+    })),
+    activeRuns: s.activeRuns.map((r) => ({
+      run_id: r.run_id,
+      expedition_id: r.expedition_id,
+      elapsed_s: Math.floor(r.elapsed_s * 4),
+      total_s: Math.floor(r.total_s * 4),
+      done: r.done,
+      pending_event: r.pending_event?.event_def?.label ?? null,
+      log_len: r.log.length,
+      boss_hp: r.boss_hp ?? null,
+    })),
+    heroes: s.heroes.map((h) => ({ id: h.id, status: h.status })),
+    pending: [...pendingActions].filter((key) => key.startsWith('start-expedition:')),
+  })
 }
 
 function renderForgeScreen(s) {
