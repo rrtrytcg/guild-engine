@@ -1,0 +1,284 @@
+{
+  "meta": {
+    "title": "Shadowbound Guild",
+    "author": "",
+    "theme": "A dark fantasy guild-management story about a plague-ravaged empire where the city survives by sending mercenaries into shadow-cursed districts.",
+    "hero_fantasy": "A scrappy roster of shielded warriors, swift shadow hunters, and luck-favored wardens who survive by grit, speed, and dark bargains.",
+    "resource_fantasy": "Earn gold from contracts, harvest shadow essence from corrupted foes, and mine iron ore to keep the guild equipped and expanding."
+  },
+  "resources": [
+    {
+      "key": "gold",
+      "label": "Gold",
+      "icon": "💰",
+      "income_rate": "slow",
+      "cap_size": "medium",
+      "is_material": false,
+      "notes": "Primary currency for contracts, buildings, and recruits."
+    },
+    {
+      "key": "iron_ore",
+      "label": "Iron Ore",
+      "icon": "⛏️",
+      "income_rate": "medium",
+      "cap_size": "medium",
+      "is_material": true,
+      "notes": "Mined from the northern claims and forged into standard gear."
+    },
+    {
+      "key": "shadow_essence",
+      "label": "Shadow Essence",
+      "icon": "🌑",
+      "income_rate": "slow",
+      "cap_size": "small",
+      "is_material": true,
+      "notes": "Harvested from shadow beasts and used for cursed relics."
+    }
+  ],
+  "hero_classes": [
+    {
+      "key": "warrior",
+      "label": "Warrior",
+      "icon": "⚔️",
+      "description": "Frontline shieldbearers who hold the line against corruption.",
+      "role": "tank",
+      "stat_archetype": "def-heavy",
+      "slot_preference": ["armor", "weapon"],
+      "recruit_cost_resource": "gold",
+      "recruit_cost_amount": "moderate"
+    },
+    {
+      "key": "shadow_hunter",
+      "label": "Shadow Hunter",
+      "icon": "🗡️",
+      "description": "Fast, fragile hunters who strike from the dark before enemies can react.",
+      "role": "damage",
+      "stat_archetype": "spd-heavy",
+      "slot_preference": ["weapon", "relic"],
+      "recruit_cost_resource": "gold",
+      "recruit_cost_amount": "expensive"
+    },
+    {
+      "key": "warden",
+      "label": "Warden",
+      "icon": "🛡️",
+      "description": "Occult support fighters who steady the roster and coax better spoils from the shadowlands.",
+      "role": "support",
+      "stat_archetype": "lck-heavy",
+      "slot_preference": ["accessory", "armor"],
+      "recruit_cost_resource": "gold",
+      "recruit_cost_amount": "cheap"
+    }
+  ],
+  "acts": [
+    {
+      "number": 1,
+      "label": "The Outskirts",
+      "narrative": "The city's walls no longer hold back the plague-tainted wilds. The guild takes its first contracts into the ruined outskirts, where bandits and shadow beasts pick at the weak.",
+      "difficulty": "easy",
+      "zones": [
+        {
+          "key": "outskirts_road",
+          "label": "Outskirts Road",
+          "icon": "🌫️",
+          "type": "standard",
+          "difficulty_level": 1,
+          "duration": "short",
+          "loot_theme": "coin purses, iron scraps, and low-grade supplies from ambushes and wrecked carts.",
+          "curse_chance": 0.05,
+          "notes": "Patrols and collapsed wagons mark the first safe path beyond the gate."
+        },
+        {
+          "key": "bandit_hideout",
+          "label": "Bandit Hideout",
+          "icon": "🪓",
+          "type": "standard",
+          "difficulty_level": 3,
+          "duration": "short",
+          "loot_theme": "bandit gear, iron ore, and crude weapons.",
+          "curse_chance": 0.08,
+          "notes": "Bandits prey on anyone crossing the old trade roads."
+        },
+        {
+          "key": "shadow_hound",
+          "label": "Shadow Hound",
+          "icon": "🐺",
+          "type": "boss",
+          "difficulty_level": 5,
+          "duration": "long",
+          "loot_theme": "rare iron weapons, plague-scarred armor, and a guaranteed named hound trophy.",
+          "curse_chance": 0.25,
+          "notes": "Guaranteed rare boss drop."
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "label": "The Undercity",
+      "narrative": "Below the city lie drowned districts, abandoned vaults, and the whispers of a dead library. The guild descends into the undercity to sever the plague's source before it reaches the surface.",
+      "difficulty": "medium",
+      "zones": [
+        {
+          "key": "flooded_sewers",
+          "label": "Flooded Sewers",
+          "icon": "🌊",
+          "type": "standard",
+          "difficulty_level": 6,
+          "duration": "medium",
+          "loot_theme": "shadow essence, moldy salvage, and sewer-fouled trinkets.",
+          "curse_chance": 0.1,
+          "notes": "The water is black with rot and things that move under it."
+        },
+        {
+          "key": "abandoned_district",
+          "label": "Abandoned District",
+          "icon": "🏚️",
+          "type": "standard",
+          "difficulty_level": 8,
+          "duration": "medium",
+          "loot_theme": "shadow essence, rare charms, and relic scraps.",
+          "curse_chance": 0.12,
+          "notes": "The streets are empty except for husks and whispering windows."
+        },
+        {
+          "key": "cult_catacombs",
+          "label": "Cult Catacombs",
+          "icon": "🕯️",
+          "type": "standard",
+          "difficulty_level": 10,
+          "duration": "medium",
+          "loot_theme": "shadow essence, occult charms, and forbidden records.",
+          "curse_chance": 0.18,
+          "notes": "The cult keeps the undercity fed on fear and sacrifice."
+        },
+        {
+          "key": "pale_archivist",
+          "label": "The Pale Archivist",
+          "icon": "📚",
+          "type": "boss",
+          "difficulty_level": 12,
+          "duration": "long",
+          "loot_theme": "named relics, rare occult gear, and guaranteed boss treasure.",
+          "curse_chance": 0.3,
+          "notes": "Guaranteed rare boss drop."
+        }
+      ]
+    }
+  ],
+  "buildings": [
+    {
+      "key": "guildhall",
+      "label": "Guildhall",
+      "icon": "🏰",
+      "description": "The guild's public face, where contracts are signed and the roster is raised.",
+      "max_level": 4,
+      "produces_resource": "gold",
+      "is_crafting_station": false,
+      "trains_hero_class": "warrior",
+      "notes": "Primary hub and early gold engine."
+    },
+    {
+      "key": "forge",
+      "label": "Forge",
+      "icon": "🔨",
+      "description": "A soot-choked workshop where iron gear is hammered and fitted.",
+      "max_level": 3,
+      "produces_resource": null,
+      "is_crafting_station": true,
+      "trains_hero_class": "shadow_hunter",
+      "notes": "Turns iron ore into dependable weapons and armor."
+    },
+    {
+      "key": "shadow_vault",
+      "label": "Shadow Vault",
+      "icon": "🌑",
+      "description": "A hidden chamber that distills shadow essence from captured corruption.",
+      "max_level": 3,
+      "produces_resource": "shadow_essence",
+      "is_crafting_station": false,
+      "trains_hero_class": "warden",
+      "notes": "Unlocks in act 2 and slowly feeds the cursed economy."
+    }
+  ],
+  "items": [
+    {
+      "key": "iron_sword",
+      "label": "Iron Sword",
+      "icon": "🗡️",
+      "subtype": "equipment",
+      "slot": "weapon",
+      "rarity": "common",
+      "stat_focus": "atk",
+      "drops_in_act": 1,
+      "boss_only": false,
+      "notes": "Standard issue blade for the outskirts."
+    },
+    {
+      "key": "plague_mail",
+      "label": "Plague Mail",
+      "icon": "🛡️",
+      "subtype": "equipment",
+      "slot": "armor",
+      "rarity": "rare",
+      "stat_focus": "def",
+      "drops_in_act": 1,
+      "boss_only": false,
+      "notes": "Corroded armor hardened by plague residue."
+    },
+    {
+      "key": "iron_ore",
+      "label": "Iron Ore",
+      "icon": "⛏️",
+      "subtype": "material",
+      "slot": null,
+      "rarity": "common",
+      "stat_focus": null,
+      "drops_in_act": 1,
+      "boss_only": false,
+      "notes": "Basic forge fuel for dependable gear."
+    },
+    {
+      "key": "shadow_amulet",
+      "label": "Shadow Amulet",
+      "icon": "🔮",
+      "subtype": "equipment",
+      "slot": "accessory",
+      "rarity": "rare",
+      "stat_focus": "lck",
+      "drops_in_act": 2,
+      "boss_only": false,
+      "notes": "A charm that helps the guild read the dark."
+    },
+    {
+      "key": "shadow_essence",
+      "label": "Shadow Essence",
+      "icon": "🌑",
+      "subtype": "material",
+      "slot": null,
+      "rarity": "uncommon",
+      "stat_focus": null,
+      "drops_in_act": 2,
+      "boss_only": false,
+      "notes": "Raw corruption used for cursed crafting."
+    },
+    {
+      "key": "void_relic",
+      "label": "Void Relic",
+      "icon": "🗿",
+      "subtype": "equipment",
+      "slot": "relic",
+      "rarity": "epic",
+      "stat_focus": "balanced",
+      "drops_in_act": 2,
+      "boss_only": true,
+      "notes": "A unique boss relic pulled from the undercity's deepest vault."
+    }
+  ],
+  "difficulty_curve": {
+    "act1_level_range": [1, 5],
+    "act2_level_range": [6, 12],
+    "act3_level_range": [13, 20],
+    "resource_costs_feel": "tight",
+    "xp_curve_feel": "fast"
+  }
+}

@@ -372,3 +372,44 @@ Recommended first edits:
 5. ALWAYS set `visible: true` on resources, buildings, hero classes, and act 1 expeditions. Set `visible: false` on act 2+ expeditions (they unlock via on_success_unlock).
 6. Stat values must be integers — no floats in stat blocks.
 7. Costs must use `resource_id` (the manifest ID, not the key).
+
+---
+
+## Generator self-maintenance
+
+Before doing anything else, read these files in this order:
+1. `guild-engine/schema/project.schema.json` — authoritative field list
+2. `guild-engine/expedition-spec-v2.1.md` — resolver and stat rules
+3. `guild-engine/docs/WIKI.md` — full system reference
+4. `guild-engine/generator/CHANGELOG.md` — what is and isn't supported
+
+### Check CHANGELOG before generating
+
+Read every entry in CHANGELOG.md. For each PENDING entry:
+- If SCOPE is PASS2 or BOTH AND the feature is now in the schema: mark IMPLEMENTED, update the generator prompt section below to include it, and generate that content.
+- If SCOPE is PASS2 or BOTH AND the feature is NOT yet in the schema: skip it silently — do not attempt to generate unsupported content.
+
+This means the generator automatically expands its output as new systems are implemented, without requiring manual prompt rewrites for each feature.
+
+### After generating
+
+Append this entry to `guild-engine/generator/CHANGELOG.md`:
+```
+### Run log — [ISO date]
+- INPUT: world-template.json title
+- OUTPUT: generated-project.json
+- PASS2 VERSION: v[current]
+- NODE COUNT: [N] nodes total
+- WARNINGS: [list any validation warnings found]
+- NOTES: [any calibration decisions, anything skipped, any issues]
+```
+
+### If you discover a schema field that has no calibration table in this prompt
+
+Generate a sensible default value, document it in the run log, and add it to the PENDING section of CHANGELOG.md with:
+- TYPE: CALIBRATION
+- SCOPE: PASS2
+- STATUS: PENDING
+- SUMMARY: "[field name] has no calibration table — using default [value]"
+
+This ensures calibration gaps are tracked and fixed in the next prompt update.

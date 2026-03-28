@@ -208,3 +208,24 @@ Ready for Pass 2.
 ```
 
 Do not generate project.json. That is Pass 2's job.
+
+---
+
+## Generator self-maintenance
+
+Before doing anything else, read these files in this order:
+1. `guild-engine/schema/project.schema.json` — authoritative field list
+2. `guild-engine/expedition-spec-v2.1.md` — resolver and stat rules
+3. `guild-engine/docs/WIKI.md` — full system reference
+4. `guild-engine/generator/CHANGELOG.md` — what the generator currently supports
+
+After reading CHANGELOG.md, check every PENDING entry. If any PENDING item with SCOPE PASS1 or BOTH has since been implemented in the schema (you can verify by checking if its fields exist in project.schema.json), update its STATUS from PENDING to IMPLEMENTED and note the date.
+
+After writing world-template.json, append this entry to CHANGELOG.md:
+```
+### Run log — [ISO date]
+- INPUT: [first 10 words of pitch.txt]
+- OUTPUT: world-template.json
+- PASS1 VERSION: v[current]
+- NOTES: [any decisions made, anything invented, any ambiguities in the pitch]
+```

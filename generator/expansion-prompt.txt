@@ -1,0 +1,25 @@
+# expansion-prompt.txt
+# Edit this file to describe what you want to add to your world.
+# Then run GENERATORPASS3.md in Claude Code.
+# You can run Pass 3 as many times as you want — each run adds on top of the last.
+# Delete the instructions below and write your expansion request in plain English.
+
+# EXAMPLES:
+#
+# "Add a third act set in an ancient ruined temple. 3 zones and a boss.
+#  The boss should drop a legendary weapon. Curse chance should be high in this act."
+#
+# "Add two more zones to Act 1 — I want a swamp area and an abandoned mine.
+#  Both should have mid-run events involving choices between safety and better loot."
+#
+# "Add a new hero class: the Plague Doctor. Support role, high LCK, uses relic slot.
+#  They should be expensive to recruit but give massive loot bonuses."
+#
+# "Add 4 new rare and epic items that fit the shadow/plague theme.
+#  Wire them into the Act 2 loot tables."
+#
+# "Add mid-run events to all Act 1 expeditions. Events should involve
+#  finding survivors, shadow creature encounters, and hidden caches."
+
+# YOUR EXPANSION REQUEST:
+# (write below this line)
