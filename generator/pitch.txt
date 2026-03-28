@@ -1,0 +1,27 @@
+A dark fantasy guild management game set in a crumbling empire.
+
+The player runs a mercenary guild in a city slowly being consumed by a plague of shadow creatures. 
+Gold is tight, heroes are expendable, and every expedition into the corrupted zones risks bringing 
+something terrible back with them.
+
+Resources: gold earned from contracts, shadow essence harvested from killed creatures (used for 
+crafting cursed gear), and iron ore from the northern mines (used for standard equipment).
+
+Heroes: Warriors (frontline tanks, high HP and DEF), Shadow Hunters (fast damage dealers, high ATK 
+and SPD, fragile), and Wardens (support/hybrid, balanced stats, high LCK for better loot).
+
+Act 1 — The Outskirts: early corrupted zones just outside the city walls. Wolves, bandits, 
+shadow wisps. Boss: The Shadow Hound, a massive corrupted beast.
+
+Act 2 — The Undercity: flooded sewers and abandoned districts beneath the city. Undead, 
+cultists, shadow elementals. Boss: The Pale Archivist, a lich who knows too much.
+
+Three buildings: 
+- The Guildhall (produces gold, hero assignment slots)
+- The Forge (crafting station, produces iron weapons and armor)  
+- The Shadow Vault (produces shadow essence slowly, unlocks in act 2)
+
+Loot should feel gritty and medieval — iron swords, leather armor, shadow-touched relics, 
+cursed amulets. Boss drops should feel significant — named weapons, unique relics.
+
+Pacing: fairly tight economy early, generous XP so heroes level up fast in act 1.
