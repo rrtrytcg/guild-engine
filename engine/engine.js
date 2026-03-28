@@ -43,6 +43,7 @@ export function initEngine(project, onRender) {
 
 export function stopEngine() {
   if (tickInterval) clearInterval(tickInterval)
+  tickInterval = null
 }
 
 // ── Public action API — called from UI ────────────────────────────────────────

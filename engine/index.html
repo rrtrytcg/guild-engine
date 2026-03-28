@@ -36,6 +36,7 @@
   .rarity-common{color:#B4B2A9} .rarity-uncommon{color:#5DCAA5} .rarity-rare{color:#378ADD} .rarity-epic{color:#7F77DD} .rarity-legendary{color:#EF9F27}
   #notification{position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:999;padding:8px 18px;border-radius:8px;font-size:12px;font-weight:600;pointer-events:none;opacity:0;transition:opacity .2s}
   #notification.show{opacity:1}
+  #restart-modal{position:fixed;inset:0;z-index:1200;background:rgba(5,5,12,.78);display:none;align-items:center;justify-content:center;padding:16px}
 </style>
 </head>
 <body>
@@ -47,6 +48,7 @@
     <span style="font-size:9px;font-weight:700;background:#7F77DD22;color:#7F77DD;border:1px solid #7F77DD44;border-radius:4px;padding:1px 5px;letter-spacing:.1em">RUNTIME</span>
     <div style="flex:1"></div>
     <button class="btn btn-ghost" id="btn-save" onclick="actions.saveGame()">Save</button>
+    <button class="btn btn-ghost" id="btn-restart" onclick="promptRestart()" style="font-size:11px">Restart</button>
     <button class="btn btn-ghost" id="btn-back" onclick="goToEditor()" style="font-size:11px">← Editor</button>
   </div>
 
@@ -90,6 +92,21 @@
 
 <div id="notification"></div>
 
+<div id="restart-modal" role="dialog" aria-modal="true" aria-labelledby="restart-title" onclick="cancelRestart()">
+  <div class="card" onclick="event.stopPropagation()" style="width:min(360px,100%);margin:0;background:#1e1e2e;border-color:#7F77DD44;box-shadow:0 18px 60px rgba(0,0,0,.45)">
+    <div id="restart-title" style="font-size:16px;font-weight:700;color:#e0e0f0;margin-bottom:8px">Restart game?</div>
+    <div style="font-size:12px;color:#8888aa;line-height:1.5">
+      Are you sure you want to restart this run?
+      <br/>
+      Press <strong style="color:#e0e0f0">Y</strong> to restart or <strong style="color:#e0e0f0">N</strong> to cancel.
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-ghost" onclick="cancelRestart()">No</button>
+      <button class="btn btn-primary" onclick="confirmRestart()">Yes, restart</button>
+    </div>
+  </div>
+</div>
+
 <!-- No-project warning (hidden until needed) -->
 <div id="no-project" style="display:none;position:fixed;inset:0;background:#0d0d1a;align-items:center;justify-content:center;flex-direction:column;gap:16px">
   <div style="font-size:32px">⚔️</div>
@@ -102,11 +119,13 @@
 </div>
 
 <script type="module">
-import { initEngine, actions as engineActions } from './engine.js'
+import { initEngine, stopEngine, actions as engineActions } from './engine.js'
 import { MIN_ACTION_DELAY_MS } from './systems/buildings.js'
 window.actions = engineActions
 const actions = engineActions
 let snapshot = null
+let currentProject = null
+let restartConfirmOpen = false
 const pendingActions = new Set()
 const pendingActionTimers = new Map()
 const ACTION_DELAY_MS = MIN_ACTION_DELAY_MS
@@ -136,7 +155,10 @@ document.addEventListener('dragover', (e) => e.preventDefault())
 document.addEventListener('drop', (e) => { e.preventDefault(); loadFile(e.dataTransfer.files?.[0]) })
 
 function startGame(project) {
+  currentProject = project
+  stopEngine()
   noProject.style.display = 'none'
+  hideRestartConfirm()
   document.getElementById('app').style.display = 'flex'
   document.getElementById('game-title').textContent = project.meta?.title ?? 'Guild Engine'
   document.title = project.meta?.title ?? 'Guild Engine'
@@ -149,7 +171,10 @@ function startGame(project) {
   render(snapshot)
 }
 
-window.goToEditor = () => window.history.back()
+window.goToEditor = () => { stopEngine(); window.history.back() }
+window.promptRestart = () => showRestartConfirm()
+window.cancelRestart = () => hideRestartConfirm()
+window.confirmRestart = () => restartCurrentGame()
 window.setScreen = (s) => { engineActions.setScreen(s); if (snapshot) render(snapshot) }
 window.sendParty = (expedId, partySize) => {
   if (!snapshot) return
@@ -160,6 +185,18 @@ window.sendParty = (expedId, partySize) => {
     .slice(0, maxPartySize)
   actions.startExpedition(expedId, readyHeroes)
 }
+
+document.addEventListener('keydown', (e) => {
+  if (!restartConfirmOpen) return
+  const key = e.key.toLowerCase()
+  if (key === 'y') {
+    e.preventDefault()
+    restartCurrentGame()
+  } else if (key === 'n' || key === 'escape') {
+    e.preventDefault()
+    hideRestartConfirm()
+  }
+})
 
 // ── Master render ─────────────────────────────────────────────────────────────
 function render(s) {
@@ -536,6 +573,26 @@ function renderForgeScreen(s) {
     <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#444460;margin-bottom:8px">Inventory</div>
     <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:4px">${invHtml}</div>
     ${stations.length ? `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#444460;margin-bottom:8px">Crafting stations</div>${stationsHtml}` : '<div style="color:#444460;font-size:12px">No crafting stations built yet.</div>'}`
+}
+
+function showRestartConfirm() {
+  if (!currentProject) return
+  restartConfirmOpen = true
+  const modal = document.getElementById('restart-modal')
+  modal.style.display = 'flex'
+}
+
+function hideRestartConfirm() {
+  restartConfirmOpen = false
+  const modal = document.getElementById('restart-modal')
+  modal.style.display = 'none'
+}
+
+function restartCurrentGame() {
+  if (!currentProject) return
+  hideRestartConfirm()
+  localStorage.removeItem('guild-engine-save')
+  startGame(currentProject)
 }
 </script>
 </body>
