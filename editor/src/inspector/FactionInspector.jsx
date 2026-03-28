@@ -1,5 +1,5 @@
-import { Field, TextArea, Section, useNodeUpdater } from './FormPrimitives'
-import React from 'react'
+import { useState } from 'react'
+import { Field, TextArea, Section, MultiDropdown, useNodeUpdater } from './FormPrimitives'
 
 export default function FactionInspector({ node }) {
   const update = useNodeUpdater(node.id)
@@ -44,7 +44,7 @@ export default function FactionInspector({ node }) {
 }
 
 function TierRow({ index, tier, onChange, onRemove }) {
-  const [open, setOpen] = React.useState(index === 0)
+  const [open, setOpen] = useState(index === 0)
   return (
     <div style={{ border: '1px solid #2a2a3e', borderRadius: 8, marginBottom: 6, overflow: 'hidden' }}>
       <div onClick={() => setOpen((o) => !o)} style={{ padding: '7px 10px', background: '#1a1a2e', cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}>
@@ -59,12 +59,12 @@ function TierRow({ index, tier, onChange, onRemove }) {
           <Field label="Tier label" value={tier.label} onChange={(v) => onChange({ label: v })} />
           <Field label="Rep threshold" value={tier.threshold} onChange={(v) => onChange({ threshold: Number(v) })} type="number" />
           <Field label="Shop discount %" value={tier.discount_pct ?? 0} onChange={(v) => onChange({ discount_pct: Number(v) })} type="number" />
-          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666680', marginBottom: 4 }}>Unlock node IDs (comma-separated)</div>
-          <input
-            value={(tier.unlock_node_ids ?? []).join(', ')}
-            onChange={(e) => onChange({ unlock_node_ids: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
-            placeholder="building-123, expedition-456"
-            style={{ ...inp, width: '100%', marginBottom: 10 }}
+          <MultiDropdown
+            label="Unlock node IDs"
+            values={tier.unlock_node_ids ?? []}
+            onChange={(v) => onChange({ unlock_node_ids: v })}
+            typeFilter={null}
+            placeholder="Search any node"
           />
         </div>
       )}
@@ -74,4 +74,3 @@ function TierRow({ index, tier, onChange, onRemove }) {
 
 const xBtn = { background: 'none', border: 'none', color: '#555570', cursor: 'pointer', fontSize: 11 }
 const addBtn = { width: '100%', padding: '7px', background: '#1e1e2e', border: '1px dashed #2a2a3e', borderRadius: 7, color: '#666680', fontSize: 12, cursor: 'pointer' }
-const inp = { background: '#1e1e2e', border: '1px solid #2a2a3e', borderRadius: 6, padding: '4px 6px', color: '#e0e0f0', fontSize: 12, outline: 'none' }

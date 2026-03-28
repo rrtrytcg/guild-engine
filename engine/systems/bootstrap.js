@@ -78,7 +78,9 @@ export function bootstrapState(project) {
   )) {
     expeditions[node.id] = {
       ...node,
-      visible: !node.unlock_conditions?.length,
+      visible: false,
+      completed: false,
+      best_tier: null,
     }
   }
 
@@ -89,7 +91,42 @@ export function bootstrapState(project) {
   // ── Acts ─────────────────────────────────────────────────────────────────────
   const acts = {}
   for (const node of project.nodes.filter((n) => n.type === 'act')) {
-    acts[node.id] = { ...node, completed: false }
+    acts[node.id] = { ...node, completed: false, visible: false }
+  }
+
+  const events = {}
+  for (const node of project.nodes.filter((n) => n.type === 'event')) {
+    events[node.id] = { ...node, visible: false }
+  }
+
+  const orderedActs = Object.values(acts).sort((a, b) => (a.act_number ?? 0) - (b.act_number ?? 0))
+  let previousCompleted = true
+  const actOwnedExpeditions = new Set()
+
+  for (const act of orderedActs) {
+    act.visible = (act.act_number ?? 0) === 1 || previousCompleted
+    previousCompleted = !!act.completed
+  }
+
+  for (const act of orderedActs) {
+    const actVisible = !!act.visible
+    for (const expeditionId of act.expedition_ids ?? []) {
+      actOwnedExpeditions.add(expeditionId)
+      const expedition = expeditions[expeditionId]
+      if (!expedition) continue
+      expedition.visible = actVisible && !expedition.unlock_conditions?.length
+    }
+
+    const bossExpedition = act.boss_expedition_id ? expeditions[act.boss_expedition_id] : null
+    if (bossExpedition) {
+      actOwnedExpeditions.add(act.boss_expedition_id)
+      bossExpedition.visible = false
+    }
+  }
+
+  for (const expedition of Object.values(expeditions)) {
+    if (actOwnedExpeditions.has(expedition.id)) continue
+    expedition.visible = !expedition.unlock_conditions?.length
   }
 
   // ── Factions ─────────────────────────────────────────────────────────────────
@@ -149,6 +186,7 @@ export function bootstrapState(project) {
     expeditions,
     activeRuns,
     acts,
+    events,
     factions,
     prestige,
     multipliers,

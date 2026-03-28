@@ -178,12 +178,8 @@ window.confirmRestart = () => restartCurrentGame()
 window.setScreen = (s) => { engineActions.setScreen(s); if (snapshot) render(snapshot) }
 window.sendParty = (expedId, partySize) => {
   if (!snapshot) return
-  const maxPartySize = Number(partySize) || snapshot.expeditions.find((e) => e.id === expedId)?.party_size || snapshot.heroes.length
-  const readyHeroes = snapshot.heroes
-    .filter((h) => h.status === 'ready')
-    .map((h) => h.id)
-    .slice(0, maxPartySize)
-  actions.startExpedition(expedId, readyHeroes)
+  const selectedParty = snapshot.selectExpeditionParty?.(expedId) ?? []
+  actions.startExpedition(expedId, selectedParty)
 }
 
 document.addEventListener('keydown', (e) => {
@@ -199,6 +195,143 @@ document.addEventListener('keydown', (e) => {
 })
 
 // ── Master render ─────────────────────────────────────────────────────────────
+const HERO_STATUS_META = {
+  ready: { label: 'Ready', icon: '✓', color: '#1D9E75', bg: '#1D9E7522' },
+  inspired: { label: 'Inspired', icon: '⚡', color: '#7F77DD', bg: '#7F77DD22' },
+  exhausted: { label: 'Exhausted', icon: '😴', color: '#BA7517', bg: '#BA751722' },
+  cursed: { label: 'Cursed', icon: '💀', color: '#8888aa', bg: '#44446022' },
+  injured: { label: 'Injured', icon: '🩸', color: '#E24B4A', bg: '#E24B4A22' },
+  dead: { label: 'Dead', icon: '✖', color: '#9999b8', bg: '#2a2a3e' },
+}
+
+const READINESS_META = {
+  locked: { key: 'locked', label: 'Locked', icon: '🔒', color: '#666680' },
+  empty: { key: 'empty', label: 'No heroes', icon: '•', color: '#444460' },
+  WIPE: { key: 'WIPE', label: 'Wipe risk', icon: '💀', color: '#444444' },
+  FAIL: { key: 'FAIL', label: 'Likely fail', icon: '✕', color: '#E24B4A' },
+  NARROW_SUCCESS: { key: 'NARROW_SUCCESS', label: 'Risky', icon: '⚠', color: '#BA7517' },
+  CLEAN_SUCCESS: { key: 'CLEAN_SUCCESS', label: 'Ready', icon: '✓', color: '#1D9E75' },
+  DOMINANT: { key: 'DOMINANT', label: 'Dominant', icon: '★', color: '#EF9F27' },
+}
+
+const HERO_STATUS_ORDER = ['dead', 'injured', 'cursed', 'exhausted', 'inspired', 'ready']
+
+function getHeroStatusList(hero) {
+  const statuses = new Set(Array.isArray(hero?.statuses) ? hero.statuses.filter(Boolean) : [])
+  if (hero?.status && hero.status !== 'ready') statuses.add(hero.status)
+  if (!statuses.size) statuses.add('ready')
+  return HERO_STATUS_ORDER.filter((status) => statuses.has(status))
+}
+
+function renderHeroStatusBadges(hero) {
+  const statuses = getHeroStatusList(hero)
+  return statuses.map((status) => {
+    const meta = HERO_STATUS_META[status] ?? HERO_STATUS_META.ready
+    return `<span class="badge" style="display:inline-flex;align-items:center;gap:4px;background:${meta.bg};color:${meta.color};border:1px solid ${meta.color}33">${meta.icon} ${meta.label}</span>`
+  }).join('')
+}
+
+function renderReadinessBadge(readiness) {
+  const meta = READINESS_META[readiness?.key] ?? READINESS_META.locked
+  return `<span class="badge" style="display:inline-flex;align-items:center;gap:4px;background:${meta.color}22;color:${meta.color};border:1px solid ${meta.color}44">${meta.icon} ${meta.label}</span>`
+}
+
+function renderReadinessBar(readiness) {
+  const color = readiness?.color ?? '#666680'
+  const pct = Math.max(0, Math.min(100, readiness?.barPct ?? 0))
+  const label = readiness?.locked
+    ? 'Locked'
+    : readiness?.key === 'empty'
+      ? 'No heroes'
+    : readiness?.shortParty
+      ? `Partial party`
+      : `Full party`
+  return `<div style="margin-top:6px">
+    <div class="progress-bar-outer" style="height:8px;margin-bottom:4px">
+      <div class="progress-bar-inner" style="width:${pct}%;background:${color}"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;gap:8px;font-size:10px;color:${color}">
+      <span>${readiness?.icon ?? ''} ${readiness?.label ?? 'Locked'}</span>
+      <span>${label}</span>
+    </div>
+  </div>`
+}
+
+function renderReadinessParty(readiness) {
+  const heroes = readiness?.partyHeroes ?? []
+  if (!heroes.length) {
+    return `<div style="font-size:10px;color:#444460;margin-top:6px">No eligible party members yet.</div>`
+  }
+
+  return `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">
+    ${heroes.map((hero) => {
+      const statuses = getHeroStatusList(hero)
+      const primary = statuses[0] ?? 'ready'
+      const meta = HERO_STATUS_META[primary] ?? HERO_STATUS_META.ready
+      return `<span class="badge" style="background:${meta.bg};color:${meta.color};border:1px solid ${meta.color}33">${hero.name} &middot; Lv.${hero.level} &middot; ${meta.icon} ${meta.label}</span>`
+    }).join('')}
+  </div>`
+}
+
+function buildExpeditionGroups(s) {
+  const expeditionById = new Map((s.expeditions ?? []).map((exp) => [exp.id, exp]))
+  const assigned = new Set()
+  const groupedActs = (s.acts ?? []).map((act) => {
+    const expeditionIds = act.expedition_ids ?? []
+    const expeditions = expeditionIds.map((id) => expeditionById.get(id)).filter(Boolean)
+    for (const exp of expeditions) assigned.add(exp.id)
+
+    const bossExpedition = act.boss_expedition_id ? expeditionById.get(act.boss_expedition_id) : null
+    if (bossExpedition) assigned.add(bossExpedition.id)
+
+    return { act, expeditions, bossExpedition }
+  })
+
+  const standalone = (s.expeditions ?? []).filter((exp) => !assigned.has(exp.id))
+  return { groupedActs, standalone }
+}
+
+function renderExpeditionCard(s, exp, readiness, { boss = false, note = '' } = {}) {
+  const onRun = (s.activeRuns ?? []).some((r) => !r.done)
+  const selectableCount = readiness?.selectableParty?.length ?? 0
+  const canSend = exp.visible && !onRun && selectableCount > 0
+  const actionKey = getActionKey('start-expedition', exp.id)
+  const pending = pendingActions.has(actionKey)
+  const sendLabel = selectableCount > 0
+    ? `Send ${selectableCount}${exp.party_size && selectableCount < exp.party_size ? `/${exp.party_size}` : ''} heroes`
+    : 'No heroes ready'
+  const buttonLabel = !exp.visible
+    ? 'Locked'
+    : pending
+      ? 'Sending...'
+      : onRun
+        ? 'Run in progress'
+        : sendLabel
+
+  return `<div class="card" style="border-color:${exp.visible ? `${readiness?.color ?? '#2a2a3e'}44` : '#2a2a3e'};opacity:${exp.visible ? 1 : 0.92}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">
+      <div style="min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-weight:600">${exp.icon ?? '🗺️'} ${exp.label}</span>
+          ${boss ? '<span class="badge" style="background:#E24B4A22;color:#E24B4A;border:1px solid #E24B4A44">BOSS</span>' : ''}
+          ${!exp.visible ? '<span class="badge" style="background:#66668022;color:#666680;border:1px solid #66668044">LOCKED</span>' : ''}
+        </div>
+        <div style="font-size:10px;color:#666680;margin-top:2px">Lv.${exp.level ?? 1} · ${exp.duration_s ?? 0}s · Party ${exp.party_size ?? 0}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        ${renderReadinessBadge(readiness)}
+        <div style="font-size:10px;color:#666680;margin-top:3px">${selectableCount}/${exp.party_size ?? selectableCount} selected</div>
+      </div>
+    </div>
+    ${renderReadinessBar(readiness)}
+    ${renderReadinessParty(readiness)}
+    <div style="font-size:11px;color:#666680;margin:8px 0 10px">${exp.visible ? (exp.description || 'No description provided.') : (note || exp.description || 'Locked.')}</div>
+    <button class="btn ${canSend && !pending ? 'btn-primary' : 'btn-ghost'}" ${canSend && !pending ? '' : 'disabled'} data-action="start-expedition" data-expedition-id="${exp.id}" data-party-size="${exp.party_size}" data-action-key="${actionKey}">
+      ${buttonLabel}
+    </button>
+  </div>`
+}
+
 function render(s) {
   renderResources(s)
   renderHeroes(s)
@@ -233,9 +366,36 @@ function renderResources(s) {
 function renderHeroes(s) {
   const el = document.getElementById('heroes-list')
   if (!s.heroes.length) { el.innerHTML = '<div style="font-size:11px;color:#444460;padding:8px 6px">No heroes yet.</div>'; return }
+  const heroMarkup = s.heroes.map((hero) => {
+    const heroClass = s.heroClasses.find((entry) => entry.id === hero.class_id)
+    const heroStatuses = getHeroStatusList(hero)
+    const primaryStatus = heroStatuses[0] ?? 'ready'
+    const statusMeta = HERO_STATUS_META[primaryStatus] ?? HERO_STATUS_META.ready
+    const xpNext = Math.max(1, hero.xp_next ?? 1)
+    const xpPct = Math.max(0, Math.min(100, ((hero.xp ?? 0) / xpNext) * 100))
+    return `<div class="card" style="margin:4px 6px 0">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="min-width:0">
+          <span style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${hero.name}</span>
+          <div style="font-size:10px;color:#666680">${heroClass?.label ?? '?'} &middot; Lv.${hero.level}</div>
+        </div>
+        <span class="badge" style="background:${statusMeta.bg};color:${statusMeta.color};border:1px solid ${statusMeta.color}33;flex-shrink:0">${statusMeta.icon} ${statusMeta.label}</span>
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${renderHeroStatusBadges(hero)}</div>
+      <div style="margin-top:8px">
+        <div class="progress-bar-outer" style="height:8px;margin-bottom:4px"><div class="progress-bar-inner" style="width:${xpPct}%;background:#7F77DD"></div></div>
+        <div style="font-size:10px;color:#666680">XP ${s.fmt(hero.xp ?? 0)} / ${s.fmt(xpNext)}</div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+        ${Object.entries(hero.stats ?? {}).map(([k, v]) => `<span style="font-size:10px;color:#8888aa">${k.slice(0, 3).toUpperCase()} <strong style="color:#c0c0d8">${Math.round(v)}</strong></span>`).join('')}
+      </div>
+    </div>`
+  }).join('')
+  el.innerHTML = heroMarkup
+  return
   el.innerHTML = s.heroes.map((h) => {
     const cls = s.heroClasses.find((c) => c.id === h.class_id)
-    const statusColor = { ready:'#1D9E75', on_expedition:'#BA7517', injured:'#E24B4A' }[h.status] ?? '#888'
+    const statusColor = { ready:'#1D9E75', injured:'#E24B4A', cursed:'#666680', exhausted:'#BA7517', inspired:'#7F77DD' }[h.status] ?? '#888'
     return `<div class="card" style="margin:4px 6px 0">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:12px;font-weight:600">${h.name}</span>
@@ -260,6 +420,25 @@ function renderEventLog(s) {
 
 // ── Acts ──────────────────────────────────────────────────────────────────────
 function renderActs(s) {
+  const acts = s.acts ?? []
+  const actMarkup = acts.length
+    ? acts.map((act) => {
+        const stateLabel = act.completed ? 'Completed' : act.visible ? 'Available' : 'Locked'
+        const stateColor = act.completed ? '#1D9E75' : act.visible ? '#BA7517' : '#666680'
+        const expeditionCount = (act.expedition_ids ?? []).length
+        const contentLabel = `${expeditionCount} expedition${expeditionCount === 1 ? '' : 's'}${act.boss_expedition_id ? ' + boss' : ''}`
+        return `<div style="padding:4px 6px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div style="min-width:0">
+            <div style="font-size:10px;color:#444460;letter-spacing:0.08em;text-transform:uppercase">Act ${act.act_number ?? '?'}</div>
+            <div style="font-size:11px;color:#c0c0d8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${act.label}</div>
+            <div style="font-size:10px;color:#666680">${contentLabel}</div>
+          </div>
+          <span style="font-size:10px;color:${stateColor};flex-shrink:0">${stateLabel}</span>
+        </div>`
+      }).join('')
+    : '<div style="font-size:11px;color:#444460;padding:4px 6px">No acts defined.</div>'
+  document.getElementById('acts-list').innerHTML = actMarkup
+  return
   document.getElementById('acts-list').innerHTML = s.acts.length
     ? s.acts.map((a) => `<div style="padding:4px 6px;display:flex;align-items:center;gap:6px">
         <span style="font-size:12px">${a.completed ? '✅' : '⏳'}</span>
@@ -383,6 +562,83 @@ function renderExpeditionScreen(s) {
   if (renderCache.expeditionHash === expeditionHash) return
   renderCache.expeditionHash = expeditionHash
   const activeRun = s.activeRuns.find((r) => !r.done)
+  const expeditionGroups = buildExpeditionGroups(s)
+
+  const activeRunPanel = activeRun ? (() => {
+    const exp = s.expeditions.find((e) => e.id === activeRun.expedition_id)
+    const pct = Math.min(100, (activeRun.elapsed_s / activeRun.total_s) * 100)
+    const bossHpPct = activeRun.boss_hp_max ? Math.round((activeRun.boss_hp / activeRun.boss_hp_max) * 100) : null
+    const pendingBlock = activeRun.pending_event ? `<div style="background:#2a2a1e;border:1px solid #BA751766;border-radius:8px;padding:10px;margin-top:8px">
+      <div style="font-size:12px;font-weight:600;color:#EF9F27;margin-bottom:8px">⚡ ${activeRun.pending_event.event_def.label}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${(activeRun.pending_event.event_def.choices ?? []).map((choice, choiceIndex) => `<button class="btn btn-ghost" data-action="resolve-event-choice" data-run-id="${activeRun.run_id}" data-choice-index="${choiceIndex}">${choice.label}</button>`).join('')}
+      </div></div>` : ''
+    return `<div class="card" style="border-color:#7F77DD44;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <span style="font-weight:700">${exp?.icon ?? '⚔️'} ${exp?.label ?? 'Expedition'}</span>
+        <span style="font-size:11px;color:#666680">${Math.floor(activeRun.elapsed_s)}s / ${activeRun.total_s}s</span>
+      </div>
+      <div class="progress-bar-outer" style="margin-bottom:8px"><div class="progress-bar-inner" style="width:${pct}%;background:#7F77DD"></div></div>
+      ${bossHpPct !== null ? `<div style="font-size:10px;color:#E24B4A;margin-bottom:4px">Boss HP</div><div class="progress-bar-outer" style="margin-bottom:8px"><div class="progress-bar-inner" style="width:${bossHpPct}%;background:#E24B4A"></div></div>` : ''}
+      ${pendingBlock}
+      <div style="max-height:140px;overflow-y:auto;margin-top:8px">
+        ${activeRun.log.slice().reverse().map((entry) => `<div style="font-size:11px;color:#666680;padding:2px 0;border-bottom:1px solid #1e1e2e">${entry.text}</div>`).join('')}
+      </div>
+    </div>`
+  })() : ''
+
+  const actPanels = expeditionGroups.groupedActs.map((group, index) => {
+    const { act, expeditions, bossExpedition } = group
+    const stateLabel = act.completed ? 'Completed' : act.visible ? 'Available' : 'Locked'
+    const stateColor = act.completed ? '#1D9E75' : act.visible ? '#BA7517' : '#666680'
+    const previousAct = expeditionGroups.groupedActs[index - 1]?.act
+    const lockedNote = index === 0
+      ? 'Locked until the story opens.'
+      : `Defeat ${previousAct?.label ?? 'the previous act'} boss first.`
+    const innerMarkup = act.visible
+      ? [
+          ...expeditions.map((exp) => renderExpeditionCard(s, exp, s.getExpeditionReadiness(exp.id))),
+          bossExpedition
+            ? renderExpeditionCard(s, bossExpedition, s.getExpeditionReadiness(bossExpedition.id), {
+                boss: true,
+                note: bossExpedition.visible ? '' : 'Complete all above first.',
+              })
+            : '',
+        ].join('')
+      : `<div style="font-size:11px;color:#666680">${lockedNote}</div>`
+    const expeditionCount = expeditions.length
+    const contentLabel = `${expeditionCount} expedition${expeditionCount === 1 ? '' : 's'}${bossExpedition ? ' + boss' : ''}`
+    return `<section class="card" style="margin-bottom:12px;border-color:${stateColor}44">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px">
+        <div>
+          <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#666680">Act ${act.act_number ?? index + 1}</div>
+          <div style="font-size:14px;font-weight:700;color:#e0e0f0">${act.label}</div>
+          <div style="font-size:10px;color:#666680">${contentLabel}</div>
+        </div>
+        <span class="badge" style="background:${stateColor}22;color:${stateColor};border:1px solid ${stateColor}44">${stateLabel}</span>
+      </div>
+      ${act.narrative_log ? `<div style="font-size:11px;color:#666680;margin-bottom:8px">${act.narrative_log}</div>` : ''}
+      <div style="display:flex;flex-direction:column;gap:8px">${innerMarkup}</div>
+    </section>`
+  }).join('')
+
+  const standalonePanel = expeditionGroups.standalone.length
+    ? `<section class="card" style="margin-bottom:12px">
+        <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#666680;margin-bottom:8px">Standalone Expeditions</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${expeditionGroups.standalone.map((exp) => renderExpeditionCard(s, exp, s.getExpeditionReadiness(exp.id), {
+            note: exp.visible ? '' : 'Unlock conditions not met.',
+          })).join('')}
+        </div>
+      </section>`
+    : ''
+
+  el.innerHTML = `<h2 style="font-size:15px;font-weight:700;margin-bottom:12px">Expeditions</h2>
+    ${activeRunPanel}
+    ${actPanels}
+    ${standalonePanel}
+    ${!actPanels && !standalonePanel ? '<div style="color:#444460;font-size:12px">No expeditions available yet.</div>' : ''}`
+  return
 
   const activeRunHtml = activeRun ? (() => {
     const exp = s.expeditions.find((e) => e.id === activeRun.expedition_id)
@@ -419,7 +675,7 @@ function renderExpeditionScreen(s) {
           <span style="font-weight:600">${exp.icon??'🗺️'} ${exp.label}</span>
           ${exp.type==='boss_expedition'?'<span class="badge" style="background:#E24B4A22;color:#E24B4A;border:1px solid #E24B4A44;margin-left:6px">BOSS</span>':''}
         </div>
-        <span style="font-size:11px;color:#666680">${exp.duration_s}s · ${Math.round((exp.base_success_chance??0.75)*100)}% base</span>
+        <span style="font-size:11px;color:#666680">Lv.${exp.level ?? 1} · ${exp.duration_s}s</span>
       </div>
       <div style="font-size:11px;color:#666680;margin-bottom:8px">${exp.description||''}</div>
       <button class="btn ${canSend && !pending ? 'btn-primary' : 'btn-ghost'}" ${canSend && !pending ? '' : 'disabled'} data-action="start-expedition" data-expedition-id="${exp.id}" data-party-size="${exp.party_size}" data-action-key="${actionKey}">
@@ -469,6 +725,12 @@ function handleExpeditionActionClick(e) {
   if (!btn || btn.disabled || !e.currentTarget.contains(btn)) return
 
   const action = btn.dataset.action
+  if (action === 'start-expedition') {
+    const expeditionId = btn.dataset.expeditionId
+    const selectedParty = snapshot?.selectExpeditionParty?.(expeditionId) ?? []
+    queueAction(btn.dataset.actionKey || getActionKey(action, expeditionId), () => actions.startExpedition(expeditionId, selectedParty))
+    return
+  }
   if (action === 'start-expedition') {
     const expeditionId = btn.dataset.expeditionId
     const partySize = Number(btn.dataset.partySize) || 0
@@ -529,13 +791,66 @@ function buildWorldRenderHash(s) {
 }
 
 function buildExpeditionRenderHash(s) {
+  const actSnapshots = (s.acts ?? []).map((act) => ({
+    id: act.id,
+    label: act.label,
+    act_number: act.act_number,
+    visible: act.visible,
+    completed: act.completed,
+    expedition_ids: act.expedition_ids ?? [],
+    boss_expedition_id: act.boss_expedition_id ?? '',
+    narrative_log: act.narrative_log ?? '',
+  }))
+  const expeditionSnapshots = (s.expeditions ?? []).map((exp) => ({
+    id: exp.id,
+    type: exp.type,
+    label: exp.label,
+    icon: exp.icon,
+    level: exp.level,
+    party_size: exp.party_size,
+    duration_s: exp.duration_s,
+    enemy_atk: exp.enemy_atk,
+    enemy_hp: exp.enemy_hp,
+    boss_hp: exp.boss_hp ?? null,
+    visible: exp.visible,
+    completed: exp.completed ?? false,
+    best_tier: exp.best_tier ?? null,
+    curse_chance: exp.curse_chance ?? 0,
+  }))
+  const heroSnapshots = (s.heroes ?? []).map((hero) => ({
+    id: hero.id,
+    status: hero.status,
+    statuses: hero.statuses ?? [],
+    level: hero.level,
+    xp: hero.xp ?? 0,
+    xp_next: hero.xp_next ?? 0,
+    stats: hero.stats ?? {},
+  }))
+  const renderHash = JSON.stringify({
+    acts: actSnapshots,
+    expeditions: expeditionSnapshots,
+    activeRuns: (s.activeRuns ?? []).map((run) => ({
+      run_id: run.run_id,
+      expedition_id: run.expedition_id,
+      elapsed_s: Math.floor(run.elapsed_s * 4),
+      total_s: Math.floor(run.total_s * 4),
+      done: run.done,
+      pending_event: run.pending_event?.event_def?.label ?? null,
+      log_len: run.log.length,
+      boss_hp: run.boss_hp ?? null,
+    })),
+    heroes: heroSnapshots,
+    multipliers: s.multipliers?.hero_stats ?? {},
+    pending: [...pendingActions].filter((key) => key.startsWith('start-expedition:')),
+  })
+  return renderHash
   return JSON.stringify({
     expeditions: s.expeditions.map((exp) => ({
       id: exp.id,
       party_size: exp.party_size,
       duration_s: exp.duration_s,
       visible: exp.visible,
-      base_success_chance: exp.base_success_chance ?? 0,
+      level: exp.level,
     })),
     activeRuns: s.activeRuns.map((r) => ({
       run_id: r.run_id,

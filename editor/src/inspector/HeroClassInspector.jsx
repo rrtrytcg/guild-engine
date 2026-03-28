@@ -1,4 +1,4 @@
-import { Field, TextArea, Section, StatBlock, DroppableInput, useNodeUpdater } from './FormPrimitives'
+import { Field, TextArea, Section, StatBlock, SearchableDropdown, useNodeUpdater } from './FormPrimitives'
 
 const SLOT_OPTIONS = ['weapon', 'armor', 'accessory', 'relic']
 
@@ -9,9 +9,19 @@ function CostEditor({ value, onChange }) {
   return (
     <div style={{ marginBottom: 10 }}>
       {value.map((c, i) => (
-        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
-          <DroppableInput value={c.resource_id} onChange={(v) => upd(i, { resource_id: v })} placeholder="resource_id" style={{ ...inp, flex: 1 }} />
-          <input type="number" value={c.amount} onChange={(e) => upd(i, { amount: Number(e.target.value) })} style={{ ...inp, width: 70 }} />
+        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'flex-end' }}>
+          <div style={{ flex: 1 }}>
+            <SearchableDropdown
+              label={i === 0 ? 'Resource' : ''}
+              value={c.resource_id}
+              onChange={(v) => upd(i, { resource_id: v })}
+              typeFilter="resource"
+              placeholder="Search resources"
+            />
+          </div>
+          <div style={{ width: 90 }}>
+            <Field label={i === 0 ? 'Amount' : ''} value={c.amount} onChange={(v) => upd(i, { amount: Number(v) })} type="number" />
+          </div>
           <button onClick={() => rem(i)} style={xBtn}>×</button>
         </div>
       ))}
@@ -19,10 +29,6 @@ function CostEditor({ value, onChange }) {
     </div>
   )
 }
-
-const inp = { background: '#1e1e2e', border: '1px solid #2a2a3e', borderRadius: 6, padding: '4px 6px', color: '#e0e0f0', fontSize: 12, outline: 'none' }
-const xBtn = { background: 'none', border: 'none', color: '#555570', cursor: 'pointer', fontSize: 14, padding: '0 2px' }
-const addBtn = { fontSize: 10, padding: '3px 8px', background: '#1e1e2e', border: '1px solid #2a2a3e', borderRadius: 4, color: '#666680', cursor: 'pointer' }
 
 export default function HeroClassInspector({ node }) {
   const update = useNodeUpdater(node.id)
@@ -79,3 +85,6 @@ export default function HeroClassInspector({ node }) {
     </div>
   )
 }
+
+const xBtn = { background: 'none', border: 'none', color: '#555570', cursor: 'pointer', fontSize: 14, padding: '0 2px' }
+const addBtn = { fontSize: 10, padding: '3px 8px', background: '#1e1e2e', border: '1px solid #2a2a3e', borderRadius: 4, color: '#666680', cursor: 'pointer' }

@@ -1,4 +1,5 @@
-import { Field, TextArea, Toggle, Section, DroppableInput, useNodeUpdater } from './FormPrimitives'
+import { useState } from 'react'
+import { Field, TextArea, Toggle, Section, SearchableDropdown, useNodeUpdater } from './FormPrimitives'
 
 export default function BuildingInspector({ node }) {
   const update = useNodeUpdater(node.id)
@@ -14,15 +15,13 @@ export default function BuildingInspector({ node }) {
   })
 
   const setMaxLevel = (n) => {
-    const count = Number(n)
+    const count = Math.max(1, Number(n) || 1)
     const next = Array.from({ length: count }, (_, i) => normalizeLevel(levels[i]))
-    console.log('[BuildingInspector] saving levels', next)
     update({ max_level: count, levels: next })
   }
 
   const updateLevel = (i, patch) => {
     const next = levels.map((l, idx) => normalizeLevel(idx === i ? { ...l, ...patch } : l))
-    console.log('[BuildingInspector] saving levels', next)
     update({ levels: next })
   }
 
@@ -37,6 +36,15 @@ export default function BuildingInspector({ node }) {
       <Field label="Max level" value={d.max_level} onChange={setMaxLevel} type="number" />
       <Toggle label="Crafting station" value={d.is_crafting_station} onChange={(v) => update({ is_crafting_station: v })} />
 
+      <Section title="Loot" />
+      <SearchableDropdown
+        label="Loot table ID"
+        value={d.loot_table_id ?? ''}
+        onChange={(v) => update({ loot_table_id: v })}
+        typeFilter="loot_table"
+        placeholder="Search loot tables"
+      />
+
       <Section title="Levels" />
       {levels.length === 0 && (
         <p style={{ fontSize: 11, color: '#444460', marginBottom: 8 }}>Set max level above to generate level slots.</p>
@@ -49,7 +57,7 @@ export default function BuildingInspector({ node }) {
 }
 
 function LevelRow({ index, lvl, onChange, isCrafting }) {
-  const [open, setOpen] = React.useState(index === 0)
+  const [open, setOpen] = useState(index === 0)
 
   return (
     <div style={{ border: '1px solid #2a2a3e', borderRadius: 8, marginBottom: 6, overflow: 'hidden' }}>
@@ -84,9 +92,19 @@ function CostEditor({ label, value, onChange }) {
     <div style={{ marginBottom: 10 }}>
       <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666680', marginBottom: 4 }}>{label}</div>
       {value.map((c, i) => (
-        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
-          <DroppableInput value={c.resource_id} onChange={(v) => upd(i, { resource_id: v })} placeholder="resource_id" style={{ ...inp, flex: 1 }} />
-          <input type="number" value={c.amount} onChange={(e) => upd(i, { amount: Number(e.target.value) })} style={{ ...inp, width: 70 }} />
+        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'flex-end' }}>
+          <div style={{ flex: 1 }}>
+            <SearchableDropdown
+              label={i === 0 ? 'Resource' : ''}
+              value={c.resource_id}
+              onChange={(v) => upd(i, { resource_id: v })}
+              typeFilter="resource"
+              placeholder="Search resources"
+            />
+          </div>
+          <div style={{ width: 90 }}>
+            <Field label={i === 0 ? 'Amount' : ''} value={c.amount} onChange={(v) => upd(i, { amount: Number(v) })} type="number" />
+          </div>
           <button onClick={() => rem(i)} style={xBtn}>×</button>
         </div>
       ))}
@@ -100,18 +118,34 @@ function ProductionEditor({ value, onChange }) {
   const add = () => onChange({ ...value, '': 0 })
   const upd = (oldKey, newKey, val) => {
     const next = {}
-    entries.forEach(([k, v]) => { next[k === oldKey ? newKey : k] = k === oldKey ? val : v })
+    entries.forEach(([k, v]) => {
+      next[k === oldKey ? newKey : k] = k === oldKey ? val : v
+    })
     onChange(next)
   }
-  const rem = (key) => { const n = { ...value }; delete n[key]; onChange(n) }
+  const rem = (key) => {
+    const n = { ...value }
+    delete n[key]
+    onChange(n)
+  }
 
   return (
     <div style={{ marginBottom: 10 }}>
       <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666680', marginBottom: 4 }}>Production / sec</div>
       {entries.map(([key, val], i) => (
-        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
-          <DroppableInput value={key} onChange={(v) => upd(key, v, val)} placeholder="resource_id" style={{ ...inp, flex: 1 }} />
-          <input type="number" value={val} onChange={(e) => upd(key, key, Number(e.target.value))} style={{ ...inp, width: 70 }} />
+        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'flex-end' }}>
+          <div style={{ flex: 1 }}>
+            <SearchableDropdown
+              label={i === 0 ? 'Resource' : ''}
+              value={key}
+              onChange={(v) => upd(key, v, val)}
+              typeFilter="resource"
+              placeholder="Search resources"
+            />
+          </div>
+          <div style={{ width: 90 }}>
+            <Field label={i === 0 ? 'Rate' : ''} value={val} onChange={(v) => upd(key, key, Number(v))} type="number" />
+          </div>
           <button onClick={() => rem(key)} style={xBtn}>×</button>
         </div>
       ))}
@@ -120,8 +154,5 @@ function ProductionEditor({ value, onChange }) {
   )
 }
 
-const inp = { background: '#1e1e2e', border: '1px solid #2a2a3e', borderRadius: 6, padding: '4px 6px', color: '#e0e0f0', fontSize: 12, outline: 'none' }
 const xBtn = { background: 'none', border: 'none', color: '#555570', cursor: 'pointer', fontSize: 14, padding: '0 2px' }
 const addBtn = { fontSize: 10, padding: '3px 8px', background: '#1e1e2e', border: '1px solid #2a2a3e', borderRadius: 4, color: '#666680', cursor: 'pointer' }
-
-import React from 'react'

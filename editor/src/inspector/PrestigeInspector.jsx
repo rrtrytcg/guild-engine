@@ -1,8 +1,15 @@
-import { Field, TextArea, Select, Toggle, Section, DroppableField, useNodeUpdater } from './FormPrimitives'
-import React from 'react'
+import { useState } from 'react'
+import { Field, TextArea, Select, Section, SearchableDropdown, useNodeUpdater } from './FormPrimitives'
 
 const RESET_OPTIONS = ['resources', 'buildings', 'heroes', 'upgrades', 'expeditions', 'factions']
 const CONDITION_TYPES = ['resource_gte', 'building_level', 'act_reached', 'faction_rep_gte', 'upgrade_owned', 'hero_count_gte', 'prestige_count_gte']
+const CONDITION_TARGET_FILTERS = {
+  resource_gte: 'resource',
+  building_level: 'building',
+  act_reached: 'act',
+  faction_rep_gte: 'faction',
+  upgrade_owned: 'upgrade',
+}
 
 export default function PrestigeInspector({ node }) {
   const update = useNodeUpdater(node.id)
@@ -41,7 +48,13 @@ export default function PrestigeInspector({ node }) {
       <TextArea label="Description" value={d.description} onChange={(v) => update({ description: v })} rows={2} />
 
       <Section title="Prestige currency" />
-      <DroppableField label="Currency resource ID" value={d.currency_id} onChange={(v) => update({ currency_id: v })} placeholder="soul_shards" />
+      <SearchableDropdown
+        label="Currency resource ID"
+        value={d.currency_id}
+        onChange={(v) => update({ currency_id: v })}
+        typeFilter="resource"
+        placeholder="Search resources"
+      />
       <Field label="Currency formula (JS)" value={d.currency_formula} onChange={(v) => update({ currency_formula: v })} placeholder="Math.floor(Math.sqrt(gold / 1000))" />
 
       <Section title="Trigger conditions (all must pass)" />
@@ -52,7 +65,13 @@ export default function PrestigeInspector({ node }) {
             <button onClick={() => removeCondition(i)} style={xBtn}>× remove</button>
           </div>
           <Select label="Type" value={cond.type} onChange={(v) => updateCondition(i, { type: v })} options={CONDITION_TYPES} />
-          <DroppableField label="Target ID" value={cond.target_id ?? ''} onChange={(v) => updateCondition(i, { target_id: v })} />
+          <SearchableDropdown
+            label="Target ID"
+            value={cond.target_id ?? ''}
+            onChange={(v) => updateCondition(i, { target_id: v })}
+            typeFilter={CONDITION_TARGET_FILTERS[cond.type] ?? null}
+            placeholder="Search node IDs"
+          />
           <Field label="Value" value={cond.value ?? 0} onChange={(v) => updateCondition(i, { value: Number(v) })} type="number" />
         </div>
       ))}
@@ -86,7 +105,7 @@ export default function PrestigeInspector({ node }) {
 }
 
 function BonusRow({ index, bonus, onChange, onRemove }) {
-  const [open, setOpen] = React.useState(false)
+  const [open, setOpen] = useState(false)
   return (
     <div style={{ border: '1px solid #2a2a3e', borderRadius: 8, marginBottom: 6, overflow: 'hidden' }}>
       <div onClick={() => setOpen((o) => !o)} style={{ padding: '7px 10px', background: '#1a1a2e', cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}>
@@ -101,7 +120,7 @@ function BonusRow({ index, bonus, onChange, onRemove }) {
           <Field label="Label" value={bonus.label} onChange={(v) => onChange({ label: v })} />
           <Field label="Cost (prestige currency per tier)" value={bonus.cost} onChange={(v) => onChange({ cost: Number(v) })} type="number" />
           <Field label="Max tier" value={bonus.max_tier} onChange={(v) => onChange({ max_tier: Number(v) })} type="number" />
-          <div style={{ fontSize: 10, color: '#444460', marginTop: 4 }}>Effect — add stat keys like "resource_income_multiplier.gold: 0.1"</div>
+          <div style={{ fontSize: 10, color: '#444460', marginTop: 4 }}>Effect - add stat keys like "resource_income_multiplier.gold: 0.1"</div>
         </div>
       )}
     </div>

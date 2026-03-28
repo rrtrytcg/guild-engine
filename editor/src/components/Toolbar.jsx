@@ -8,6 +8,7 @@ export default function Toolbar() {
   const edgeCount = useStore((s) => s.edges.length)
   const fileInputRef = useRef(null)
   const [showCompile, setShowCompile] = useState(false)
+  const openDocs = () => window.open('/docs/WIKI.md', '_blank', 'noopener,noreferrer')
 
   const onFileChange = (e) => {
     const file = e.target.files?.[0]
@@ -69,6 +70,15 @@ export default function Toolbar() {
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2a2a3e'; e.currentTarget.style.color = '#8888aa' }}
         >
           Import project.json
+        </button>
+
+        <button
+          onClick={openDocs}
+          style={ghostBtn}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#444460'; e.currentTarget.style.color = '#c0c0d8' }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2a2a3e'; e.currentTarget.style.color = '#8888aa' }}
+        >
+          Docs
         </button>
 
         {/* Compile + Export */}

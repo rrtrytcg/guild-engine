@@ -402,7 +402,7 @@
           {
             "title": "Expedition",
             "description": "A standard timed run. Heroes are sent, events fire, loot drops on completion.",
-            "required": ["id", "type", "label", "duration_s", "party_size", "base_success_chance", "loot_table_id"],
+            "required": ["id", "type", "label", "duration_s", "party_size", "level", "loot_table_id"],
             "properties": {
               "id":                   { "type": "string" },
               "type":                 { "type": "string", "const": "expedition" },
@@ -411,7 +411,40 @@
               "icon":                 { "type": "string" },
               "duration_s":           { "type": "number", "minimum": 1, "description": "Countdown length in seconds." },
               "party_size":           { "type": "integer", "minimum": 1, "maximum": 6 },
-              "base_success_chance":  { "type": "number", "minimum": 0, "maximum": 1 },
+              "level":                { "type": "integer", "minimum": 1, "maximum": 20, "description": "Expedition difficulty level used for power checks and XP." },
+              "enemy_atk":            { "type": "number", "default": 10, "description": "Burst damage checked against the party HP floor." },
+              "enemy_hp":             { "type": "number", "default": 100, "description": "Enemy HP pool used for the DPS check." },
+              "base_xp":              { "type": ["number", "null"], "default": null, "description": "Null = auto (level * 15). 0 = explicit zero XP." },
+              "curse_chance":         { "type": "number", "minimum": 0, "maximum": 1, "default": 0 },
+              "resource_rewards": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["resource_id", "amount", "on"],
+                  "properties": {
+                    "resource_id": { "type": "string" },
+                    "amount": { "type": "number" },
+                    "on": { "type": "string", "enum": ["any", "success", "dominant"], "default": "success" }
+                  }
+                }
+              },
+              "faction_rewards": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["faction_id", "rep", "on"],
+                  "properties": {
+                    "faction_id": { "type": "string" },
+                    "rep": { "type": "number" },
+                    "on": { "type": "string", "enum": ["any", "success", "dominant"], "default": "success" }
+                  }
+                }
+              },
+              "on_success_unlock": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Node IDs that become visible on success."
+              },
               "loot_table_id":        { "type": "string" },
               "fail_loot_table_id":   { "type": "string", "description": "Optional: consolation loot on failure." },
               "entry_cost":           { "$ref": "#/definitions/cost" },
@@ -482,10 +515,11 @@
               "act_number":             { "type": "integer", "minimum": 1 },
               "completion_conditions": {
                 "type": "array",
-                "minItems": 1,
                 "items": { "$ref": "#/definitions/unlock_condition" },
                 "description": "All conditions must be true for the act to complete."
               },
+              "expedition_ids":         { "type": "array", "items": { "type": "string" }, "description": "Expedition node IDs owned by this act." },
+              "boss_expedition_id":     { "type": "string", "description": "Boss expedition node ID owned by this act." },
               "on_complete_events":     { "type": "array", "items": { "type": "string" }, "description": "event node IDs fired on act completion." },
               "unlocks_node_ids":       { "type": "array", "items": { "type": "string" } },
               "narrative_log":          { "type": "string", "description": "Flavour text shown in the event log on act start/complete." },

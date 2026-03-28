@@ -1,4 +1,4 @@
-import { Field, Section, Toggle, DroppableField, useNodeUpdater } from './FormPrimitives'
+import { Field, Section, Toggle, SearchableDropdown, useNodeUpdater } from './FormPrimitives'
 
 export default function LootTableInspector({ node }) {
   const update = useNodeUpdater(node.id)
@@ -20,7 +20,7 @@ export default function LootTableInspector({ node }) {
       <Field label="Label" value={d.label} onChange={(v) => update({ label: v })} />
 
       <Section title="Roll config" />
-      <Field label="Rolls per drop event" value={d.rolls} onChange={(v) => update({ rolls: v })} type="number" />
+      <Field label="Rolls per drop event" value={d.rolls} onChange={(v) => update({ rolls: Number(v) })} type="number" />
 
       <Section title="Drop entries" />
       {entries.length === 0 && (
@@ -32,7 +32,13 @@ export default function LootTableInspector({ node }) {
             <span style={{ fontSize: 10, color: '#555570', fontWeight: 700 }}>ENTRY {i + 1}</span>
             <button onClick={() => removeEntry(i)} style={xBtn}>× remove</button>
           </div>
-          <DroppableField label="Item ID" value={entry.item_id} onChange={(v) => updateEntry(i, { item_id: v })} placeholder="item-123" />
+          <SearchableDropdown
+            label="Item ID"
+            value={entry.item_id}
+            onChange={(v) => updateEntry(i, { item_id: v })}
+            typeFilter="item"
+            placeholder="Search items"
+          />
           <div style={{ display: 'flex', gap: 8 }}>
             <div style={{ flex: 1 }}>
               <Field label="Weight" value={entry.weight} onChange={(v) => updateEntry(i, { weight: Number(v) })} type="number" />

@@ -1,4 +1,4 @@
-import { Field, TextArea, Section, StatBlock, useNodeUpdater } from './FormPrimitives'
+import { Field, TextArea, Section, StatBlock, SearchableDropdown, useNodeUpdater } from './FormPrimitives'
 
 export default function UpgradeInspector({ node }) {
   const update = useNodeUpdater(node.id)
@@ -21,9 +21,19 @@ export default function UpgradeInspector({ node }) {
 
       <Section title="Cost (per tier)" />
       {cost.map((c, i) => (
-        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-          <input value={c.resource_id} onChange={(e) => updCost(i, { resource_id: e.target.value })} placeholder="resource_id" style={{ ...inp, flex: 1 }} />
-          <input type="number" value={c.amount} onChange={(e) => updCost(i, { amount: Number(e.target.value) })} style={{ ...inp, width: 80 }} />
+        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'flex-end' }}>
+          <div style={{ flex: 1 }}>
+            <SearchableDropdown
+              label={i === 0 ? 'Resource' : ''}
+              value={c.resource_id}
+              onChange={(v) => updCost(i, { resource_id: v })}
+              typeFilter="resource"
+              placeholder="Search resources"
+            />
+          </div>
+          <div style={{ width: 90 }}>
+            <Field label={i === 0 ? 'Amount' : ''} value={c.amount} onChange={(v) => updCost(i, { amount: Number(v) })} type="number" />
+          </div>
           <button onClick={() => remCost(i)} style={xBtn}>×</button>
         </div>
       ))}
@@ -40,6 +50,5 @@ export default function UpgradeInspector({ node }) {
   )
 }
 
-const inp = { background: '#1e1e2e', border: '1px solid #2a2a3e', borderRadius: 6, padding: '4px 6px', color: '#e0e0f0', fontSize: 12, outline: 'none' }
 const xBtn = { background: 'none', border: 'none', color: '#555570', cursor: 'pointer', fontSize: 14, padding: '0 2px' }
 const addBtn = { width: '100%', padding: '7px', background: '#1e1e2e', border: '1px dashed #2a2a3e', borderRadius: 7, color: '#666680', fontSize: 12, cursor: 'pointer', marginBottom: 4 }

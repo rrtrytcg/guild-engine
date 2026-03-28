@@ -27,7 +27,7 @@ export const REQUIRED_FIELDS = {
   ability:         ['label', 'trigger'],
   building:        ['label', 'max_level'],
   upgrade:         ['label'],
-  expedition:      ['label', 'duration_s', 'party_size', 'base_success_chance'],
+  expedition:      ['label', 'duration_s', 'party_size', 'level', 'loot_table_id'],
   boss_expedition: ['label', 'duration_s', 'party_size', 'boss_hp'],
   act:             ['label', 'act_number'],
   event:           ['label'],
@@ -41,6 +41,23 @@ export const WARNING_CHECKS = [
     id: 'expedition_no_loot',
     check: (node) => (node.type === 'expedition' || node.type === 'boss_expedition') && !node.data.loot_table_id,
     message: (node) => `"${node.data.label}" has no loot table — it will drop nothing on completion.`,
+  },
+  {
+    id: 'expedition_level_range',
+    check: (node) => (node.type === 'expedition' || node.type === 'boss_expedition') && (
+      node.data.level === undefined ||
+      node.data.level === null ||
+      node.data.level < 1 ||
+      node.data.level > 20
+    ),
+    message: (node) => `"${node.data.label}" must have a level between 1 and 20.`,
+  },
+  {
+    id: 'expedition_zero_enemy_stats',
+    check: (node) => (node.type === 'expedition' || node.type === 'boss_expedition') && (
+      node.data.enemy_atk === 0 || node.data.enemy_hp === 0
+    ),
+    message: (node) => `"${node.data.label}" has enemy ATK or HP set to 0. That usually means the value was left unset.`,
   },
   {
     id: 'building_no_levels',
@@ -65,7 +82,17 @@ export const WARNING_CHECKS = [
   {
     id: 'act_no_conditions',
     check: (node) => node.type === 'act' && (!node.data.completion_conditions || node.data.completion_conditions.length === 0),
-    message: (node) => `Act "${node.data.label}" has no completion conditions — it completes immediately.`,
+    message: (node) => `Act "${node.data.label}" uses the default completion rules with no extra conditions.`,
+  },
+  {
+    id: 'act_no_expedition_ids',
+    check: (node) => node.type === 'act' && (!node.data.expedition_ids || node.data.expedition_ids.length === 0),
+    message: (node) => `Act "${node.data.label}" has no expedition_ids — its act group will be empty.`,
+  },
+  {
+    id: 'act_no_boss_expedition_id',
+    check: (node) => node.type === 'act' && (!node.data.boss_expedition_id || node.data.boss_expedition_id.trim() === ''),
+    message: (node) => `Act "${node.data.label}" has no boss_expedition_id — the act cannot complete.`,
   },
   {
     id: 'item_equipment_no_stats',
@@ -97,7 +124,7 @@ export const WARNING_CHECKS = [
   {
     id: 'duplicate_act_numbers',
     check: (_, allNodes) => {
-      const acts = allNodes.filter((n) => n.type === 'act').map((n) => n.data.act_number)
+      const acts = allNodes.filter((n) => n.type === 'act').map((n) => n.act_number)
       return new Set(acts).size !== acts.length
     },
     message: () => 'Multiple Act nodes share the same act_number — acts must have unique numbers.',

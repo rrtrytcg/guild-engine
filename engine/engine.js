@@ -1,6 +1,13 @@
 import { bootstrapState } from './systems/bootstrap.js'
 import { tickResources, formatNumber } from './systems/resources.js'
-import { tickExpeditions, startExpedition, resolveEventChoice, addToEventLog } from './systems/expeditions.js'
+import {
+  tickExpeditions,
+  startExpedition,
+  resolveEventChoice,
+  addToEventLog,
+  selectAutoPartyHeroes,
+  summarizeExpeditionReadiness,
+} from './systems/expeditions.js'
 import { tickCrafting, buildBuilding, recruitHero, buyUpgrade, equipItem, startCraft, saveGame, loadSave } from './systems/buildings.js'
 
 // ── Engine singleton ──────────────────────────────────────────────────────────
@@ -111,9 +118,9 @@ function getSnapshot() {
     heroClasses: Object.values(state.heroClasses),
     buildings: Object.values(state.buildings),
     upgrades: Object.values(state.upgrades).filter((u) => u.visible),
-    expeditions: Object.values(state.expeditions).filter((e) => e.visible),
+    expeditions: Object.values(state.expeditions),
     activeRuns: state.activeRuns,
-    acts: Object.values(state.acts),
+    acts: Object.values(state.acts).sort((a, b) => (a.act_number ?? 0) - (b.act_number ?? 0)),
     factions: Object.values(state.factions),
     eventLog: state.eventLog.slice(0, 50),
     ui: state.ui,
@@ -123,6 +130,8 @@ function getSnapshot() {
     canAffordCost: (cost) => cost?.every(({ resource_id, amount }) =>
       (state.resources[resource_id]?.amount ?? 0) >= amount
     ),
+    selectExpeditionParty: (expeditionId) => selectAutoPartyHeroes(state, expeditionId),
+    getExpeditionReadiness: (expeditionId) => summarizeExpeditionReadiness(state, expeditionId),
   }
 }
 

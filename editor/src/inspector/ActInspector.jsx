@@ -1,4 +1,4 @@
-import { Field, TextArea, Select, Section, useNodeUpdater } from './FormPrimitives'
+import { Field, TextArea, Select, Section, SearchableDropdown, MultiDropdown, useNodeUpdater } from './FormPrimitives'
 
 const CONDITION_TYPES = [
   'resource_gte',
@@ -9,6 +9,14 @@ const CONDITION_TYPES = [
   'hero_count_gte',
   'prestige_count_gte',
 ]
+
+const CONDITION_TARGET_FILTERS = {
+  resource_gte: 'resource',
+  building_level: 'building',
+  act_reached: 'act',
+  faction_rep_gte: 'faction',
+  upgrade_owned: 'upgrade',
+}
 
 export default function ActInspector({ node }) {
   const update = useNodeUpdater(node.id)
@@ -32,9 +40,25 @@ export default function ActInspector({ node }) {
       <TextArea label="Description" value={d.description} onChange={(v) => update({ description: v })} rows={2} />
       <TextArea label="Narrative log (shown on act start/complete)" value={d.narrative_log ?? ''} onChange={(v) => update({ narrative_log: v })} rows={3} placeholder="The guild doors creak open as a new threat emerges..." />
 
-      <Section title="Completion conditions (all must pass)" />
+      <Section title="Act content" />
+      <MultiDropdown
+        label="Expedition IDs"
+        values={d.expedition_ids ?? []}
+        onChange={(v) => update({ expedition_ids: v })}
+        typeFilter="expedition"
+        placeholder="Search expeditions"
+      />
+      <SearchableDropdown
+        label="Boss expedition ID"
+        value={d.boss_expedition_id ?? ''}
+        onChange={(v) => update({ boss_expedition_id: v })}
+        typeFilter="boss_expedition"
+        placeholder="Search boss expeditions"
+      />
+
+      <Section title="Completion conditions (additional)" />
       {conditions.length === 0 && (
-        <p style={{ fontSize: 11, color: '#444460', marginBottom: 8 }}>No conditions — act completes immediately.</p>
+        <p style={{ fontSize: 11, color: '#444460', marginBottom: 8 }}>No conditions - the act completes as soon as its expedition and boss requirements are met.</p>
       )}
       {conditions.map((cond, i) => (
         <div key={i} style={{ background: '#1a1a2e', border: '1px solid #2a2a3e', borderRadius: 8, padding: '8px 10px', marginBottom: 6 }}>
@@ -43,7 +67,13 @@ export default function ActInspector({ node }) {
             <button onClick={() => removeCondition(i)} style={xBtn}>× remove</button>
           </div>
           <Select label="Type" value={cond.type} onChange={(v) => updateCondition(i, { type: v })} options={CONDITION_TYPES} />
-          <Field label="Target ID (node id)" value={cond.target_id ?? ''} onChange={(v) => updateCondition(i, { target_id: v })} placeholder="resource-123" />
+          <SearchableDropdown
+            label="Target ID"
+            value={cond.target_id ?? ''}
+            onChange={(v) => updateCondition(i, { target_id: v })}
+            typeFilter={CONDITION_TARGET_FILTERS[cond.type] ?? null}
+            placeholder="Search node IDs"
+          />
           <Field label="Value" value={cond.value ?? 0} onChange={(v) => updateCondition(i, { value: Number(v) })} type="number" />
         </div>
       ))}

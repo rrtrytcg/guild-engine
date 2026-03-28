@@ -90,6 +90,7 @@ export function compile(rfNodes, rfEdges, meta = {}) {
       ['fail_loot_table_id', d.fail_loot_table_id],
       ['currency_id', d.currency_id],
       ['output_item_id', d.output_item_id],
+      ['boss_expedition_id', d.boss_expedition_id],
     ]
     for (const [field, refId] of singleRefs) {
       if (refId && !allIds.has(refId)) {
@@ -105,6 +106,8 @@ export function compile(rfNodes, rfEdges, meta = {}) {
       ['unlock_node_ids', d.unlock_node_ids],
       ['on_complete_events', d.on_complete_events],
       ['unlocks_node_ids', d.unlocks_node_ids],
+      ['on_success_unlock', d.on_success_unlock],
+      ['expedition_ids', d.expedition_ids],
     ]
     for (const [field, ids] of arrayRefs) {
       for (const refId of ids ?? []) {
@@ -112,6 +115,31 @@ export function compile(rfNodes, rfEdges, meta = {}) {
           warnings.push({
             nodeId: node.id,
             message: `"${d.label}" field "${field}" references unknown ID "${refId}".`,
+          })
+        }
+      }
+    }
+
+    // Resource ID checks used by cost/reward editors
+    const resourceCostArrays = [d.cost, d.entry_cost, d.recruit_cost]
+    for (const costArray of resourceCostArrays) {
+      for (const cost of costArray ?? []) {
+        if (cost.resource_id && !allIds.has(cost.resource_id)) {
+          warnings.push({
+            nodeId: node.id,
+            message: `"${d.label}" references unknown resource ID "${cost.resource_id}".`,
+          })
+        }
+      }
+    }
+
+    const conditionArrays = [d.unlock_conditions, d.completion_conditions, d.trigger_conditions]
+    for (const conditionArray of conditionArrays) {
+      for (const cond of conditionArray ?? []) {
+        if (cond?.target_id && !allIds.has(cond.target_id)) {
+          warnings.push({
+            nodeId: node.id,
+            message: `"${d.label}" condition references unknown node ID "${cond.target_id}".`,
           })
         }
       }
@@ -149,6 +177,79 @@ export function compile(rfNodes, rfEdges, meta = {}) {
             warnings.push({
               nodeId: node.id,
               message: `Faction "${d.label}" tier "${tier.label}" references unknown unlock ID "${refId}".`,
+            })
+          }
+        }
+      }
+    }
+
+    if (d.type === 'expedition' || d.type === 'boss_expedition') {
+      for (const reward of d.resource_rewards ?? []) {
+        if (reward.resource_id && !allIds.has(reward.resource_id)) {
+          warnings.push({
+            nodeId: node.id,
+            message: `"${d.label}" resource reward references unknown resource ID "${reward.resource_id}".`,
+          })
+        }
+      }
+    }
+
+    if (d.type === 'expedition' || d.type === 'boss_expedition') {
+      for (const reward of d.faction_rewards ?? []) {
+        if (reward.faction_id && !allIds.has(reward.faction_id)) {
+          warnings.push({
+            nodeId: node.id,
+            message: `"${d.label}" faction reward references unknown faction ID "${reward.faction_id}".`,
+          })
+        }
+      }
+    }
+
+    if (d.type === 'building') {
+      for (const level of d.levels ?? []) {
+        for (const [resId] of Object.entries(level.production ?? {})) {
+          if (resId && !allIds.has(resId)) {
+            warnings.push({
+              nodeId: node.id,
+              message: `Building "${d.label}" production references unknown resource ID "${resId}".`,
+            })
+          }
+        }
+
+        for (const cost of level.build_cost ?? []) {
+          if (cost.resource_id && !allIds.has(cost.resource_id)) {
+            warnings.push({
+              nodeId: node.id,
+              message: `Building "${d.label}" level cost references unknown resource ID "${cost.resource_id}".`,
+            })
+          }
+        }
+      }
+    }
+
+    if (d.type === 'event') {
+      for (const choice of d.choices ?? []) {
+        for (const [resId] of Object.entries(choice.outcome?.resource_delta ?? {})) {
+          if (resId && !allIds.has(resId)) {
+            warnings.push({
+              nodeId: node.id,
+              message: `Event "${d.label}" resource delta references unknown resource ID "${resId}".`,
+            })
+          }
+        }
+        for (const [factionId] of Object.entries(choice.outcome?.faction_rep_delta ?? {})) {
+          if (factionId && !allIds.has(factionId)) {
+            warnings.push({
+              nodeId: node.id,
+              message: `Event "${d.label}" faction rep delta references unknown faction ID "${factionId}".`,
+            })
+          }
+        }
+        for (const refId of choice.outcome?.unlock_node_ids ?? []) {
+          if (refId && !allIds.has(refId)) {
+            warnings.push({
+              nodeId: node.id,
+              message: `Event "${d.label}" unlocks unknown node ID "${refId}".`,
             })
           }
         }

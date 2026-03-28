@@ -1,5 +1,5 @@
-import { Field, TextArea, Section, useNodeUpdater } from './FormPrimitives'
-import React from 'react'
+import { useState } from 'react'
+import { Field, TextArea, Section, SearchableDropdown, useNodeUpdater } from './FormPrimitives'
 
 export default function EventInspector({ node }) {
   const update = useNodeUpdater(node.id)
@@ -27,7 +27,7 @@ export default function EventInspector({ node }) {
 
       <Section title="Player choices" />
       {choices.length === 0 && (
-        <p style={{ fontSize: 11, color: '#444460', marginBottom: 8 }}>No choices — event fires automatically with no player input.</p>
+        <p style={{ fontSize: 11, color: '#444460', marginBottom: 8 }}>No choices - event fires automatically with no player input.</p>
       )}
       {choices.map((choice, i) => (
         <ChoiceRow
@@ -47,7 +47,7 @@ export default function EventInspector({ node }) {
 }
 
 function ChoiceRow({ index, choice, onLabelChange, onOutcomeChange, onRemove }) {
-  const [open, setOpen] = React.useState(index === 0)
+  const [open, setOpen] = useState(index === 0)
   const outcome = choice.outcome ?? {}
 
   return (
@@ -64,11 +64,7 @@ function ChoiceRow({ index, choice, onLabelChange, onOutcomeChange, onRemove }) 
           <Field label="Choice label" value={choice.label} onChange={onLabelChange} />
           <Field label="Outcome log message" value={outcome.log_message ?? ''} onChange={(v) => onOutcomeChange({ log_message: v })} />
           <ResourceDeltaEditor value={outcome.resource_delta ?? {}} onChange={(v) => onOutcomeChange({ resource_delta: v })} />
-          <Field label="Faction rep delta key (faction_id)" value={Object.keys(outcome.faction_rep_delta ?? {})[0] ?? ''} onChange={(v) => {
-            const delta = {}
-            if (v) delta[v] = Object.values(outcome.faction_rep_delta ?? {})[0] ?? 0
-            onOutcomeChange({ faction_rep_delta: delta })
-          }} placeholder="faction-id" />
+          <FactionDeltaEditor value={outcome.faction_rep_delta ?? {}} onChange={(v) => onOutcomeChange({ faction_rep_delta: v })} />
         </div>
       )}
     </div>
@@ -80,18 +76,34 @@ function ResourceDeltaEditor({ value, onChange }) {
   const add = () => onChange({ ...value, '': 0 })
   const upd = (oldKey, newKey, val) => {
     const next = {}
-    entries.forEach(([k, v]) => { next[k === oldKey ? newKey : k] = k === oldKey ? Number(val) : v })
+    entries.forEach(([k, v]) => {
+      next[k === oldKey ? newKey : k] = k === oldKey ? Number(val) : v
+    })
     onChange(next)
   }
-  const rem = (key) => { const n = { ...value }; delete n[key]; onChange(n) }
+  const rem = (key) => {
+    const n = { ...value }
+    delete n[key]
+    onChange(n)
+  }
 
   return (
     <div style={{ marginBottom: 10 }}>
       <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666680', marginBottom: 4 }}>Resource delta</div>
       {entries.map(([key, val], i) => (
-        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
-          <input value={key} onChange={(e) => upd(key, e.target.value, val)} placeholder="resource_id" style={{ ...inp, flex: 1 }} />
-          <input type="number" value={val} onChange={(e) => upd(key, key, e.target.value)} style={{ ...inp, width: 70 }} />
+        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'flex-end' }}>
+          <div style={{ flex: 1 }}>
+            <SearchableDropdown
+              label={i === 0 ? 'Resource' : ''}
+              value={key}
+              onChange={(v) => upd(key, v, val)}
+              typeFilter="resource"
+              placeholder="Search resources"
+            />
+          </div>
+          <div style={{ width: 90 }}>
+            <Field label={i === 0 ? 'Amount' : ''} value={val} onChange={(v) => upd(key, key, v)} type="number" />
+          </div>
           <button onClick={() => rem(key)} style={xBtn}>×</button>
         </div>
       ))}
@@ -100,7 +112,47 @@ function ResourceDeltaEditor({ value, onChange }) {
   )
 }
 
+function FactionDeltaEditor({ value, onChange }) {
+  const entries = Object.entries(value)
+  const add = () => onChange({ ...value, '': 0 })
+  const upd = (oldKey, newKey, val) => {
+    const next = {}
+    entries.forEach(([k, v]) => {
+      next[k === oldKey ? newKey : k] = k === oldKey ? Number(val) : v
+    })
+    onChange(next)
+  }
+  const rem = (key) => {
+    const n = { ...value }
+    delete n[key]
+    onChange(n)
+  }
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666680', marginBottom: 4 }}>Faction rep delta</div>
+      {entries.map(([key, val], i) => (
+        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'flex-end' }}>
+          <div style={{ flex: 1 }}>
+            <SearchableDropdown
+              label={i === 0 ? 'Faction' : ''}
+              value={key}
+              onChange={(v) => upd(key, v, val)}
+              typeFilter="faction"
+              placeholder="Search factions"
+            />
+          </div>
+          <div style={{ width: 90 }}>
+            <Field label={i === 0 ? 'Rep' : ''} value={val} onChange={(v) => upd(key, key, v)} type="number" />
+          </div>
+          <button onClick={() => rem(key)} style={xBtn}>×</button>
+        </div>
+      ))}
+      <button onClick={add} style={smallAdd}>+ faction</button>
+    </div>
+  )
+}
+
 const xBtn = { background: 'none', border: 'none', color: '#555570', cursor: 'pointer', fontSize: 11 }
 const addBtn = { width: '100%', padding: '7px', background: '#1e1e2e', border: '1px dashed #2a2a3e', borderRadius: 7, color: '#666680', fontSize: 12, cursor: 'pointer' }
-const inp = { background: '#1e1e2e', border: '1px solid #2a2a3e', borderRadius: 6, padding: '4px 6px', color: '#e0e0f0', fontSize: 12, outline: 'none' }
 const smallAdd = { fontSize: 10, padding: '3px 8px', background: '#1e1e2e', border: '1px solid #2a2a3e', borderRadius: 4, color: '#666680', cursor: 'pointer' }

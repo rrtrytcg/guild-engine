@@ -1,7 +1,247 @@
-import { canAfford, spend, gain, giveItem, spendItems } from './resources.js'
+import { canAfford, spend, giveItem, spendItems } from './resources.js'
 import { addToEventLog, checkActProgress, unlockNode, evaluateCondition } from './expeditions.js'
 
 export const MIN_ACTION_DELAY_MS = 275
+
+const STATUS_MULTIPLIERS = {
+  ready: 1,
+  inspired: 1.15,
+  exhausted: 0.9,
+  cursed: 0.8,
+  injured: 0.6,
+  dead: 0,
+}
+
+const STATUS_PRIORITY = ['dead', 'injured', 'cursed', 'exhausted', 'inspired', 'ready']
+
+export function xpRequired(level) {
+  return Math.floor(100 * Math.pow(Math.max(1, level), 1.6))
+}
+
+export function getHeroStatuses(hero) {
+  if (Array.isArray(hero.statuses)) return [...new Set(hero.statuses.filter(Boolean))]
+  if (hero.status && hero.status !== 'ready') return [hero.status]
+  return []
+}
+
+export function refreshHeroStatus(hero) {
+  const statuses = getHeroStatuses(hero)
+  if (statuses.includes('dead')) {
+    hero.statuses = ['dead']
+    hero.status = 'dead'
+    return hero.status
+  }
+
+  hero.statuses = statuses.filter((status) => status !== 'ready' && status !== 'dead')
+
+  for (const status of STATUS_PRIORITY) {
+    if (status === 'ready') break
+    if (hero.statuses.includes(status)) {
+      hero.status = status
+      return hero.status
+    }
+  }
+
+  hero.status = 'ready'
+  return hero.status
+}
+
+export function setHeroStatuses(hero, statuses) {
+  hero.statuses = [...new Set((statuses ?? []).filter((status) => status && status !== 'ready'))]
+  if (hero.statuses.includes('dead')) {
+    hero.statuses = ['dead']
+  }
+  return refreshHeroStatus(hero)
+}
+
+export function addHeroStatus(hero, status) {
+  if (!status || status === 'ready') return refreshHeroStatus(hero)
+  const next = new Set(getHeroStatuses(hero))
+  next.add(status)
+  return setHeroStatuses(hero, [...next])
+}
+
+export function removeHeroStatus(hero, status) {
+  const next = new Set(getHeroStatuses(hero))
+  next.delete(status)
+  return setHeroStatuses(hero, [...next])
+}
+
+export function hasHeroStatus(hero, status) {
+  return getHeroStatuses(hero).includes(status)
+}
+
+export function normalizeHeroRecord(state, hero) {
+  const normalized = {
+    ...hero,
+    xp: hero.xp ?? 0,
+    xp_next: hero.xp_next ?? xpRequired(hero.level ?? 1),
+    consecutive_runs: hero.consecutive_runs ?? 0,
+    recovery_at: hero.recovery_at ?? null,
+    curse_clears_at: hero.curse_clears_at ?? null,
+    equipment: hero.equipment ?? {},
+  }
+  if (!Array.isArray(normalized.statuses)) {
+    normalized.statuses = hero.status && hero.status !== 'ready' ? [hero.status] : []
+  }
+  refreshHeroStatus(normalized)
+  syncHeroStats(state, normalized)
+  return normalized
+}
+
+export function syncHeroStats(state, hero) {
+  const cls = state.heroClasses[hero.class_id]
+  if (!cls) return
+  hero.stats = computeHeroStats(cls, hero.level ?? 1)
+  for (const equipped of Object.values(hero.equipment ?? {})) {
+    const equippedDef = state.itemDefs[equipped]
+    for (const [stat, mod] of Object.entries(equippedDef?.stat_modifiers ?? {})) {
+      hero.stats[stat] = (hero.stats[stat] ?? 0) + mod
+    }
+  }
+  for (const [stat, mod] of Object.entries(state.multipliers.hero_stats ?? {})) {
+    hero.stats[stat] = (hero.stats[stat] ?? 0) + mod
+  }
+}
+
+export function syncAllHeroStats(state) {
+  for (const hero of state.heroes) {
+    syncHeroStats(state, hero)
+  }
+}
+
+export function getHeroEffectiveStats(hero) {
+  const stats = hero.stats ?? {}
+  const statuses = getHeroStatuses(hero)
+  const statusMultiplier = statuses.reduce(
+    (mult, status) => mult * (STATUS_MULTIPLIERS[status] ?? 1),
+    1
+  )
+  const cursedLuckMultiplier = statuses.includes('cursed') ? 0.5 : 1
+
+  return {
+    attack: (stats.attack ?? 0) * statusMultiplier,
+    defense: (stats.defense ?? 0) * statusMultiplier,
+    speed: (stats.speed ?? 0) * statusMultiplier,
+    hp: (stats.hp ?? 0) * statusMultiplier,
+    luck: (stats.luck ?? 0) * statusMultiplier * cursedLuckMultiplier,
+  }
+}
+
+export function clearExpiredHeroStatuses(state, nowMs = Date.now()) {
+  for (const hero of state.heroes) {
+    if (hasHeroStatus(hero, 'dead')) continue
+
+    let changed = false
+    const statuses = new Set(getHeroStatuses(hero))
+
+    if (statuses.has('injured') && hero.recovery_at !== null && hero.recovery_at !== undefined && nowMs > hero.recovery_at) {
+      statuses.delete('injured')
+      hero.recovery_at = null
+      changed = true
+    }
+
+    if (statuses.has('cursed') && hero.curse_clears_at !== null && hero.curse_clears_at !== undefined && nowMs > hero.curse_clears_at) {
+      statuses.delete('cursed')
+      hero.curse_clears_at = null
+      changed = true
+    }
+
+    if (changed) {
+      setHeroStatuses(hero, [...statuses])
+    }
+  }
+}
+
+export function startPartyRun(state, heroIds) {
+  for (const hid of heroIds) {
+    const hero = state.heroes.find((h) => h.id === hid)
+    if (!hero || hasHeroStatus(hero, 'dead')) continue
+    hero.consecutive_runs = (hero.consecutive_runs ?? 0) + 1
+    if (hero.consecutive_runs >= 2 && getHeroStatuses(hero).length === 0) {
+      addHeroStatus(hero, 'exhausted')
+    }
+  }
+}
+
+export function completePartyRun(state, heroIds) {
+  const party = new Set(heroIds)
+  for (const hero of state.heroes) {
+    if (hasHeroStatus(hero, 'dead')) continue
+
+    if (party.has(hero.id)) {
+      removeHeroStatus(hero, 'inspired')
+    } else {
+      hero.consecutive_runs = 0
+      if (hasHeroStatus(hero, 'exhausted')) {
+        removeHeroStatus(hero, 'exhausted')
+      }
+    }
+  }
+
+  // Inspired is a one-run guild buff, so it clears when any expedition resolves.
+  for (const hero of state.heroes) {
+    if (hasHeroStatus(hero, 'dead')) continue
+    if (hasHeroStatus(hero, 'inspired')) {
+      removeHeroStatus(hero, 'inspired')
+    }
+  }
+}
+
+export function grantHeroXp(state, heroId, xpGained) {
+  const hero = state.heroes.find((h) => h.id === heroId)
+  if (!hero || hasHeroStatus(hero, 'dead')) return 0
+
+  hero.xp = (hero.xp ?? 0) + xpGained
+  let levelsGained = 0
+
+  while (hero.xp >= xpRequired(hero.level ?? 1)) {
+    hero.xp -= xpRequired(hero.level ?? 1)
+    hero.level = (hero.level ?? 1) + 1
+    syncHeroStats(state, hero)
+    hero.xp_next = xpRequired(hero.level)
+    levelsGained += 1
+    addToEventLog(state, `${hero.name} reached level ${hero.level}!`, 'success')
+  }
+
+  hero.xp_next = xpRequired(hero.level ?? 1)
+  return levelsGained
+}
+
+export function grantPartyXp(state, heroIds, xpGained) {
+  for (const hid of heroIds) {
+    grantHeroXp(state, hid, xpGained)
+  }
+}
+
+export function handleWipeDeaths(state, heroIds, expeditionLabel, expeditionLevel = 1, nowMs = Date.now()) {
+  const deadIds = new Set()
+
+  for (const hid of heroIds) {
+    const hero = state.heroes.find((h) => h.id === hid)
+    if (!hero || hasHeroStatus(hero, 'dead')) continue
+
+    addHeroStatus(hero, 'injured')
+    const recoveryAt = nowMs + Math.ceil(expeditionLevel / 2) * 60 * 1000
+    hero.recovery_at = hero.recovery_at ? Math.max(hero.recovery_at, recoveryAt) : recoveryAt
+
+    if (Math.random() < 0.25) {
+      for (const itemId of Object.values(hero.equipment ?? {})) {
+        if (itemId) giveItem(state, itemId, 1)
+      }
+      hero.equipment = {}
+      setHeroStatuses(hero, ['dead'])
+      deadIds.add(hero.id)
+      addToEventLog(state, `${hero.name} has fallen in ${expeditionLabel}.`, 'danger')
+    } else {
+      refreshHeroStatus(hero)
+    }
+  }
+
+  if (deadIds.size > 0) {
+    state.heroes = state.heroes.filter((hero) => !deadIds.has(hero.id))
+  }
+}
 
 // ── Build a building (or upgrade to next level) ───────────────────────────────
 export function buildBuilding(state, buildingId) {
@@ -50,12 +290,18 @@ export function recruitHero(state, classId) {
     name,
     level: 1,
     xp: 0,
-    xp_next: 100,
-    status: 'ready', // 'ready' | 'on_expedition' | 'injured'
+    xp_next: xpRequired(1),
+    statuses: [],
+    status: 'ready',
+    consecutive_runs: 0,
+    recovery_at: null,
+    curse_clears_at: null,
     equipment: {},   // slot → item_id
-    stats: computeHeroStats(cls, 1),
+    stats: {},
   }
 
+  syncHeroStats(state, hero)
+  refreshHeroStatus(hero)
   state.heroes.push(hero)
   addToEventLog(state, `${name} the ${cls.label} joins the guild!`, 'success')
   return { ok: true, hero }
@@ -92,13 +338,7 @@ export function equipItem(state, heroId, itemId) {
   state.inventory[itemId] = (state.inventory[itemId] ?? 1) - 1
 
   // Recompute stats with equipment modifiers
-  hero.stats = computeHeroStats(cls, hero.level)
-  for (const equipped of Object.values(hero.equipment)) {
-    const equippedDef = state.itemDefs[equipped]
-    for (const [stat, mod] of Object.entries(equippedDef?.stat_modifiers ?? {})) {
-      hero.stats[stat] = (hero.stats[stat] ?? 0) + mod
-    }
-  }
+  syncHeroStats(state, hero)
 
   return { ok: true }
 }
@@ -147,6 +387,10 @@ function applyUpgradeEffect(state, effect) {
   }
   if (effect.loot_bonus_pct) {
     m.loot_bonus_pct = (m.loot_bonus_pct ?? 0) + effect.loot_bonus_pct
+  }
+
+  if (effect.hero_stat_modifier && Object.keys(effect.hero_stat_modifier).length > 0) {
+    syncAllHeroStats(state)
   }
 }
 
@@ -217,10 +461,17 @@ export function saveGame(state) {
       Object.entries(state.upgrades).map(([id, u]) => [id, { tier: u.tier, visible: u.visible }])
     ),
     expeditions: Object.fromEntries(
-      Object.entries(state.expeditions).map(([id, e]) => [id, { visible: e.visible }])
+      Object.entries(state.expeditions).map(([id, e]) => [id, {
+        visible: e.visible,
+        completed: e.completed,
+        best_tier: e.best_tier ?? null,
+      }])
     ),
     acts: Object.fromEntries(
-      Object.entries(state.acts).map(([id, a]) => [id, { completed: a.completed }])
+      Object.entries(state.acts).map(([id, a]) => [id, {
+        completed: a.completed,
+        visible: a.visible,
+      }])
     ),
     factions: Object.fromEntries(
       Object.entries(state.factions).map(([id, f]) => [id, { rep: f.rep }])
@@ -247,7 +498,7 @@ export function loadSave(state) {
       if (state.resources[id]) state.resources[id].amount = amount
     }
     state.inventory = save.inventory ?? {}
-    state.heroes = save.heroes ?? []
+    state.heroes = (save.heroes ?? []).map((hero) => normalizeHeroRecord(state, hero))
 
     for (const [id, data] of Object.entries(save.buildings ?? {})) {
       if (state.buildings[id]) Object.assign(state.buildings[id], data)
@@ -271,6 +522,8 @@ export function loadSave(state) {
         applyUpgradeEffect(state, upg.effect ?? {})
       }
     }
+
+    checkActProgress(state, { silent: true })
 
     return true
   } catch {
