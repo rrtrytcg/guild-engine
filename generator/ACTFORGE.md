@@ -596,6 +596,167 @@ To import into the editor:
 
 ---
 
+## KNOWN LIMITATIONS (v1.0)
+
+**Item generation deferred to v1.1**
+
+Loot tables reference item IDs that may not exist in your project. You have two options:
+
+**Option A: Manual wiring (current)**
+- Import the act blueprint
+- Create your own item nodes (or use existing ones)
+- Edit loot table entries to reference your items
+
+**Option B: Auto-create stub items (workaround)**
+- After import, the Canvas Doctor will flag "dangling loot_table item_id"
+- Use auto-fix to create stub material items
+- Customize item stats later
+
+**v1.1 roadmap (PENDING):**
+- Add `items[]` parameter array with `injects_into` for loot entries
+- OR: Generate stub item nodes alongside act (positioned left of main act)
+- See `CHANGELOG.md` — "ACTFORGE v1.1 — Item parameter injection"
+
+---
+
+## ACTFORGE v1.1 — AUTO-GENERATED STUB ITEMS
+
+**STATUS: IMPLEMENTED**
+
+Loot tables now include auto-generated stub item nodes. These are placeholder items
+themed to the act's narrative, positioned to the left of the main act structure.
+
+### Item Generation Rules
+
+**For each loot table, generate 2-4 stub items:**
+
+1. **Common material** (weight 30-40%) — Crafting ingredient
+   - Type: `item`, subtype: `material`
+   - Rarity: `common`
+   - Stack: 99
+   - Example: "Tidal Herb", "Cultist Scrap", "Rusted Key"
+
+2. **Uncommon equipment** (weight 15-25%) — Basic gear
+   - Type: `item`, subtype: `equipment`
+   - Slot: `weapon` or `armor` (based on theme)
+   - Rarity: `uncommon`
+   - Stats: ATK +5 or DEF +4
+   - Example: "Smuggler's Knife", "Cultist Robe"
+
+3. **Rare boss drop** (boss loot only, weight 5-10%) — Unique item
+   - Type: `item`, subtype: `equipment` or `material`
+   - Slot: `accessory` or `relic`
+   - Rarity: `rare` or `epic`
+   - Special stat: LCK +8 or unique modifier
+   - Example: "Tide Revenant Heart", "Baron's Signet"
+
+### Stub Item Canvas Position
+
+Position stub items in a column to the LEFT of the act:
+```
+Stub Items Column    Act Structure
+x: -300 to -200      x: 0 to 600
+
+┌─────────────┐
+│ Item 1      │  (−300, 100)
+│ (common)    │
+├─────────────┤
+│ Item 2      │  (−300, 250)
+│ (uncommon)  │
+├─────────────┤
+│ Item 3      │  (−300, 400)
+│ (rare/boss) │
+└─────────────┘
+```
+
+### Stub Item Node Template
+
+```json
+{
+  "id": "item-{slug}-{item_key}",
+  "type": "item",
+  "label": "{Themed Item Name}",
+  "description": "A {adjective} {item} found in {location}. {Flavor text}.",
+  "icon": "{emoji}",
+  "rarity": "common|uncommon|rare|epic",
+  "item_type": "material|equipment",
+  "subtype": "material|equipment",
+  "slot": null,
+  "stat_modifiers": { "attack": 5 },
+  "stack_limit": 99,
+  "stack_max": 99,
+  "visible": true,
+  "canvas_pos": { "x": -300, "y": 150 }
+}
+```
+
+### Loot Table Wiring
+
+Auto-wire stub items to their loot tables:
+```json
+{
+  "id": "loot-{slug}-standard",
+  "type": "loot_table",
+  "entries": [
+    {
+      "item_id": "item-{slug}-herb",
+      "weight": 35,
+      "min_qty": 1,
+      "max_qty": 2,
+      "guaranteed": false
+    },
+    {
+      "item_id": "item-{slug}-knife",
+      "weight": 20,
+      "min_qty": 1,
+      "max_qty": 1,
+      "guaranteed": false
+    }
+  ]
+}
+```
+
+### Edge Generation
+
+Create `drops_from` edges from items to loot tables:
+```json
+{
+  "id": "edge-item-loot-1",
+  "source": "item-{slug}-herb",
+  "target": "loot-{slug}-standard",
+  "data": { "relation": "drops_from" },
+  "style": { "stroke": "#1D9E75", "strokeWidth": 1.5 },
+  "label": "drops_from"
+}
+```
+
+### Item Naming by Theme
+
+Use these thematic prefixes/suffixes:
+
+| Theme | Material | Equipment | Boss Drop |
+|-------|----------|-----------|-----------|
+| coastal | Tidal _, _ of the Deep | Smuggler's _, Fisherman's _ | Tide _, Drowned _ |
+| underground | Cave _, Stone _, _ Shard | Delver's _, Deep _ | Earth _, Void _ |
+| horror | Rotting _, Cursed _ | Haunted _, _ Shroud | Nightmare _, Terror _ |
+| steampunk | Gear _, _ Coil, _ Fuel | Engineer's _, Brass _ | Clockwork _, Steam _ |
+| fantasy | Arcane _, _ Essence | Mage's _, Knight's _ | Dragon _, Phoenix _ |
+
+### Updated Validation Checklist
+
+Add to STEP 6 validation:
+
+**Item generation (v1.1+):**
+- [ ] Each loot table has 2-4 stub items generated
+- [ ] At least one common material per standard loot table
+- [ ] At least one uncommon equipment per standard loot table
+- [ ] Boss loot table has one rare/epic boss drop
+- [ ] All item IDs referenced in loot tables exist in nodes[]
+- [ ] Stub items positioned at x: -300 to -200 (left column)
+- [ ] `drops_from` edges created for all item→loot_table pairs
+
+---
+
 ## RELATED FILES
 
 - `guild-engine/generator/GENERATORPASS2.md` — Full project generation

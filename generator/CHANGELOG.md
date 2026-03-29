@@ -104,6 +104,14 @@ Each entry has:
 - GENERATOR IMPACT: Pass 2 needs consumable item calibration table.
 - WIKI SECTION: To be added under "Items"
 
+### PENDING: ACTFORGE v1.1 — Item parameter injection
+- TYPE: SYSTEM
+- SCOPE: ACTFORGE (generator only)
+- STATUS: IMPLEMENTED
+- SUMMARY: Generated loot tables reference item IDs that may not exist in the project. ACTFORGE v1.1 now auto-generates stub item nodes themed to the act, positioned in a left column (x: -300 to -200). Each loot table gets 2-4 items: common material, uncommon equipment, and rare boss drop.
+- GENERATOR IMPACT: ACTFORGE.md updated with item generation rules, stub item templates, thematic naming tables, and drops_from edge generation.
+- WIKI SECTION: Section 13 (Blueprint System), ACTFORGE.md
+
 ---
 
 ## Generator version compatibility
@@ -146,3 +154,19 @@ Do not skip step 5. The changelog is how the designer knows what the generator c
 - SUMMARY: Two new passes for adapting existing IP/creative works. Extract Pass 0 reads source files (txt/md/html/rtf/docx/odt/epub/csv/json/yaml) and extracts world elements using 8 universal translation questions into source-analysis.json. Translate Pass maps source terms to game schema, outputs world-template.json (same format as Pass 1), flags ambiguous translations to translation-flags.md. Pass 2 and Pass 3 unchanged — they read world-template.json regardless of origin.
 - GENERATOR IMPACT: New EXTRACTPASS0.md and TRANSLATEPASS.md prompts. GENERATORPASS1/2/3 unchanged.
 - WIKI SECTION: To be added under "World Generator — IP Adaptation"
+
+### ActForge Run — 2026-03-29
+- DATE: 2026-03-29
+- TYPE: SYSTEM
+- SCOPE: PASS1
+- STATUS: IMPLEMENTED
+- SUMMARY: Generated act blueprint "The Tides of Rot" (coastal, mid difficulty).
+- GENERATOR IMPACT: New act blueprint available for import; contains 3 standard expeditions, 1 side zone, boss with phases and tide mechanics, and 3 loot tables.
+- WIKI SECTION: Acts (generation examples)
+
+Generation details:
+- INPUT: Plague-ridden coast. Smugglers in tidal caves. Baron's son kidnapped by fish-cultists. Sunken cathedral finale.
+- OUTPUT: act-tides-of-rot.blueprint.json
+- COMPLEXITY: medium
+- NODES: 16 total (4 expeditions, 1 boss, 4 events, 3 loot tables, 1 act, edges)
+- ESTIMATED PLAYTIME: 50 minutes
