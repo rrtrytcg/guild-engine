@@ -199,6 +199,7 @@ const HERO_UI = {
   expandedHeroId: null,
   openSlotKey: null,
   hoveredItemId: null,
+  dismissConfirmHeroId: null,
 }
 const heroUiState = HERO_UI
 const expeditionUiState = {
@@ -261,6 +262,7 @@ function startGame(project) {
   heroUiState.expandedHeroId = null
   heroUiState.openSlotKey = null
   heroUiState.hoveredItemId = null
+  heroUiState.dismissConfirmHeroId = null
   expeditionUiState.selectedPartyByExpedition = {}
   renderCache.worldHash = null
   renderCache.expeditionHash = null
@@ -867,6 +869,9 @@ function renderHeroesV2(s) {
     heroUiState.openSlotKey = null
     heroUiState.hoveredItemId = null
   }
+  if (!s.heroes.some((hero) => hero.id === heroUiState.dismissConfirmHeroId)) {
+    heroUiState.dismissConfirmHeroId = null
+  }
 
   const heroMarkup = s.heroes.map((hero) => {
     const heroClass = getHeroClassForHero(s, hero)
@@ -877,6 +882,7 @@ function renderHeroesV2(s) {
     const xpNext = Math.max(1, hero.xp_next ?? 1)
     const xpPct = Math.max(0, Math.min(100, ((hero.xp ?? 0) / xpNext) * 100))
     const expanded = heroUiState.expandedHeroId === hero.id
+    const showDismissConfirm = heroUiState.dismissConfirmHeroId === hero.id
     const equipmentSlots = EQUIPMENT_SLOTS.map((slotMeta) => {
       const equippedId = hero.equipment?.[slotMeta.slot]
       const equippedDef = equippedId ? getItemDefById(s, equippedId) : null
@@ -941,7 +947,15 @@ function renderHeroesV2(s) {
       <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
         ${Object.entries(hero.stats ?? {}).map(([k, v]) => `<span style="font-size:10px;color:#8888aa">${k.slice(0, 3).toUpperCase()} <strong style="color:#c0c0d8">${Math.round(v)}</strong></span>`).join('')}
       </div>
-      ${expanded ? `<div class="equipment-grid">${equipmentSlots}</div>` : ''}
+      ${expanded ? `<div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:10px">
+        ${showDismissConfirm
+          ? `<span style="font-size:11px;color:#c0c0d8">Are you sure?</span>
+             <button class="btn btn-primary" data-action="confirm-dismiss-hero" data-hero-id="${hero.id}" style="padding:4px 10px;font-size:10px;background:#E24B4A">Yes</button>
+             <button class="btn btn-ghost" data-action="cancel-dismiss-hero" data-hero-id="${hero.id}" style="padding:4px 10px;font-size:10px">No</button>`
+          : `<button class="btn btn-ghost" data-action="request-dismiss-hero" data-hero-id="${hero.id}" style="padding:4px 10px;font-size:10px;border-color:#E24B4A44;color:#E99B9B">Dismiss</button>`
+        }
+      </div>
+      <div class="equipment-grid">${equipmentSlots}</div>` : ''}
     </div>`
   }).join('')
 
@@ -1516,10 +1530,12 @@ function handleHeroActionClickLegacy(e) {
       heroUiState.expandedHeroId = null
       heroUiState.openSlotKey = null
       heroUiState.hoveredItemId = null
+      heroUiState.dismissConfirmHeroId = null
     } else {
       heroUiState.expandedHeroId = heroId
       heroUiState.openSlotKey = null
       heroUiState.hoveredItemId = null
+      heroUiState.dismissConfirmHeroId = null
     }
     if (snapshot) render(snapshot)
     return
@@ -1537,6 +1553,7 @@ function handleHeroActionClickLegacy(e) {
       heroUiState.openSlotKey = slotKey
       heroUiState.hoveredItemId = null
     }
+    heroUiState.dismissConfirmHeroId = null
     if (snapshot) render(snapshot)
     return
   }
@@ -1548,6 +1565,7 @@ function handleHeroActionClickLegacy(e) {
     if (result?.ok) {
       heroUiState.openSlotKey = null
       heroUiState.hoveredItemId = null
+      heroUiState.dismissConfirmHeroId = null
     }
     if (snapshot) render(snapshot)
     return
@@ -1684,6 +1702,33 @@ function handleHeroActionClick(e) {
     if (result?.ok) {
       heroUiState.openSlotKey = null
       heroUiState.hoveredItemId = null
+      heroUiState.dismissConfirmHeroId = null
+    }
+    if (snapshot) render(snapshot)
+    return
+  }
+
+  if (action === 'request-dismiss-hero') {
+    heroUiState.dismissConfirmHeroId = btn.dataset.heroId
+    if (snapshot) render(snapshot)
+    return
+  }
+
+  if (action === 'cancel-dismiss-hero') {
+    heroUiState.dismissConfirmHeroId = null
+    if (snapshot) render(snapshot)
+    return
+  }
+
+  if (action === 'confirm-dismiss-hero') {
+    const result = actions.dismissHero(btn.dataset.heroId)
+    if (result?.ok) {
+      if (heroUiState.expandedHeroId === btn.dataset.heroId) {
+        heroUiState.expandedHeroId = null
+      }
+      heroUiState.openSlotKey = null
+      heroUiState.hoveredItemId = null
+      heroUiState.dismissConfirmHeroId = null
     }
     if (snapshot) render(snapshot)
     return

@@ -315,6 +315,36 @@ function recruitHeroFromPool(heroId) {
   return { ok: true, hero }
 }
 
+function dismissHeroFromGuild(heroId) {
+  const heroIndex = state?.heroes?.findIndex((entry) => entry.id === heroId) ?? -1
+  if (heroIndex < 0) return { ok: false, reason: 'Hero not found.' }
+
+  const hero = state.heroes[heroIndex]
+  if (hero.status === 'on_expedition') {
+    return { ok: false, reason: 'Hero is on expedition' }
+  }
+
+  if (hero.status === 'assigned') {
+    const assignedBuilding = getAssignedBuildingForHero(heroId)
+    if (assignedBuilding?.artisan_assigned === heroId) {
+      assignedBuilding.artisan_assigned = null
+    }
+    delete hero.assigned_building_id
+    state.ui.artisanPickerBuildingId = null
+  }
+
+  for (const itemId of Object.values(hero.equipment ?? {})) {
+    if (!itemId) continue
+    state.inventory[itemId] = (state.inventory[itemId] ?? 0) + 1
+  }
+
+  hero.equipment = {}
+  state.heroes.splice(heroIndex, 1)
+  addToEventLog(state, `${hero.name} has left the guild.`, 'info')
+  renderNow()
+  return { ok: true }
+}
+
 function reconcileLoadedRuntimeState() {
   const assignedHeroIds = new Set()
   const liveWorkflowIds = new Set(Object.keys(state?.buildingWorkflows ?? {}))
@@ -428,6 +458,11 @@ export const actions = {
   },
   recruitFromPool: (heroId) => {
     const r = recruitHeroFromPool(heroId)
+    if (!r.ok) notify(r.reason, 'danger')
+    return r
+  },
+  dismissHero: (heroId) => {
+    const r = dismissHeroFromGuild(heroId)
     if (!r.ok) notify(r.reason, 'danger')
     return r
   },
