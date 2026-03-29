@@ -1,0 +1,133 @@
+{
+  "blueprint_meta": {
+    "id": "blueprint-brew-basic",
+    "label": "Brew",
+    "description": "One potion workflow with streak bonus. Wire your herb and potion nodes.",
+    "requires_schema_version": "1.2.0",
+    "created_at": "2026-03-29T00:00:00.000Z",
+    "flavor": "fantasy",
+    "complexity": "basic"
+  },
+  "nodes": [
+    {
+      "id": "bp-brew-building",
+      "type": "building",
+      "label": "Brewery",
+      "description": "A warm little lab for turning reagents into expedition support.",
+      "icon": "🧪",
+      "max_level": 2,
+      "has_workflows": true,
+      "artisan_slots": { "base_count": 1, "max_count": 2, "expand_by": "building_upgrade" },
+      "levels": [
+        { "build_cost": [], "build_time_s": 28, "hero_slots": 1, "recipe_slots": 1, "production": {} },
+        { "build_cost": [], "build_time_s": 45, "hero_slots": 1, "recipe_slots": 1, "production": {} }
+      ],
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "bp-brew-workflow",
+      "type": "building_workflow",
+      "label": "Brew",
+      "description": "A simple potion loop tuned around repeated streaks.",
+      "building_id": "bp-brew-building",
+      "host_building": "bp-brew-building",
+      "behavior": "consume_resource",
+      "workflow_mode": "queued",
+      "action_type": "brewer",
+      "base_duration_ticks": 50,
+      "duration_base_ticks": 50,
+      "input_rules": [],
+      "inputs": [],
+      "output_rules": [],
+      "success_table": {
+        "base_failure": 0.08,
+        "base_crit": 0.05,
+        "failure_behavior": "consume_inputs_no_output",
+        "crit_behavior": "double_output",
+        "crit_multiplier": 2
+      },
+      "streak_bonus": {
+        "threshold": 3,
+        "duration_reduction": 0.1,
+        "crit_bonus": 0.05,
+        "label": "Steady Hands"
+      },
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 200 }
+    },
+    {
+      "id": "bp-brew-artisan",
+      "type": "hero_class",
+      "label": "Brewer",
+      "description": "An artisan who keeps flasks, extracts, and timing under control.",
+      "icon": "🍶",
+      "hero_type": "artisan",
+      "combat_eligible": false,
+      "xp_source": "workflow",
+      "specializations": ["brewer"],
+      "building_affinity": ["bp-brew-building"],
+      "base_stats": { "attack": 8, "defense": 6, "speed": 6, "hp": 82, "luck": 10 },
+      "stat_growth": { "attack": 1, "defense": 1, "speed": 1, "hp": 8, "luck": 2 },
+      "slots": ["weapon", "relic"],
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 0 }
+    },
+    {
+      "id": "bp-brew-upgrade",
+      "type": "building_upgrade",
+      "label": "Distillery",
+      "building_id": "bp-brew-building",
+      "host_building": "bp-brew-building",
+      "required_building_level": 2,
+      "level": 2,
+      "cost": [],
+      "artisan_slot_increase": 1,
+      "unlocks_workflow_ids": [],
+      "effects": { "unlocks_workflows": [], "slots_added": 1 },
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 200 }
+    },
+    {
+      "id": "bp-brew-recipe",
+      "type": "crafting_recipe",
+      "label": "Brew Potion",
+      "description": "A single recipe shell waiting for your herb and potion output wiring.",
+      "inputs": [],
+      "output_item_id": "",
+      "output_qty": 1,
+      "output_quantity": 1,
+      "craft_time_s": 12,
+      "workflow_id": "bp-brew-workflow",
+      "required_building_level": 1,
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 400 }
+    }
+  ],
+  "edges": [
+    {
+      "id": "bp-brew-edge-building-workflow",
+      "source": "bp-brew-building",
+      "target": "bp-brew-workflow",
+      "relation": "available_at",
+      "label": "available_at",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-brew-edge-building-artisan",
+      "source": "bp-brew-building",
+      "target": "bp-brew-artisan",
+      "relation": "trains",
+      "label": "trains",
+      "style": { "stroke": "#D4537E", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-brew-edge-workflow-recipe",
+      "source": "bp-brew-workflow",
+      "target": "bp-brew-recipe",
+      "relation": "used_by",
+      "label": "used_by",
+      "style": { "stroke": "#BA7517", "strokeWidth": 1.5 }
+    }
+  ]
+}

@@ -1,0 +1,245 @@
+{
+  "blueprint_meta": {
+    "id": "blueprint-forge-chain-medium",
+    "label": "Forge Chain",
+    "description": "Complete ore-to-weapon chain. Wire your ore resource input and you're done.",
+    "requires_schema_version": "1.2.0",
+    "created_at": "2026-03-29T00:00:00.000Z",
+    "flavor": "fantasy",
+    "complexity": "medium"
+  },
+  "nodes": [
+    {
+      "id": "bp-fc-building",
+      "type": "building",
+      "label": "Forge",
+      "description": "A streamlined forge chain ready for one external ore input.",
+      "icon": "🏭",
+      "max_level": 3,
+      "has_workflows": true,
+      "artisan_slots": { "base_count": 1, "max_count": 2, "expand_by": "building_upgrade" },
+      "levels": [
+        { "build_cost": [], "build_time_s": 40, "hero_slots": 1, "recipe_slots": 1, "production": {} },
+        { "build_cost": [], "build_time_s": 70, "hero_slots": 1, "recipe_slots": 2, "production": {} },
+        { "build_cost": [], "build_time_s": 95, "hero_slots": 1, "recipe_slots": 2, "production": {} }
+      ],
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "bp-fc-artisan",
+      "type": "hero_class",
+      "label": "Forgemaster",
+      "description": "A versatile artisan able to smelt and shape finished weapons.",
+      "icon": "⚒️",
+      "hero_type": "artisan",
+      "combat_eligible": false,
+      "xp_source": "workflow",
+      "specializations": ["smelter", "weaponsmith"],
+      "building_affinity": ["bp-fc-building"],
+      "base_stats": { "attack": 10, "defense": 5, "speed": 5, "hp": 80, "luck": 8 },
+      "stat_growth": { "attack": 1, "defense": 1, "speed": 1, "hp": 9, "luck": 1 },
+      "slots": ["weapon", "armor"],
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 0 }
+    },
+    {
+      "id": "bp-fc-workflow-smelt",
+      "type": "building_workflow",
+      "label": "Smelt Ore",
+      "description": "Turns designer-wired ore inputs into a usable ingot material.",
+      "building_id": "bp-fc-building",
+      "host_building": "bp-fc-building",
+      "behavior": "consume_resource",
+      "workflow_mode": "queued",
+      "action_type": "smelter",
+      "base_duration_ticks": 60,
+      "duration_base_ticks": 60,
+      "input_rules": [],
+      "inputs": [],
+      "output_rules": [],
+      "success_table": {
+        "base_failure": 0.08,
+        "base_crit": 0.05,
+        "crit_behavior": "double_output",
+        "crit_multiplier": 2,
+        "failure_behavior": "partial_refund",
+        "failure_refund_rate": 0.5
+      },
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 200 }
+    },
+    {
+      "id": "bp-fc-workflow-forge",
+      "type": "building_workflow",
+      "label": "Forge Weapon",
+      "description": "Consumes ingots and returns a finished weapon.",
+      "building_id": "bp-fc-building",
+      "host_building": "bp-fc-building",
+      "behavior": "consume_resource",
+      "workflow_mode": "queued",
+      "action_type": "weaponsmith",
+      "base_duration_ticks": 80,
+      "duration_base_ticks": 80,
+      "input_rules": [],
+      "inputs": [],
+      "output_rules": [],
+      "success_table": {
+        "base_failure": 0.1,
+        "base_crit": 0.05,
+        "crit_behavior": "quality_upgrade",
+        "failure_behavior": "consume_inputs_no_output"
+      },
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 400 }
+    },
+    {
+      "id": "bp-fc-recipe-smelt",
+      "type": "crafting_recipe",
+      "label": "Smelt Batch",
+      "description": "Outputs a stack of ingots for downstream recipes.",
+      "inputs": [],
+      "output_item_id": "bp-fc-item-ingot",
+      "output_qty": 2,
+      "output_quantity": 2,
+      "craft_time_s": 15,
+      "workflow_id": "bp-fc-workflow-smelt",
+      "required_building_level": 1,
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 200 }
+    },
+    {
+      "id": "bp-fc-recipe-forge",
+      "type": "crafting_recipe",
+      "label": "Forge Weapon Recipe",
+      "description": "Transforms ingots into a baseline iron sword.",
+      "inputs": [],
+      "output_item_id": "bp-fc-item-sword",
+      "output_qty": 1,
+      "output_quantity": 1,
+      "craft_time_s": 20,
+      "workflow_id": "bp-fc-workflow-forge",
+      "required_building_level": 2,
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 400 }
+    },
+    {
+      "id": "bp-fc-item-ingot",
+      "type": "item",
+      "label": "Iron Ingot",
+      "description": "A forged material input for downstream weapon work.",
+      "icon": "🔩",
+      "rarity": "common",
+      "item_type": "material",
+      "subtype": "material",
+      "stack_limit": 99,
+      "stack_max": 99,
+      "visible": true,
+      "canvas_pos": { "x": 480, "y": 200 }
+    },
+    {
+      "id": "bp-fc-item-sword",
+      "type": "item",
+      "label": "Iron Sword",
+      "description": "A simple common weapon made from fresh ingots.",
+      "icon": "🗡️",
+      "rarity": "common",
+      "item_type": "equipment",
+      "subtype": "equipment",
+      "slot": "weapon",
+      "stat_modifiers": { "attack": 8 },
+      "stack_limit": 1,
+      "visible": true,
+      "canvas_pos": { "x": 480, "y": 400 }
+    },
+    {
+      "id": "bp-fc-upgrade",
+      "type": "building_upgrade",
+      "label": "Forge Upgrade L2",
+      "building_id": "bp-fc-building",
+      "host_building": "bp-fc-building",
+      "required_building_level": 2,
+      "level": 2,
+      "cost": [],
+      "artisan_slot_increase": 1,
+      "unlocks_workflow_ids": ["bp-fc-workflow-forge"],
+      "effects": { "unlocks_workflows": ["bp-fc-workflow-forge"], "slots_added": 1 },
+      "visible": true,
+      "canvas_pos": { "x": 480, "y": 0 }
+    }
+  ],
+  "edges": [
+    {
+      "id": "bp-fc-edge-building-smelt",
+      "source": "bp-fc-building",
+      "target": "bp-fc-workflow-smelt",
+      "relation": "available_at",
+      "label": "available_at",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-fc-edge-building-forge",
+      "source": "bp-fc-building",
+      "target": "bp-fc-workflow-forge",
+      "relation": "available_at",
+      "label": "available_at",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-fc-edge-building-artisan",
+      "source": "bp-fc-building",
+      "target": "bp-fc-artisan",
+      "relation": "trains",
+      "label": "trains",
+      "style": { "stroke": "#D4537E", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-fc-edge-smelt-recipe",
+      "source": "bp-fc-workflow-smelt",
+      "target": "bp-fc-recipe-smelt",
+      "relation": "used_by",
+      "label": "used_by",
+      "style": { "stroke": "#BA7517", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-fc-edge-forge-recipe",
+      "source": "bp-fc-workflow-forge",
+      "target": "bp-fc-recipe-forge",
+      "relation": "used_by",
+      "label": "used_by",
+      "style": { "stroke": "#BA7517", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-fc-edge-recipe-ingot",
+      "source": "bp-fc-recipe-smelt",
+      "target": "bp-fc-item-ingot",
+      "relation": "produces",
+      "label": "produces",
+      "style": { "stroke": "#1D9E75", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-fc-edge-recipe-sword",
+      "source": "bp-fc-recipe-forge",
+      "target": "bp-fc-item-sword",
+      "relation": "produces",
+      "label": "produces",
+      "style": { "stroke": "#1D9E75", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-fc-edge-ingot-forge",
+      "source": "bp-fc-item-ingot",
+      "target": "bp-fc-workflow-forge",
+      "relation": "consumes",
+      "label": "consumes",
+      "style": { "stroke": "#BA7517", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-fc-edge-upgrade-building",
+      "source": "bp-fc-upgrade",
+      "target": "bp-fc-building",
+      "relation": "hosts",
+      "label": "hosts",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    }
+  ]
+}

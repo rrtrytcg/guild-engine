@@ -197,7 +197,7 @@ export default function Canvas({ focusGroupId = null }) {
       createMode: false,
       draftLabel: '',
     })
-  }, [selectNode])
+  }, [selectNode, setSelectedNodeIds])
 
   const submitContextGroup = useCallback(() => {
     const trimmedLabel = contextMenu?.draftLabel?.trim() ?? ''

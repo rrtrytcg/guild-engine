@@ -1,0 +1,321 @@
+{
+  "blueprint_meta": {
+    "id": "blueprint-library-system",
+    "label": "Library System",
+    "description": "A broader research hall with multiple passive workflows, momentum thresholds, and event outputs.",
+    "requires_schema_version": "1.2.0",
+    "created_at": "2026-03-29T00:00:00.000Z",
+    "flavor": "fantasy",
+    "complexity": "complex"
+  },
+  "nodes": [
+    {
+      "id": "bp-lsys-building",
+      "type": "building",
+      "label": "Library",
+      "description": "A full research system built around passive jobs and event output.",
+      "icon": "📚",
+      "max_level": 3,
+      "has_workflows": true,
+      "artisan_slots": { "base_count": 1, "max_count": 3, "expand_by": "building_upgrade" },
+      "levels": [
+        { "build_cost": [], "build_time_s": 50, "hero_slots": 1, "recipe_slots": 1, "production": {} },
+        { "build_cost": [], "build_time_s": 90, "hero_slots": 1, "recipe_slots": 1, "production": {} },
+        { "build_cost": [], "build_time_s": 140, "hero_slots": 2, "recipe_slots": 1, "production": {} }
+      ],
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "bp-lsys-scholar",
+      "type": "hero_class",
+      "label": "Scholar",
+      "description": "A patient artisan researcher who keeps the archive moving.",
+      "icon": "🧠",
+      "hero_type": "artisan",
+      "combat_eligible": false,
+      "xp_source": "workflow",
+      "specializations": ["scribe", "researcher", "archivist"],
+      "building_affinity": ["bp-lsys-building"],
+      "base_stats": { "attack": 6, "defense": 6, "speed": 7, "hp": 90, "luck": 11 },
+      "stat_growth": { "attack": 1, "defense": 1, "speed": 1, "hp": 10, "luck": 2 },
+      "slots": ["relic", "accessory"],
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 0 }
+    },
+    {
+      "id": "bp-lsys-workflow-catalog",
+      "type": "building_workflow",
+      "label": "Catalog Findings",
+      "description": "Organizes discoveries into steady progress and better future throughput.",
+      "building_id": "bp-lsys-building",
+      "host_building": "bp-lsys-building",
+      "behavior": "consume_resource",
+      "workflow_mode": "passive",
+      "action_type": "scribe",
+      "base_duration_ticks": 100,
+      "duration_base_ticks": 100,
+      "input_rules": [],
+      "inputs": [],
+      "output_rules": [
+        {
+          "output_type": "world_effect",
+          "effect_type": "trigger_event",
+          "target": "bp-lsys-event-cataloged",
+          "chance": 1
+        }
+      ],
+      "success_table": {
+        "base_failure": 0.03,
+        "base_crit": 0.07,
+        "crit_behavior": "breakthrough",
+        "failure_behavior": "reset_progress_refund_inputs"
+      },
+      "momentum_config": {
+        "gain_per_job": 1,
+        "decay_per_idle_tick": 0.05,
+        "thresholds": [
+          { "momentum": 3, "label": "Steady Study", "speed_bonus": 0.1, "crit_bonus": 0.02 },
+          { "momentum": 6, "label": "Flow State", "speed_bonus": 0.2, "crit_bonus": 0.05 }
+        ]
+      },
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 200 }
+    },
+    {
+      "id": "bp-lsys-workflow-research",
+      "type": "building_workflow",
+      "label": "Research Breakthrough",
+      "description": "Sustains long-form research until a major event fires.",
+      "building_id": "bp-lsys-building",
+      "host_building": "bp-lsys-building",
+      "behavior": "consume_resource",
+      "workflow_mode": "passive",
+      "action_type": "researcher",
+      "base_duration_ticks": 130,
+      "duration_base_ticks": 130,
+      "input_rules": [],
+      "inputs": [],
+      "output_rules": [
+        {
+          "output_type": "world_effect",
+          "effect_type": "trigger_event",
+          "target": "bp-lsys-event-breakthrough",
+          "chance": 1
+        }
+      ],
+      "success_table": {
+        "base_failure": 0.03,
+        "base_crit": 0.08,
+        "crit_behavior": "breakthrough",
+        "failure_behavior": "reset_progress_refund_inputs"
+      },
+      "momentum_config": {
+        "gain_per_job": 1.2,
+        "decay_per_idle_tick": 0.05,
+        "thresholds": [
+          { "momentum": 3, "label": "Steady Study", "speed_bonus": 0.1, "crit_bonus": 0.02 },
+          { "momentum": 6, "label": "Flow State", "speed_bonus": 0.2, "crit_bonus": 0.05 }
+        ]
+      },
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 400 }
+    },
+    {
+      "id": "bp-lsys-workflow-archive",
+      "type": "building_workflow",
+      "label": "Archive Lore",
+      "description": "Preserves rare knowledge and stabilizes the overall research loop.",
+      "building_id": "bp-lsys-building",
+      "host_building": "bp-lsys-building",
+      "behavior": "consume_resource",
+      "workflow_mode": "passive",
+      "action_type": "archivist",
+      "base_duration_ticks": 95,
+      "duration_base_ticks": 95,
+      "input_rules": [],
+      "inputs": [],
+      "output_rules": [
+        {
+          "output_type": "world_effect",
+          "effect_type": "trigger_event",
+          "target": "bp-lsys-event-archive",
+          "chance": 1
+        }
+      ],
+      "success_table": {
+        "base_failure": 0.03,
+        "base_crit": 0.07,
+        "crit_behavior": "breakthrough",
+        "failure_behavior": "reset_progress_refund_inputs"
+      },
+      "momentum_config": {
+        "gain_per_job": 1,
+        "decay_per_idle_tick": 0.05,
+        "thresholds": [
+          { "momentum": 3, "label": "Steady Study", "speed_bonus": 0.1, "crit_bonus": 0.02 },
+          { "momentum": 6, "label": "Flow State", "speed_bonus": 0.2, "crit_bonus": 0.05 }
+        ]
+      },
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 600 }
+    },
+    {
+      "id": "bp-lsys-upgrade-reading-room",
+      "type": "building_upgrade",
+      "label": "Reading Room",
+      "building_id": "bp-lsys-building",
+      "host_building": "bp-lsys-building",
+      "required_building_level": 2,
+      "level": 2,
+      "cost": [],
+      "unlocks_workflow_ids": ["bp-lsys-workflow-catalog"],
+      "artisan_slot_increase": 1,
+      "effects": { "unlocks_workflows": ["bp-lsys-workflow-catalog"], "slots_added": 1 },
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 200 }
+    },
+    {
+      "id": "bp-lsys-upgrade-study-hall",
+      "type": "building_upgrade",
+      "label": "Study Hall",
+      "building_id": "bp-lsys-building",
+      "host_building": "bp-lsys-building",
+      "required_building_level": 3,
+      "level": 3,
+      "cost": [],
+      "unlocks_workflow_ids": ["bp-lsys-workflow-research"],
+      "artisan_slot_increase": 1,
+      "effects": { "unlocks_workflows": ["bp-lsys-workflow-research"], "slots_added": 1 },
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 400 }
+    },
+    {
+      "id": "bp-lsys-upgrade-grand-archive",
+      "type": "building_upgrade",
+      "label": "Grand Archive",
+      "building_id": "bp-lsys-building",
+      "host_building": "bp-lsys-building",
+      "required_building_level": 3,
+      "level": 3,
+      "cost": [],
+      "unlocks_workflow_ids": ["bp-lsys-workflow-archive"],
+      "artisan_slot_increase": 0,
+      "effects": { "unlocks_workflows": ["bp-lsys-workflow-archive"], "slots_added": 0 },
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 600 }
+    },
+    {
+      "id": "bp-lsys-event-cataloged",
+      "type": "event",
+      "label": "Catalog Complete",
+      "description": "A placeholder event target for organized discovery.",
+      "log_message": "Freshly cataloged tomes reveal overlooked patterns.",
+      "choices": [],
+      "visible": true,
+      "canvas_pos": { "x": 480, "y": 200 }
+    },
+    {
+      "id": "bp-lsys-event-breakthrough",
+      "type": "event",
+      "label": "Research Breakthrough",
+      "description": "A placeholder event target for major discoveries.",
+      "log_message": "A breakthrough echoes through the library halls.",
+      "choices": [],
+      "visible": true,
+      "canvas_pos": { "x": 480, "y": 400 }
+    },
+    {
+      "id": "bp-lsys-event-archive",
+      "type": "event",
+      "label": "Archive Secured",
+      "description": "A placeholder event target for stable long-term gains.",
+      "log_message": "The archive grows deeper and easier to mine for answers.",
+      "choices": [],
+      "visible": true,
+      "canvas_pos": { "x": 480, "y": 600 }
+    }
+  ],
+  "edges": [
+    {
+      "id": "bp-lsys-edge-building-catalog",
+      "source": "bp-lsys-building",
+      "target": "bp-lsys-workflow-catalog",
+      "relation": "available_at",
+      "label": "available_at",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-lsys-edge-building-research",
+      "source": "bp-lsys-building",
+      "target": "bp-lsys-workflow-research",
+      "relation": "available_at",
+      "label": "available_at",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-lsys-edge-building-archive",
+      "source": "bp-lsys-building",
+      "target": "bp-lsys-workflow-archive",
+      "relation": "available_at",
+      "label": "available_at",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-lsys-edge-building-artisan",
+      "source": "bp-lsys-building",
+      "target": "bp-lsys-scholar",
+      "relation": "trains",
+      "label": "trains",
+      "style": { "stroke": "#D4537E", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-lsys-edge-catalog-event",
+      "source": "bp-lsys-workflow-catalog",
+      "target": "bp-lsys-event-cataloged",
+      "relation": "triggers",
+      "label": "triggers",
+      "style": { "stroke": "#BA7517", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-lsys-edge-research-event",
+      "source": "bp-lsys-workflow-research",
+      "target": "bp-lsys-event-breakthrough",
+      "relation": "triggers",
+      "label": "triggers",
+      "style": { "stroke": "#BA7517", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-lsys-edge-archive-event",
+      "source": "bp-lsys-workflow-archive",
+      "target": "bp-lsys-event-archive",
+      "relation": "triggers",
+      "label": "triggers",
+      "style": { "stroke": "#BA7517", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-lsys-edge-upgrade-reading",
+      "source": "bp-lsys-upgrade-reading-room",
+      "target": "bp-lsys-building",
+      "relation": "hosts",
+      "label": "hosts",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-lsys-edge-upgrade-study",
+      "source": "bp-lsys-upgrade-study-hall",
+      "target": "bp-lsys-building",
+      "relation": "hosts",
+      "label": "hosts",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-lsys-edge-upgrade-archive",
+      "source": "bp-lsys-upgrade-grand-archive",
+      "target": "bp-lsys-building",
+      "relation": "hosts",
+      "label": "hosts",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    }
+  ]
+}

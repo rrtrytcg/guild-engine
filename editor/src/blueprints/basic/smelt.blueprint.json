@@ -1,0 +1,127 @@
+{
+  "blueprint_meta": {
+    "id": "blueprint-smelt-basic",
+    "label": "Smelt",
+    "description": "One workflow. Add your ore resource and ingot resource, rig, done.",
+    "requires_schema_version": "1.2.0",
+    "created_at": "2026-03-29T00:00:00.000Z",
+    "flavor": "fantasy",
+    "complexity": "basic"
+  },
+  "nodes": [
+    {
+      "id": "bp-smelt-building",
+      "type": "building",
+      "label": "Smelter",
+      "description": "A compact furnace built to turn ore into useful stock.",
+      "icon": "🔥",
+      "max_level": 2,
+      "has_workflows": true,
+      "artisan_slots": { "base_count": 1, "max_count": 2, "expand_by": "building_upgrade" },
+      "levels": [
+        { "build_cost": [], "build_time_s": 30, "hero_slots": 1, "recipe_slots": 1, "production": {} },
+        { "build_cost": [], "build_time_s": 50, "hero_slots": 1, "recipe_slots": 1, "production": {} }
+      ],
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "bp-smelt-workflow",
+      "type": "building_workflow",
+      "label": "Smelt",
+      "description": "Consume a wired-in ore resource and return finished output.",
+      "building_id": "bp-smelt-building",
+      "host_building": "bp-smelt-building",
+      "behavior": "consume_resource",
+      "workflow_mode": "queued",
+      "action_type": "smelter",
+      "base_duration_ticks": 60,
+      "duration_base_ticks": 60,
+      "input_rules": [],
+      "inputs": [],
+      "output_rules": [],
+      "success_table": {
+        "base_failure": 0.08,
+        "base_crit": 0.05,
+        "crit_behavior": "double_output",
+        "failure_behavior": "partial_refund",
+        "failure_refund_rate": 0.5
+      },
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 200 }
+    },
+    {
+      "id": "bp-smelt-artisan",
+      "type": "hero_class",
+      "label": "Smelter",
+      "description": "A furnace-bound artisan who knows the rhythm of heat and slag.",
+      "icon": "🧑‍🏭",
+      "hero_type": "artisan",
+      "combat_eligible": false,
+      "xp_source": "workflow",
+      "specializations": ["smelter"],
+      "building_affinity": ["bp-smelt-building"],
+      "base_stats": { "attack": 10, "defense": 5, "speed": 5, "hp": 80, "luck": 8 },
+      "stat_growth": { "attack": 1, "defense": 1, "speed": 1, "hp": 8, "luck": 1 },
+      "slots": ["weapon", "armor"],
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 0 }
+    },
+    {
+      "id": "bp-smelt-upgrade",
+      "type": "building_upgrade",
+      "label": "Smelter II",
+      "building_id": "bp-smelt-building",
+      "host_building": "bp-smelt-building",
+      "required_building_level": 2,
+      "level": 2,
+      "cost": [],
+      "artisan_slot_increase": 1,
+      "unlocks_workflow_ids": [],
+      "effects": { "unlocks_workflows": [], "slots_added": 1 },
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 200 }
+    },
+    {
+      "id": "bp-smelt-recipe",
+      "type": "crafting_recipe",
+      "label": "Smelt Batch",
+      "description": "A placeholder recipe the designer can wire to their own ore and ingot nodes.",
+      "inputs": [],
+      "output_item_id": "",
+      "output_qty": 2,
+      "output_quantity": 2,
+      "craft_time_s": 15,
+      "workflow_id": "bp-smelt-workflow",
+      "required_building_level": 1,
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 400 }
+    }
+  ],
+  "edges": [
+    {
+      "id": "bp-smelt-edge-building-workflow",
+      "source": "bp-smelt-building",
+      "target": "bp-smelt-workflow",
+      "relation": "available_at",
+      "label": "available_at",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-smelt-edge-building-artisan",
+      "source": "bp-smelt-building",
+      "target": "bp-smelt-artisan",
+      "relation": "trains",
+      "label": "trains",
+      "style": { "stroke": "#D4537E", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-smelt-edge-workflow-recipe",
+      "source": "bp-smelt-workflow",
+      "target": "bp-smelt-recipe",
+      "relation": "used_by",
+      "label": "used_by",
+      "style": { "stroke": "#BA7517", "strokeWidth": 1.5 }
+    }
+  ]
+}

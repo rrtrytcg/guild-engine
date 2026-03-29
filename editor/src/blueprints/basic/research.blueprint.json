@@ -1,0 +1,112 @@
+{
+  "blueprint_meta": {
+    "id": "blueprint-research-basic",
+    "label": "Research",
+    "description": "One passive research workflow with momentum. Wire your resource and world_effect outputs.",
+    "requires_schema_version": "1.2.0",
+    "created_at": "2026-03-29T00:00:00.000Z",
+    "flavor": "fantasy",
+    "complexity": "basic"
+  },
+  "nodes": [
+    {
+      "id": "bp-research-building",
+      "type": "building",
+      "label": "Study",
+      "description": "A quiet room where knowledge turns into long-form progress.",
+      "icon": "📖",
+      "max_level": 2,
+      "has_workflows": true,
+      "artisan_slots": { "base_count": 1, "max_count": 2, "expand_by": "building_upgrade" },
+      "levels": [
+        { "build_cost": [], "build_time_s": 35, "hero_slots": 1, "recipe_slots": 1, "production": {} },
+        { "build_cost": [], "build_time_s": 60, "hero_slots": 1, "recipe_slots": 1, "production": {} }
+      ],
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "bp-research-workflow",
+      "type": "building_workflow",
+      "label": "Research",
+      "description": "A passive research loop built around momentum and breakthroughs.",
+      "building_id": "bp-research-building",
+      "host_building": "bp-research-building",
+      "behavior": "consume_resource",
+      "workflow_mode": "passive",
+      "action_type": "researcher",
+      "base_duration_ticks": 200,
+      "duration_base_ticks": 200,
+      "input_rules": [],
+      "inputs": [],
+      "output_rules": [],
+      "momentum_config": {
+        "gain_per_job": 10,
+        "decay_per_idle_tick": 0.5,
+        "thresholds": [
+          { "momentum": 25, "label": "Indexed Notes", "speed_bonus": 0.08, "crit_bonus": 0.01 },
+          { "momentum": 50, "label": "Deep Focus", "speed_bonus": 0.14, "crit_bonus": 0.03 },
+          { "momentum": 75, "label": "Breakthrough Pace", "speed_bonus": 0.22, "crit_bonus": 0.06 }
+        ]
+      },
+      "success_table": {
+        "base_failure": 0.05,
+        "base_crit": 0.05,
+        "crit_behavior": "breakthrough",
+        "failure_behavior": "reset_progress_refund_inputs"
+      },
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 200 }
+    },
+    {
+      "id": "bp-research-artisan",
+      "type": "hero_class",
+      "label": "Scholar",
+      "description": "A dedicated researcher who feeds the library's momentum curve.",
+      "icon": "🧠",
+      "hero_type": "artisan",
+      "combat_eligible": false,
+      "xp_source": "workflow",
+      "specializations": ["researcher"],
+      "building_affinity": ["bp-research-building"],
+      "base_stats": { "attack": 6, "defense": 6, "speed": 7, "hp": 88, "luck": 11 },
+      "stat_growth": { "attack": 1, "defense": 1, "speed": 1, "hp": 8, "luck": 2 },
+      "slots": ["relic", "accessory"],
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 0 }
+    },
+    {
+      "id": "bp-research-upgrade",
+      "type": "building_upgrade",
+      "label": "Archives",
+      "building_id": "bp-research-building",
+      "host_building": "bp-research-building",
+      "required_building_level": 2,
+      "level": 2,
+      "cost": [],
+      "artisan_slot_increase": 1,
+      "unlocks_workflow_ids": [],
+      "effects": { "unlocks_workflows": [], "slots_added": 1 },
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 200 }
+    }
+  ],
+  "edges": [
+    {
+      "id": "bp-research-edge-building-workflow",
+      "source": "bp-research-building",
+      "target": "bp-research-workflow",
+      "relation": "available_at",
+      "label": "available_at",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-research-edge-building-artisan",
+      "source": "bp-research-building",
+      "target": "bp-research-artisan",
+      "relation": "trains",
+      "label": "trains",
+      "style": { "stroke": "#D4537E", "strokeWidth": 1.5 }
+    }
+  ]
+}

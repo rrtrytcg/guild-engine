@@ -1,0 +1,380 @@
+{
+  "blueprint_meta": {
+    "id": "blueprint-apothecary-system",
+    "label": "Apothecary System",
+    "description": "A layered potion workshop with chained outputs, crit upgrades, and upgrade gates.",
+    "requires_schema_version": "1.2.0",
+    "created_at": "2026-03-29T00:00:00.000Z",
+    "flavor": "fantasy",
+    "complexity": "complex"
+  },
+  "nodes": [
+    {
+      "id": "bp-asys-building",
+      "type": "building",
+      "label": "Apothecary",
+      "description": "A full potion line from extract to preserved expedition stock.",
+      "icon": "🧪",
+      "max_level": 3,
+      "has_workflows": true,
+      "artisan_slots": { "base_count": 1, "max_count": 3, "expand_by": "building_upgrade" },
+      "levels": [
+        { "build_cost": [], "build_time_s": 40, "hero_slots": 1, "recipe_slots": 1, "production": {} },
+        { "build_cost": [], "build_time_s": 70, "hero_slots": 1, "recipe_slots": 2, "production": {} },
+        { "build_cost": [], "build_time_s": 110, "hero_slots": 2, "recipe_slots": 3, "production": {} }
+      ],
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "bp-asys-alchemist",
+      "type": "hero_class",
+      "label": "Alchemist",
+      "description": "An artisan who strings together brewing, distilling, and preservation.",
+      "icon": "⚗️",
+      "hero_type": "artisan",
+      "combat_eligible": false,
+      "xp_source": "workflow",
+      "specializations": ["brewer", "distiller", "herbalist"],
+      "building_affinity": ["bp-asys-building"],
+      "base_stats": { "attack": 8, "defense": 6, "speed": 6, "hp": 85, "luck": 10 },
+      "stat_growth": { "attack": 1, "defense": 1, "speed": 1, "hp": 10, "luck": 2 },
+      "slots": ["weapon", "relic"],
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 0 }
+    },
+    {
+      "id": "bp-asys-workflow-brew",
+      "type": "building_workflow",
+      "label": "Brew Extract",
+      "description": "First pass brewing for concentrate output.",
+      "building_id": "bp-asys-building",
+      "host_building": "bp-asys-building",
+      "behavior": "consume_resource",
+      "workflow_mode": "queued",
+      "action_type": "brewer",
+      "base_duration_ticks": 60,
+      "duration_base_ticks": 60,
+      "input_rules": [],
+      "inputs": [],
+      "output_rules": [],
+      "success_table": {
+        "base_failure": 0.08,
+        "base_crit": 0.06,
+        "crit_behavior": "double_output",
+        "crit_multiplier": 2,
+        "failure_behavior": "partial_refund",
+        "failure_refund_rate": 0.5
+      },
+      "streak_bonus": { "threshold": 3, "duration_reduction": 0.1, "crit_bonus": 0.05, "label": "Focused Brewing" },
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 200 }
+    },
+    {
+      "id": "bp-asys-workflow-distill",
+      "type": "building_workflow",
+      "label": "Distill Potion",
+      "description": "Converts concentrate into standard healing stock.",
+      "building_id": "bp-asys-building",
+      "host_building": "bp-asys-building",
+      "behavior": "consume_resource",
+      "workflow_mode": "queued",
+      "action_type": "distiller",
+      "base_duration_ticks": 80,
+      "duration_base_ticks": 80,
+      "input_rules": [],
+      "inputs": [],
+      "output_rules": [],
+      "success_table": {
+        "base_failure": 0.08,
+        "base_crit": 0.08,
+        "crit_behavior": "quality_upgrade",
+        "crit_output_item": "bp-asys-item-superior-potion",
+        "failure_behavior": "consume_inputs_no_output"
+      },
+      "streak_bonus": { "threshold": 3, "duration_reduction": 0.1, "crit_bonus": 0.05, "label": "Focused Brewing" },
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 400 }
+    },
+    {
+      "id": "bp-asys-workflow-preserve",
+      "type": "building_workflow",
+      "label": "Preserve Batch",
+      "description": "Packages finished stock into safer expedition batches.",
+      "building_id": "bp-asys-building",
+      "host_building": "bp-asys-building",
+      "behavior": "consume_resource",
+      "workflow_mode": "queued",
+      "action_type": "herbalist",
+      "base_duration_ticks": 55,
+      "duration_base_ticks": 55,
+      "input_rules": [],
+      "inputs": [],
+      "output_rules": [],
+      "success_table": {
+        "base_failure": 0.08,
+        "base_crit": 0.08,
+        "crit_behavior": "double_output",
+        "crit_multiplier": 2,
+        "failure_behavior": "consume_inputs_no_output"
+      },
+      "streak_bonus": { "threshold": 3, "duration_reduction": 0.1, "crit_bonus": 0.05, "label": "Focused Brewing" },
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 600 }
+    },
+    {
+      "id": "bp-asys-upgrade-stills",
+      "type": "building_upgrade",
+      "label": "Copper Stills",
+      "building_id": "bp-asys-building",
+      "host_building": "bp-asys-building",
+      "required_building_level": 2,
+      "level": 2,
+      "cost": [],
+      "unlocks_workflow_ids": ["bp-asys-workflow-brew"],
+      "artisan_slot_increase": 1,
+      "effects": { "unlocks_workflows": ["bp-asys-workflow-brew"], "slots_added": 1 },
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 200 }
+    },
+    {
+      "id": "bp-asys-upgrade-refinement",
+      "type": "building_upgrade",
+      "label": "Refined Condensers",
+      "building_id": "bp-asys-building",
+      "host_building": "bp-asys-building",
+      "required_building_level": 3,
+      "level": 3,
+      "cost": [],
+      "unlocks_workflow_ids": ["bp-asys-workflow-distill"],
+      "artisan_slot_increase": 1,
+      "effects": { "unlocks_workflows": ["bp-asys-workflow-distill"], "slots_added": 1 },
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 400 }
+    },
+    {
+      "id": "bp-asys-upgrade-grand-lab",
+      "type": "building_upgrade",
+      "label": "Grand Laboratory",
+      "building_id": "bp-asys-building",
+      "host_building": "bp-asys-building",
+      "required_building_level": 3,
+      "level": 3,
+      "cost": [],
+      "unlocks_workflow_ids": ["bp-asys-workflow-preserve"],
+      "artisan_slot_increase": 0,
+      "effects": { "unlocks_workflows": ["bp-asys-workflow-preserve"], "slots_added": 0 },
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 600 }
+    },
+    {
+      "id": "bp-asys-item-concentrate",
+      "type": "item",
+      "label": "Herbal Concentrate",
+      "description": "An intermediate material for later potion work.",
+      "icon": "🌿",
+      "rarity": "common",
+      "item_type": "material",
+      "subtype": "material",
+      "stack_limit": 99,
+      "stack_max": 99,
+      "visible": true,
+      "canvas_pos": { "x": 480, "y": 200 }
+    },
+    {
+      "id": "bp-asys-item-potion",
+      "type": "item",
+      "label": "Health Potion",
+      "description": "A standard consumable output.",
+      "icon": "🧪",
+      "rarity": "common",
+      "item_type": "consumable",
+      "subtype": "material",
+      "stack_limit": 10,
+      "stack_max": 10,
+      "visible": true,
+      "canvas_pos": { "x": 480, "y": 400 }
+    },
+    {
+      "id": "bp-asys-item-superior-potion",
+      "type": "item",
+      "label": "Superior Potion",
+      "description": "A higher-tier crit output from distillation.",
+      "icon": "🧪",
+      "rarity": "uncommon",
+      "item_type": "consumable",
+      "subtype": "material",
+      "stack_limit": 10,
+      "stack_max": 10,
+      "visible": true,
+      "canvas_pos": { "x": 480, "y": 560 }
+    },
+    {
+      "id": "bp-asys-recipe-brew",
+      "type": "crafting_recipe",
+      "label": "Brew Extract",
+      "description": "Outputs the apothecary's intermediate material.",
+      "inputs": [],
+      "output_item_id": "bp-asys-item-concentrate",
+      "output_qty": 2,
+      "output_quantity": 2,
+      "craft_time_s": 14,
+      "workflow_id": "bp-asys-workflow-brew",
+      "required_building_level": 1,
+      "visible": true,
+      "canvas_pos": { "x": 720, "y": 200 }
+    },
+    {
+      "id": "bp-asys-recipe-distill",
+      "type": "crafting_recipe",
+      "label": "Distill Health Potion",
+      "description": "Outputs the standard expedition potion.",
+      "inputs": [],
+      "output_item_id": "bp-asys-item-potion",
+      "output_qty": 1,
+      "output_quantity": 1,
+      "craft_time_s": 20,
+      "workflow_id": "bp-asys-workflow-distill",
+      "required_building_level": 2,
+      "visible": true,
+      "canvas_pos": { "x": 720, "y": 400 }
+    },
+    {
+      "id": "bp-asys-recipe-preserve",
+      "type": "crafting_recipe",
+      "label": "Preserve Expedition Batch",
+      "description": "A preservation recipe for higher-volume output.",
+      "inputs": [],
+      "output_item_id": "bp-asys-item-superior-potion",
+      "output_qty": 2,
+      "output_quantity": 2,
+      "craft_time_s": 18,
+      "workflow_id": "bp-asys-workflow-preserve",
+      "required_building_level": 3,
+      "visible": true,
+      "canvas_pos": { "x": 720, "y": 600 }
+    }
+  ],
+  "edges": [
+    {
+      "id": "bp-asys-edge-building-brew",
+      "source": "bp-asys-building",
+      "target": "bp-asys-workflow-brew",
+      "relation": "available_at",
+      "label": "available_at",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-asys-edge-building-distill",
+      "source": "bp-asys-building",
+      "target": "bp-asys-workflow-distill",
+      "relation": "available_at",
+      "label": "available_at",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-asys-edge-building-preserve",
+      "source": "bp-asys-building",
+      "target": "bp-asys-workflow-preserve",
+      "relation": "available_at",
+      "label": "available_at",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-asys-edge-building-artisan",
+      "source": "bp-asys-building",
+      "target": "bp-asys-alchemist",
+      "relation": "trains",
+      "label": "trains",
+      "style": { "stroke": "#D4537E", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-asys-edge-brew-recipe",
+      "source": "bp-asys-workflow-brew",
+      "target": "bp-asys-recipe-brew",
+      "relation": "used_by",
+      "label": "used_by",
+      "style": { "stroke": "#BA7517", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-asys-edge-distill-recipe",
+      "source": "bp-asys-workflow-distill",
+      "target": "bp-asys-recipe-distill",
+      "relation": "used_by",
+      "label": "used_by",
+      "style": { "stroke": "#BA7517", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-asys-edge-preserve-recipe",
+      "source": "bp-asys-workflow-preserve",
+      "target": "bp-asys-recipe-preserve",
+      "relation": "used_by",
+      "label": "used_by",
+      "style": { "stroke": "#BA7517", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-asys-edge-recipe-concentrate",
+      "source": "bp-asys-recipe-brew",
+      "target": "bp-asys-item-concentrate",
+      "relation": "produces",
+      "label": "produces",
+      "style": { "stroke": "#1D9E75", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-asys-edge-recipe-potion",
+      "source": "bp-asys-recipe-distill",
+      "target": "bp-asys-item-potion",
+      "relation": "produces",
+      "label": "produces",
+      "style": { "stroke": "#1D9E75", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-asys-edge-recipe-superior",
+      "source": "bp-asys-recipe-preserve",
+      "target": "bp-asys-item-superior-potion",
+      "relation": "produces",
+      "label": "produces",
+      "style": { "stroke": "#1D9E75", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-asys-edge-concentrate-distill",
+      "source": "bp-asys-item-concentrate",
+      "target": "bp-asys-workflow-distill",
+      "relation": "consumes",
+      "label": "consumes",
+      "style": { "stroke": "#BA7517", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-asys-edge-potion-preserve",
+      "source": "bp-asys-item-potion",
+      "target": "bp-asys-workflow-preserve",
+      "relation": "consumes",
+      "label": "consumes",
+      "style": { "stroke": "#BA7517", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-asys-edge-upgrade-stills",
+      "source": "bp-asys-upgrade-stills",
+      "target": "bp-asys-building",
+      "relation": "hosts",
+      "label": "hosts",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-asys-edge-upgrade-refinement",
+      "source": "bp-asys-upgrade-refinement",
+      "target": "bp-asys-building",
+      "relation": "hosts",
+      "label": "hosts",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-asys-edge-upgrade-grand-lab",
+      "source": "bp-asys-upgrade-grand-lab",
+      "target": "bp-asys-building",
+      "relation": "hosts",
+      "label": "hosts",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    }
+  ]
+}

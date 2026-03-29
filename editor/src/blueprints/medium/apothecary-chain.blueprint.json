@@ -1,0 +1,271 @@
+{
+  "blueprint_meta": {
+    "id": "blueprint-apothecary-chain-medium",
+    "label": "Apothecary Chain",
+    "description": "Herb-to-potion chain with streak bonus. Wire your herb resource.",
+    "requires_schema_version": "1.2.0",
+    "created_at": "2026-03-29T00:00:00.000Z",
+    "flavor": "fantasy",
+    "complexity": "medium"
+  },
+  "nodes": [
+    {
+      "id": "bp-ac-building",
+      "type": "building",
+      "label": "Apothecary",
+      "description": "A two-step potion chain centered on extract and distillation.",
+      "icon": "🧪",
+      "max_level": 3,
+      "has_workflows": true,
+      "artisan_slots": { "base_count": 1, "max_count": 2, "expand_by": "building_upgrade" },
+      "levels": [
+        { "build_cost": [], "build_time_s": 36, "hero_slots": 1, "recipe_slots": 1, "production": {} },
+        { "build_cost": [], "build_time_s": 58, "hero_slots": 1, "recipe_slots": 2, "production": {} },
+        { "build_cost": [], "build_time_s": 84, "hero_slots": 1, "recipe_slots": 2, "production": {} }
+      ],
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "bp-ac-artisan",
+      "type": "hero_class",
+      "label": "Alchemist",
+      "description": "A lab artisan focused on fast repeatable potion work.",
+      "icon": "⚗️",
+      "hero_type": "artisan",
+      "combat_eligible": false,
+      "xp_source": "workflow",
+      "specializations": ["brewer", "distiller"],
+      "building_affinity": ["bp-ac-building"],
+      "base_stats": { "attack": 8, "defense": 6, "speed": 6, "hp": 84, "luck": 10 },
+      "stat_growth": { "attack": 1, "defense": 1, "speed": 1, "hp": 8, "luck": 2 },
+      "slots": ["weapon", "relic"],
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 0 }
+    },
+    {
+      "id": "bp-ac-workflow-brew",
+      "type": "building_workflow",
+      "label": "Brew Extract",
+      "description": "Turns wired herb input into a reusable concentrate material.",
+      "building_id": "bp-ac-building",
+      "host_building": "bp-ac-building",
+      "behavior": "consume_resource",
+      "workflow_mode": "queued",
+      "action_type": "brewer",
+      "base_duration_ticks": 50,
+      "duration_base_ticks": 50,
+      "input_rules": [],
+      "inputs": [],
+      "output_rules": [],
+      "success_table": {
+        "base_failure": 0.08,
+        "base_crit": 0.05,
+        "crit_behavior": "double_output",
+        "crit_multiplier": 2,
+        "failure_behavior": "partial_refund",
+        "failure_refund_rate": 0.5
+      },
+      "streak_bonus": {
+        "threshold": 3,
+        "duration_reduction": 0.1,
+        "crit_bonus": 0.05,
+        "label": "Focused Brewing"
+      },
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 200 }
+    },
+    {
+      "id": "bp-ac-workflow-distill",
+      "type": "building_workflow",
+      "label": "Distill Potion",
+      "description": "Refines concentrate into expedition-ready consumables.",
+      "building_id": "bp-ac-building",
+      "host_building": "bp-ac-building",
+      "behavior": "consume_resource",
+      "workflow_mode": "queued",
+      "action_type": "distiller",
+      "base_duration_ticks": 70,
+      "duration_base_ticks": 70,
+      "input_rules": [],
+      "inputs": [],
+      "output_rules": [],
+      "success_table": {
+        "base_failure": 0.08,
+        "base_crit": 0.08,
+        "crit_behavior": "quality_upgrade",
+        "crit_output_item": "bp-ac-item-superior-potion",
+        "failure_behavior": "consume_inputs_no_output"
+      },
+      "streak_bonus": {
+        "threshold": 3,
+        "duration_reduction": 0.1,
+        "crit_bonus": 0.05,
+        "label": "Focused Brewing"
+      },
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 400 }
+    },
+    {
+      "id": "bp-ac-recipe-brew",
+      "type": "crafting_recipe",
+      "label": "Brew Concentrate",
+      "description": "Outputs a reusable potion concentrate.",
+      "inputs": [],
+      "output_item_id": "bp-ac-item-concentrate",
+      "output_qty": 2,
+      "output_quantity": 2,
+      "craft_time_s": 14,
+      "workflow_id": "bp-ac-workflow-brew",
+      "required_building_level": 1,
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 200 }
+    },
+    {
+      "id": "bp-ac-recipe-distill",
+      "type": "crafting_recipe",
+      "label": "Distill Healing Potion",
+      "description": "Outputs a standard expedition potion.",
+      "inputs": [],
+      "output_item_id": "bp-ac-item-healing-potion",
+      "output_qty": 1,
+      "output_quantity": 1,
+      "craft_time_s": 18,
+      "workflow_id": "bp-ac-workflow-distill",
+      "required_building_level": 2,
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 400 }
+    },
+    {
+      "id": "bp-ac-item-concentrate",
+      "type": "item",
+      "label": "Herbal Concentrate",
+      "description": "A distilled intermediate material for later potion work.",
+      "icon": "🌿",
+      "rarity": "common",
+      "item_type": "material",
+      "subtype": "material",
+      "stack_limit": 99,
+      "stack_max": 99,
+      "visible": true,
+      "canvas_pos": { "x": 480, "y": 200 }
+    },
+    {
+      "id": "bp-ac-item-healing-potion",
+      "type": "item",
+      "label": "Healing Potion",
+      "description": "A simple expedition consumable.",
+      "icon": "🧪",
+      "rarity": "common",
+      "item_type": "consumable",
+      "subtype": "material",
+      "stack_limit": 10,
+      "stack_max": 10,
+      "visible": true,
+      "canvas_pos": { "x": 480, "y": 400 }
+    },
+    {
+      "id": "bp-ac-item-superior-potion",
+      "type": "item",
+      "label": "Superior Healing Potion",
+      "description": "An upgraded crit result for the distillation line.",
+      "icon": "🧪",
+      "rarity": "uncommon",
+      "item_type": "consumable",
+      "subtype": "material",
+      "stack_limit": 10,
+      "stack_max": 10,
+      "visible": true,
+      "canvas_pos": { "x": 480, "y": 560 }
+    },
+    {
+      "id": "bp-ac-upgrade",
+      "type": "building_upgrade",
+      "label": "Distillery",
+      "building_id": "bp-ac-building",
+      "host_building": "bp-ac-building",
+      "required_building_level": 2,
+      "level": 2,
+      "cost": [],
+      "artisan_slot_increase": 1,
+      "unlocks_workflow_ids": ["bp-ac-workflow-distill"],
+      "effects": { "unlocks_workflows": ["bp-ac-workflow-distill"], "slots_added": 1 },
+      "visible": true,
+      "canvas_pos": { "x": 480, "y": 0 }
+    }
+  ],
+  "edges": [
+    {
+      "id": "bp-ac-edge-building-brew",
+      "source": "bp-ac-building",
+      "target": "bp-ac-workflow-brew",
+      "relation": "available_at",
+      "label": "available_at",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-ac-edge-building-distill",
+      "source": "bp-ac-building",
+      "target": "bp-ac-workflow-distill",
+      "relation": "available_at",
+      "label": "available_at",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-ac-edge-building-artisan",
+      "source": "bp-ac-building",
+      "target": "bp-ac-artisan",
+      "relation": "trains",
+      "label": "trains",
+      "style": { "stroke": "#D4537E", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-ac-edge-brew-recipe",
+      "source": "bp-ac-workflow-brew",
+      "target": "bp-ac-recipe-brew",
+      "relation": "used_by",
+      "label": "used_by",
+      "style": { "stroke": "#BA7517", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-ac-edge-distill-recipe",
+      "source": "bp-ac-workflow-distill",
+      "target": "bp-ac-recipe-distill",
+      "relation": "used_by",
+      "label": "used_by",
+      "style": { "stroke": "#BA7517", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-ac-edge-recipe-concentrate",
+      "source": "bp-ac-recipe-brew",
+      "target": "bp-ac-item-concentrate",
+      "relation": "produces",
+      "label": "produces",
+      "style": { "stroke": "#1D9E75", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-ac-edge-recipe-potion",
+      "source": "bp-ac-recipe-distill",
+      "target": "bp-ac-item-healing-potion",
+      "relation": "produces",
+      "label": "produces",
+      "style": { "stroke": "#1D9E75", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-ac-edge-concentrate-distill",
+      "source": "bp-ac-item-concentrate",
+      "target": "bp-ac-workflow-distill",
+      "relation": "consumes",
+      "label": "consumes",
+      "style": { "stroke": "#BA7517", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-ac-edge-upgrade-building",
+      "source": "bp-ac-upgrade",
+      "target": "bp-ac-building",
+      "relation": "hosts",
+      "label": "hosts",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    }
+  ]
+}

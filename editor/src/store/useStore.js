@@ -430,6 +430,7 @@ const useStore = create((set, get) => ({
     if (!Array.isArray(blueprintJson?.nodes) || blueprintJson.nodes.length === 0) return null
 
     const existingNodes = get().nodes
+    const existingEdges = get().edges
     const maxX = existingNodes.length > 0
       ? Math.max(...existingNodes.map((n) => (n.position.x + 240)))
       : 0
@@ -480,6 +481,11 @@ const useStore = create((set, get) => ({
         },
       }
     })
+    const importedEdges = Array.isArray(blueprintJson?.edges)
+      ? blueprintJson.edges
+          .map((edgeData, index) => remapBlueprintEdge(edgeData, idMap, timestamp, index))
+          .filter(Boolean)
+      : []
 
     const existingGraphIds = new Set(existingNodes.map((node) => node.data?.id ?? node.id))
     const importedIds = new Set(importedNodes.map((node) => node.data?.id ?? node.id))
@@ -504,6 +510,7 @@ const useStore = create((set, get) => ({
 
     set({
       nodes: [...get().nodes, ...autoCreatedNodes, ...normalizedImportedNodes],
+      edges: [...existingEdges, ...importedEdges],
       selectedNodeId: normalizedImportedNodes[0]?.id ?? get().selectedNodeId,
     })
 
@@ -516,6 +523,7 @@ const useStore = create((set, get) => ({
 
     return {
       importedCount: normalizedImportedNodes.length,
+      importedEdgeCount: importedEdges.length,
       autoCreatedCount: autoCreatedNodes.length,
       autoCreated: autoCreatedNodes.map((node) => ({
         id: node.data.id,
@@ -531,10 +539,14 @@ const useStore = create((set, get) => ({
     if (!blueprintNode) return
 
     const nodeIds = blueprintNode.data?.node_ids ?? []
+    const nodeIdSet = new Set(nodeIds)
     const selectedNodes = nodeIds
       .map((nodeId) => get().nodes.find((n) => n.id === nodeId))
       .filter(Boolean)
       .map((node) => node.data)
+    const selectedEdges = get().edges
+      .filter((edge) => nodeIdSet.has(edge.source) && nodeIdSet.has(edge.target))
+      .map(serializeBlueprintEdge)
 
     const payload = {
       blueprint_meta: {
@@ -545,6 +557,7 @@ const useStore = create((set, get) => ({
         created_at: new Date().toISOString(),
       },
       nodes: selectedNodes,
+      edges: selectedEdges,
     }
 
     set({
@@ -820,8 +833,39 @@ function upsertBlueprint(blueprints, blueprintJson) {
   ]
 }
 
+function serializeBlueprintEdge(edge) {
+  const relation = edge.data?.relation ?? edge.relation ?? ''
+  return {
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    relation,
+    label: edge.label ?? relation,
+    style: edge.style ? { ...edge.style } : undefined,
+    data: edge.data ? { ...edge.data } : undefined,
+  }
+}
+
 function remapBlueprintNode(nodeData, idMap) {
   return remapBlueprintValue(nodeData, '', idMap)
+}
+
+function remapBlueprintEdge(edgeData, idMap, timestamp, index) {
+  if (!edgeData?.source || !edgeData?.target) return null
+
+  const relation = edgeData.data?.relation ?? edgeData.relation ?? ''
+  return {
+    ...edgeData,
+    id: `import-edge-${timestamp}-${edgeData.id ?? index}`,
+    source: idMap[edgeData.source] ?? edgeData.source,
+    target: idMap[edgeData.target] ?? edgeData.target,
+    data: {
+      ...(edgeData.data ?? {}),
+      relation,
+    },
+    label: edgeData.label ?? relation,
+    style: edgeData.style ?? { stroke: '#444466', strokeWidth: 1.5 },
+  }
 }
 
 function remapBlueprintValue(value, key, idMap) {

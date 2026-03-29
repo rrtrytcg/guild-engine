@@ -1,0 +1,235 @@
+{
+  "blueprint_meta": {
+    "id": "blueprint-library-chain-medium",
+    "label": "Library Chain",
+    "description": "Research chain with momentum system. Wire your resource and world_effect target.",
+    "requires_schema_version": "1.2.0",
+    "created_at": "2026-03-29T00:00:00.000Z",
+    "flavor": "fantasy",
+    "complexity": "medium"
+  },
+  "nodes": [
+    {
+      "id": "bp-lc-building",
+      "type": "building",
+      "label": "Library",
+      "description": "A medium research setup built around passive world-effect output.",
+      "icon": "📚",
+      "max_level": 3,
+      "has_workflows": true,
+      "artisan_slots": { "base_count": 1, "max_count": 2, "expand_by": "building_upgrade" },
+      "levels": [
+        { "build_cost": [], "build_time_s": 42, "hero_slots": 1, "recipe_slots": 1, "production": {} },
+        { "build_cost": [], "build_time_s": 64, "hero_slots": 1, "recipe_slots": 1, "production": {} },
+        { "build_cost": [], "build_time_s": 88, "hero_slots": 1, "recipe_slots": 1, "production": {} }
+      ],
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "bp-lc-artisan",
+      "type": "hero_class",
+      "label": "Scholar",
+      "description": "A researcher who keeps the study engine moving.",
+      "icon": "🧠",
+      "hero_type": "artisan",
+      "combat_eligible": false,
+      "xp_source": "workflow",
+      "specializations": ["researcher", "archivist"],
+      "building_affinity": ["bp-lc-building"],
+      "base_stats": { "attack": 6, "defense": 6, "speed": 7, "hp": 90, "luck": 11 },
+      "stat_growth": { "attack": 1, "defense": 1, "speed": 1, "hp": 8, "luck": 2 },
+      "slots": ["relic", "accessory"],
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 0 }
+    },
+    {
+      "id": "bp-lc-workflow-research",
+      "type": "building_workflow",
+      "label": "Research Breakthrough",
+      "description": "The main passive research line that fires your chosen world effect target.",
+      "building_id": "bp-lc-building",
+      "host_building": "bp-lc-building",
+      "behavior": "consume_resource",
+      "workflow_mode": "passive",
+      "action_type": "researcher",
+      "base_duration_ticks": 180,
+      "duration_base_ticks": 180,
+      "input_rules": [],
+      "inputs": [],
+      "output_rules": [
+        {
+          "output_type": "world_effect",
+          "effect_type": "trigger_event",
+          "target": "bp-lc-event-breakthrough",
+          "chance": 1
+        }
+      ],
+      "momentum_config": {
+        "gain_per_job": 10,
+        "decay_per_idle_tick": 0.5,
+        "thresholds": [
+          { "momentum": 25, "label": "Quiet Focus", "speed_bonus": 0.08, "crit_bonus": 0.02 },
+          { "momentum": 50, "label": "Cross-Referenced", "speed_bonus": 0.14, "crit_bonus": 0.04 },
+          { "momentum": 75, "label": "Breakthrough Pace", "speed_bonus": 0.22, "crit_bonus": 0.07 }
+        ]
+      },
+      "success_table": {
+        "base_failure": 0.05,
+        "base_crit": 0.05,
+        "crit_behavior": "breakthrough",
+        "failure_behavior": "reset_progress_refund_inputs"
+      },
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 200 }
+    },
+    {
+      "id": "bp-lc-workflow-archive",
+      "type": "building_workflow",
+      "label": "Archive Findings",
+      "description": "A second passive line that keeps the library's cadence up.",
+      "building_id": "bp-lc-building",
+      "host_building": "bp-lc-building",
+      "behavior": "consume_resource",
+      "workflow_mode": "passive",
+      "action_type": "archivist",
+      "base_duration_ticks": 140,
+      "duration_base_ticks": 140,
+      "input_rules": [],
+      "inputs": [],
+      "output_rules": [
+        {
+          "output_type": "world_effect",
+          "effect_type": "trigger_event",
+          "target": "bp-lc-event-cataloged",
+          "chance": 1
+        }
+      ],
+      "momentum_config": {
+        "gain_per_job": 8,
+        "decay_per_idle_tick": 0.4,
+        "thresholds": [
+          { "momentum": 25, "label": "Steady Notes", "speed_bonus": 0.06, "crit_bonus": 0.01 },
+          { "momentum": 50, "label": "Pattern Memory", "speed_bonus": 0.12, "crit_bonus": 0.03 },
+          { "momentum": 75, "label": "Archive Flow", "speed_bonus": 0.18, "crit_bonus": 0.05 }
+        ]
+      },
+      "success_table": {
+        "base_failure": 0.05,
+        "base_crit": 0.04,
+        "crit_behavior": "breakthrough",
+        "failure_behavior": "reset_progress_refund_inputs"
+      },
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 400 }
+    },
+    {
+      "id": "bp-lc-event-breakthrough",
+      "type": "event",
+      "label": "Research Breakthrough",
+      "description": "A placeholder event target for the designer to replace or extend.",
+      "log_message": "A breakthrough rings out through the stacks.",
+      "choices": [],
+      "visible": true,
+      "canvas_pos": { "x": 480, "y": 200 }
+    },
+    {
+      "id": "bp-lc-event-cataloged",
+      "type": "event",
+      "label": "Archive Secured",
+      "description": "A placeholder archive event target for the designer to customize.",
+      "log_message": "Freshly cataloged knowledge settles into the archive.",
+      "choices": [],
+      "visible": true,
+      "canvas_pos": { "x": 480, "y": 400 }
+    },
+    {
+      "id": "bp-lc-upgrade-archives",
+      "type": "building_upgrade",
+      "label": "Archives",
+      "building_id": "bp-lc-building",
+      "host_building": "bp-lc-building",
+      "required_building_level": 2,
+      "level": 2,
+      "cost": [],
+      "artisan_slot_increase": 1,
+      "unlocks_workflow_ids": ["bp-lc-workflow-research"],
+      "effects": { "unlocks_workflows": ["bp-lc-workflow-research"], "slots_added": 1 },
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 200 }
+    },
+    {
+      "id": "bp-lc-upgrade-study-hall",
+      "type": "building_upgrade",
+      "label": "Study Hall",
+      "building_id": "bp-lc-building",
+      "host_building": "bp-lc-building",
+      "required_building_level": 3,
+      "level": 3,
+      "cost": [],
+      "artisan_slot_increase": 0,
+      "unlocks_workflow_ids": ["bp-lc-workflow-archive"],
+      "effects": { "unlocks_workflows": ["bp-lc-workflow-archive"], "slots_added": 0 },
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 400 }
+    }
+  ],
+  "edges": [
+    {
+      "id": "bp-lc-edge-building-research",
+      "source": "bp-lc-building",
+      "target": "bp-lc-workflow-research",
+      "relation": "available_at",
+      "label": "available_at",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-lc-edge-building-archive",
+      "source": "bp-lc-building",
+      "target": "bp-lc-workflow-archive",
+      "relation": "available_at",
+      "label": "available_at",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-lc-edge-building-artisan",
+      "source": "bp-lc-building",
+      "target": "bp-lc-artisan",
+      "relation": "trains",
+      "label": "trains",
+      "style": { "stroke": "#D4537E", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-lc-edge-research-event",
+      "source": "bp-lc-workflow-research",
+      "target": "bp-lc-event-breakthrough",
+      "relation": "triggers",
+      "label": "triggers",
+      "style": { "stroke": "#BA7517", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-lc-edge-archive-event",
+      "source": "bp-lc-workflow-archive",
+      "target": "bp-lc-event-cataloged",
+      "relation": "triggers",
+      "label": "triggers",
+      "style": { "stroke": "#BA7517", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-lc-edge-upgrade-archives",
+      "source": "bp-lc-upgrade-archives",
+      "target": "bp-lc-building",
+      "relation": "hosts",
+      "label": "hosts",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    },
+    {
+      "id": "bp-lc-edge-upgrade-study",
+      "source": "bp-lc-upgrade-study-hall",
+      "target": "bp-lc-building",
+      "relation": "hosts",
+      "label": "hosts",
+      "style": { "stroke": "#378ADD", "strokeWidth": 1.5 }
+    }
+  ]
+}
