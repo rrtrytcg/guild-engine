@@ -45,6 +45,26 @@ Finds errors, warnings, and balance issues. Offers safe auto-fixes.
 
 ---
 
+### ActForge — AI Act Generation (Optional)
+```
+"Follow guild-engine/generator/ACTFORGE.md exactly."
+```
+**Input:** Narrative description + difficulty/theme/duration  
+**Output:** `guild-engine/generator/act-{name}.blueprint.json`
+
+Generates complete act blueprints from text descriptions. Output imports via Blueprint Library → Acts tab.
+
+**Example:**
+```
+ACT_DESCRIPTION: "Plague-ridden coast. Smugglers in tidal caves. 
+Baron's son kidnapped by fish-cultists. Sunken cathedral finale."
+DIFFICULTY_TARGET: mid
+THEME: coastal
+DURATION_ESTIMATE: medium
+```
+
+---
+
 ## TIER 1: Implemented Features
 
 ### Parameter Injection System ✅
