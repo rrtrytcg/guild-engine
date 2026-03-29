@@ -120,7 +120,7 @@ export const CONNECTION_RULES = {
   expedition:      { drops_from: ['loot_table'], gates: ['act'], triggers: ['event'] },
   boss_expedition: { drops_from: ['loot_table'], gates: ['act'], triggers: ['event'] },
   act:             { unlocks: ['building', 'expedition', 'boss_expedition', 'upgrade'], triggers: ['event'] },
-  event:           { affects_rep: ['faction'], triggers: ['act'] },
+  event:           { affects_rep: ['faction'], triggers: ['act', 'expedition', 'boss_expedition'] },
   faction:         { gates: ['upgrade', 'building', 'expedition'], affects_rep: ['event'] },
   prestige:        { gates: ['act'], produces: ['resource'] },
   blueprint:       {},
