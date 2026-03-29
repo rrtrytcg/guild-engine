@@ -33,6 +33,18 @@ Quick reference for running the generator passes.
 
 ---
 
+### Canvas Doctor — Validation & Auto-Fix (Recommended)
+```
+"Follow guild-engine/generator/CANVASDOCTOR.md exactly."
+```
+**Input:** `guild-engine/generator/generated-project.json`  
+**Output:** `guild-engine/generator/canvas-doctor-report.md`
+
+Run after Pass 2 or manual editing, before compiling to playtest.
+Finds errors, warnings, and balance issues. Offers safe auto-fixes.
+
+---
+
 ## TIER 1: Implemented Features
 
 ### Parameter Injection System ✅
