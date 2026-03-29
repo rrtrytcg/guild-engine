@@ -76,7 +76,7 @@
       },
       "xp_on_complete": 20,
       "visible": true,
-      "canvas_pos": { "x": 0, "y": 180 }
+      "canvas_pos": { "x": 0, "y": 200 }
     },
     {
       "id": "bp-forge-workflow-weapon",
@@ -107,7 +107,7 @@
       },
       "xp_on_complete": 20,
       "visible": true,
-      "canvas_pos": { "x": 220, "y": 180 }
+      "canvas_pos": { "x": 0, "y": 400 }
     },
     {
       "id": "bp-forge-workflow-armor",
@@ -138,7 +138,7 @@
       },
       "xp_on_complete": 20,
       "visible": true,
-      "canvas_pos": { "x": 440, "y": 180 }
+      "canvas_pos": { "x": 0, "y": 600 }
     },
     {
       "id": "bp-forge-upgrade-basic-smelter",
@@ -156,7 +156,7 @@
         "slots_added": 1
       },
       "visible": true,
-      "canvas_pos": { "x": 0, "y": 360 }
+      "canvas_pos": { "x": 240, "y": 200 }
     },
     {
       "id": "bp-forge-upgrade-smelter-ii",
@@ -174,7 +174,7 @@
         "slots_added": 1
       },
       "visible": true,
-      "canvas_pos": { "x": 220, "y": 360 }
+      "canvas_pos": { "x": 240, "y": 400 }
     },
     {
       "id": "bp-forge-upgrade-master-forge",
@@ -192,7 +192,7 @@
         "slots_added": 0
       },
       "visible": true,
-      "canvas_pos": { "x": 440, "y": 360 }
+      "canvas_pos": { "x": 240, "y": 600 }
     },
     {
       "id": "bp-forge-item-iron-sword",
@@ -207,7 +207,7 @@
       "stat_modifiers": { "attack": 6 },
       "stack_limit": 1,
       "visible": true,
-      "canvas_pos": { "x": 0, "y": 540 }
+      "canvas_pos": { "x": 480, "y": 200 }
     },
     {
       "id": "bp-forge-item-iron-sword-masterwork",
@@ -222,7 +222,7 @@
       "stat_modifiers": { "attack": 10 },
       "stack_limit": 1,
       "visible": true,
-      "canvas_pos": { "x": 220, "y": 540 }
+      "canvas_pos": { "x": 480, "y": 400 }
     },
     {
       "id": "bp-forge-recipe-smelt-billet",
@@ -234,7 +234,7 @@
       "required_building_level": 1,
       "output_quantity": 1,
       "visible": true,
-      "canvas_pos": { "x": 0, "y": 720 }
+      "canvas_pos": { "x": 480, "y": 0 }
     },
     {
       "id": "bp-forge-recipe-sword",
@@ -246,7 +246,7 @@
       "required_building_level": 2,
       "output_quantity": 1,
       "visible": true,
-      "canvas_pos": { "x": 220, "y": 720 }
+      "canvas_pos": { "x": 480, "y": 600 }
     },
     {
       "id": "bp-forge-recipe-masterwork-sword",
@@ -258,7 +258,7 @@
       "required_building_level": 3,
       "output_quantity": 1,
       "visible": true,
-      "canvas_pos": { "x": 440, "y": 720 }
+      "canvas_pos": { "x": 480, "y": 800 }
     },
     {
       "id": "bp-forge-recipe-armor-plating",
@@ -270,7 +270,7 @@
       "required_building_level": 3,
       "output_quantity": 1,
       "visible": true,
-      "canvas_pos": { "x": 660, "y": 720 }
+      "canvas_pos": { "x": 480, "y": 1000 }
     }
   ]
 }

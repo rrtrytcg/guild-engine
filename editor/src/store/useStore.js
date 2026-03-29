@@ -56,6 +56,17 @@ const useStore = create((set, get) => ({
       selectedNodeId: get().selectedNodeId === id ? null : get().selectedNodeId,
     }),
 
+  deleteNodes: (ids) => {
+    const targets = new Set(ids ?? [])
+    if (targets.size === 0) return
+
+    set({
+      nodes: get().nodes.filter((n) => !targets.has(n.id)),
+      edges: get().edges.filter((e) => !targets.has(e.source) && !targets.has(e.target)),
+      selectedNodeId: targets.has(get().selectedNodeId) ? null : get().selectedNodeId,
+    })
+  },
+
   // --- Import project.json ---
   importProject: (project) => {
     if (!project?.nodes || !project?.edges) {
@@ -105,6 +116,28 @@ const useStore = create((set, get) => ({
   importBlueprint: (blueprintJson, dropPosition = { x: 320, y: 180 }) => {
     if (!Array.isArray(blueprintJson?.nodes) || blueprintJson.nodes.length === 0) return
 
+    const existingNodes = get().nodes
+    const maxX = existingNodes.length > 0
+      ? Math.max(...existingNodes.map((n) => (n.position.x + 240)))
+      : 0
+    const safeDropX = Math.max(dropPosition?.x ?? 100, maxX + 80)
+    const safeDropY = dropPosition?.y ?? 80
+
+    const blueprintPositions = blueprintJson.nodes.map((nodeData, index) => (
+      nodeData.canvas_pos ?? {
+        x: (index % 4) * 220,
+        y: Math.floor(index / 4) * 160,
+      }
+    ))
+    const blueprintOrigin = blueprintPositions.reduce((best, pos) => {
+      if (!best) return pos
+      const bestScore = Number(best.x ?? 0) + Number(best.y ?? 0)
+      const nextScore = Number(pos.x ?? 0) + Number(pos.y ?? 0)
+      if (nextScore < bestScore) return pos
+      if (nextScore === bestScore && Number(pos.x ?? 0) < Number(best.x ?? 0)) return pos
+      return best
+    }, null)
+
     const timestamp = Date.now()
     const idMap = Object.fromEntries(
       blueprintJson.nodes
@@ -114,13 +147,10 @@ const useStore = create((set, get) => ({
 
     const importedNodes = blueprintJson.nodes.map((nodeData, index) => {
       const remappedData = remapBlueprintNode(nodeData, idMap)
-      const relativePos = nodeData.canvas_pos ?? {
-        x: (index % 4) * 220,
-        y: Math.floor(index / 4) * 160,
-      }
+      const relativePos = blueprintPositions[index]
       const absolutePos = {
-        x: Number(dropPosition.x ?? 0) + Number(relativePos.x ?? 0),
-        y: Number(dropPosition.y ?? 0) + Number(relativePos.y ?? 0),
+        x: Number(safeDropX) + Number(relativePos.x ?? 0) - Number(blueprintOrigin?.x ?? 0),
+        y: Number(safeDropY) + Number(relativePos.y ?? 0) - Number(blueprintOrigin?.y ?? 0),
       }
 
       return {

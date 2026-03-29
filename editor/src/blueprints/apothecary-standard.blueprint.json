@@ -78,7 +78,7 @@
       "xp_on_complete": 20,
       "streak_bonus": { "threshold": 3, "duration_reduction": 0.15, "crit_bonus": 0.1, "label": "Focused Brewing" },
       "visible": true,
-      "canvas_pos": { "x": 0, "y": 180 }
+      "canvas_pos": { "x": 0, "y": 200 }
     },
     {
       "id": "bp-apothecary-workflow-distill",
@@ -110,7 +110,7 @@
       "xp_on_complete": 20,
       "streak_bonus": { "threshold": 3, "duration_reduction": 0.15, "crit_bonus": 0.1, "label": "Focused Brewing" },
       "visible": true,
-      "canvas_pos": { "x": 220, "y": 180 }
+      "canvas_pos": { "x": 0, "y": 400 }
     },
     {
       "id": "bp-apothecary-workflow-preserve",
@@ -142,7 +142,7 @@
       "xp_on_complete": 20,
       "streak_bonus": { "threshold": 3, "duration_reduction": 0.15, "crit_bonus": 0.1, "label": "Focused Brewing" },
       "visible": true,
-      "canvas_pos": { "x": 440, "y": 180 }
+      "canvas_pos": { "x": 0, "y": 600 }
     },
     {
       "id": "bp-apothecary-upgrade-stills",
@@ -160,7 +160,7 @@
         "slots_added": 1
       },
       "visible": true,
-      "canvas_pos": { "x": 0, "y": 360 }
+      "canvas_pos": { "x": 240, "y": 200 }
     },
     {
       "id": "bp-apothecary-upgrade-refinement",
@@ -178,7 +178,7 @@
         "slots_added": 1
       },
       "visible": true,
-      "canvas_pos": { "x": 220, "y": 360 }
+      "canvas_pos": { "x": 240, "y": 400 }
     },
     {
       "id": "bp-apothecary-upgrade-grand-lab",
@@ -196,7 +196,7 @@
         "slots_added": 0
       },
       "visible": true,
-      "canvas_pos": { "x": 440, "y": 360 }
+      "canvas_pos": { "x": 240, "y": 600 }
     },
     {
       "id": "bp-apothecary-item-health-potion",
@@ -221,7 +221,7 @@
         "buff_slot_cost": 1
       },
       "visible": true,
-      "canvas_pos": { "x": 0, "y": 540 }
+      "canvas_pos": { "x": 480, "y": 200 }
     },
     {
       "id": "bp-apothecary-item-health-potion-superior",
@@ -246,7 +246,7 @@
         "buff_slot_cost": 1
       },
       "visible": true,
-      "canvas_pos": { "x": 220, "y": 540 }
+      "canvas_pos": { "x": 480, "y": 400 }
     },
     {
       "id": "bp-apothecary-recipe-potion",
@@ -258,7 +258,7 @@
       "required_building_level": 1,
       "output_quantity": 1,
       "visible": true,
-      "canvas_pos": { "x": 0, "y": 720 }
+      "canvas_pos": { "x": 480, "y": 0 }
     },
     {
       "id": "bp-apothecary-recipe-superior",
@@ -270,7 +270,7 @@
       "required_building_level": 2,
       "output_quantity": 1,
       "visible": true,
-      "canvas_pos": { "x": 220, "y": 720 }
+      "canvas_pos": { "x": 480, "y": 600 }
     },
     {
       "id": "bp-apothecary-recipe-preserve",
@@ -282,7 +282,7 @@
       "required_building_level": 3,
       "output_quantity": 2,
       "visible": true,
-      "canvas_pos": { "x": 440, "y": 720 }
+      "canvas_pos": { "x": 480, "y": 800 }
     }
   ]
 }
