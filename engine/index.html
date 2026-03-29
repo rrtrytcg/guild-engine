@@ -13,9 +13,14 @@
   #app{display:flex;flex-direction:column;height:100vh}
   #topbar{height:48px;background:#0a0a14;border-bottom:1px solid #2a2a3e;display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0}
   #main{display:flex;flex:1;overflow:hidden}
-  #left-panel{width:220px;flex-shrink:0;background:#13131f;border-right:1px solid #2a2a3e;display:flex;flex-direction:column;overflow-y:auto}
-  #center{flex:1;overflow-y:auto;padding:16px}
-  #right-panel{width:260px;flex-shrink:0;background:#13131f;border-left:1px solid #2a2a3e;display:flex;flex-direction:column;overflow-y:auto}
+  #left-panel{width:180px;flex-shrink:0;background:#13131f;border-right:1px solid #2a2a3e;display:flex;flex-direction:column;overflow-y:auto}
+  #world-panel{width:260px;flex-shrink:0;overflow-y:auto;background:#13131f;border-right:1px solid #2a2a3e;padding:12px}
+  #detail-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+  #detail-tab-bar{display:flex;gap:2px;padding:6px 8px;border-bottom:1px solid #2a2a3e;flex-shrink:0;background:#0d0d1a}
+  .tab-btn{background:transparent;border:none;padding:6px 14px;border-radius:6px;color:#666680;font-size:12px;font-weight:600;cursor:pointer}
+  .tab-btn.active,.tab-btn:hover{background:#1e1e2e;color:#e0e0f0}
+  #detail-content{flex:1;overflow-y:auto;padding:12px;min-height:0}
+  #event-log-panel{flex-shrink:0;border-top:1px solid #2a2a3e;max-height:200px;overflow-y:auto;background:#0a0a14}
 
   /* ── Reusable ── */
   .section-label{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#444460;padding:10px 14px 4px}
@@ -74,7 +79,7 @@
   <!-- Main layout -->
   <div id="main">
 
-    <!-- Left: resources + nav -->
+    <!-- Left: resources + nav (180px) -->
     <div id="left-panel">
       <div class="section-label">Resources</div>
       <div id="resources-list" style="padding:0 8px 8px"></div>
@@ -90,28 +95,41 @@
       </div>
     </div>
 
-    <!-- Center: screen content -->
-    <div id="center">
+    <!-- World: always visible (260px) -->
+    <div id="world-panel">
       <div id="screen-world"></div>
-      <div id="screen-expedition" style="display:none"></div>
-      <div id="screen-forge" style="display:none"></div>
     </div>
 
-    <!-- Right: heroes + event log -->
-    <div id="right-panel">
-      <div class="section-label">Heroes</div>
-      <div id="heroes-list" style="padding:0 8px 8px"></div>
-      <div style="border-top:1px solid #2a2a3e;padding:8px">
-        <div class="section-label" style="padding:4px 6px">Available recruits</div>
-        <div id="recruits-list" style="padding:0 2px 2px"></div>
+    <!-- Detail: tab bar + content + event log (flex:1) -->
+    <div id="detail-panel">
+      <div id="detail-tab-bar">
+        <button class="tab-btn active" data-tab="recruits">Recruits</button>
+        <button class="tab-btn" data-tab="inventory">Inventory</button>
+        <button class="tab-btn" data-tab="expedition">Expedition</button>
+        <button class="tab-btn" data-tab="forge">Forge</button>
       </div>
-      <div style="border-top:1px solid #2a2a3e;padding:8px">
-        <div class="section-label" style="padding:4px 6px">Event log</div>
-        <div id="event-log" style="padding:0 2px"></div>
+      <div id="detail-content">
+        <div id="tab-recruits">
+          <div class="section-label" style="padding:8px 6px 4px">Guild roster</div>
+          <div id="heroes-list" style="padding:0 8px 8px"></div>
+          <div style="border-top:1px solid #2a2a3e;margin-top:4px;padding:8px">
+            <div class="section-label" style="padding:4px 6px">Available recruits</div>
+            <div id="recruits-list" style="padding:0 2px 2px"></div>
+          </div>
+        </div>
+        <div id="tab-inventory" style="display:none">
+          <div id="inventory-list" style="padding:0 2px 2px"></div>
+        </div>
+        <div id="tab-expedition" style="display:none">
+          <div id="screen-expedition"></div>
+        </div>
+        <div id="tab-forge" style="display:none">
+          <div id="screen-forge"></div>
+        </div>
       </div>
-      <div style="border-top:1px solid #2a2a3e;padding:8px">
-        <div class="section-label" style="padding:4px 6px">Inventory</div>
-        <div id="inventory-list" style="padding:0 2px 2px"></div>
+      <div id="event-log-panel">
+        <div class="section-label" style="padding:6px 8px 2px">Event log</div>
+        <div id="event-log" style="padding:0 8px 4px"></div>
       </div>
     </div>
   </div>
@@ -187,6 +205,7 @@ const renderCache = {
 let worldActionsBound = false
 let expeditionActionsBound = false
 let heroActionsBound = false
+let inventoryActionsBound = false
 
 const EQUIPMENT_SLOTS = [
   { slot: 'weapon', icon: '⚔️', label: 'Weapon' },
@@ -205,6 +224,8 @@ const heroUiState = HERO_UI
 const expeditionUiState = {
   selectedPartyByExpedition: {},
 }
+const detailUiState = { activeTab: 'recruits' }
+const inventoryUiState = { selectedItemId: null }
 
 const STAT_LABELS = {
   attack: 'ATK',
@@ -248,6 +269,13 @@ document.getElementById('file-picker').addEventListener('change', (e) => loadFil
 document.addEventListener('dragover', (e) => e.preventDefault())
 document.addEventListener('drop', (e) => { e.preventDefault(); loadFile(e.dataTransfer.files?.[0]) })
 
+document.getElementById('detail-tab-bar').addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab-btn')
+  if (!btn) return
+  detailUiState.activeTab = btn.dataset.tab
+  if (snapshot) render(snapshot)
+})
+
 function startGame(project) {
   currentProject = project
   stopEngine()
@@ -264,6 +292,8 @@ function startGame(project) {
   heroUiState.hoveredItemId = null
   heroUiState.dismissConfirmHeroId = null
   expeditionUiState.selectedPartyByExpedition = {}
+  detailUiState.activeTab = 'recruits'
+  inventoryUiState.selectedItemId = null
   renderCache.worldHash = null
   renderCache.expeditionHash = null
   snapshot = initEngine(project, (snap) => { snapshot = snap; render(snap) })
@@ -274,7 +304,12 @@ window.goToEditor = () => { stopEngine(); window.history.back() }
 window.promptRestart = () => showRestartConfirm()
 window.cancelRestart = () => hideRestartConfirm()
 window.confirmRestart = () => restartCurrentGame()
-window.setScreen = (s) => { engineActions.setScreen(s); if (snapshot) render(snapshot) }
+window.setScreen = (s) => {
+  engineActions.setScreen(s)
+  if (s === 'expedition') detailUiState.activeTab = 'expedition'
+  else if (s === 'forge') detailUiState.activeTab = 'forge'
+  if (snapshot) render(snapshot)
+}
 window.sendParty = (expedId, partySize) => {
   if (!snapshot) return
   const exp = snapshot.expeditions?.find((entry) => entry.id === expedId)
@@ -549,9 +584,9 @@ function render(s) {
   renderActs(s)
   renderNav(s)
   renderNotification(s)
-  if (s.ui.screen === 'world') renderWorldScreen(s)
-  if (s.ui.screen === 'expedition') renderExpeditionScreen(s)
-  if (s.ui.screen === 'forge') renderForgeScreenV2(s)
+  renderWorldScreen(s)
+  if (detailUiState.activeTab === 'expedition') renderExpeditionScreen(s)
+  if (detailUiState.activeTab === 'forge') renderForgeScreenV2(s)
 }
 
 // ── Resources (left panel) ────────────────────────────────────────────────────
@@ -971,28 +1006,80 @@ function renderEventLog(s) {
 }
 
 // ── Acts ──────────────────────────────────────────────────────────────────────
+function getHeroesForInventoryItem(s, itemId) {
+  const entry = (s.inventory ?? []).find((e) => e.id === itemId)
+  if (!entry?.def?.slot) return []
+  const slot = entry.def.slot
+  return (s.heroes ?? []).filter((hero) => {
+    const heroClass = getHeroClassForHero(s, hero)
+    return heroCanUseSlot(heroClass, slot) && hero.status !== 'dead'
+  })
+}
+
 function renderInventoryPanel(s) {
   const el = document.getElementById('inventory-list')
+  ensureInventoryActionDelegation()
   const items = (s.inventory ?? []).filter((entry) => entry.qty > 0)
 
   if (!items.length) {
-    el.innerHTML = '<div style="font-size:11px;color:#444460;padding:4px 6px">Inventory empty.</div>'
+    el.innerHTML = '<div style="font-size:11px;color:#444460;padding:8px">Inventory empty.</div>'
     return
   }
 
-  el.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:4px;padding:0 2px">
-    ${items.map((entry) => {
-      const def = entry.def ?? {}
-      const isMaterial = def.subtype === 'material'
-      const rarity = def.rarity ?? 'common'
-      const rarityColor = RARITY_COLORS[rarity] ?? '#c0c0d8'
-      const chipClass = isMaterial ? 'inventory-chip material' : `inventory-chip equipment rarity-${rarity}`
-      const chipStyle = isMaterial
-        ? ''
-        : `color:${rarityColor};border-color:${rarityColor}55`
-      return `<span class="${chipClass}" style="${chipStyle}">${def.icon ?? '📦'} ${def.label ?? entry.id} ×${entry.qty}</span>`
-    }).join('')}
-  </div>`
+  el.innerHTML = items.map((entry) => {
+    const def = entry.def ?? {}
+    const isMaterial = def.subtype === 'material' || def.item_type === 'material'
+    const rarity = def.rarity ?? 'common'
+    const rarityColor = RARITY_COLORS[rarity] ?? '#c0c0d8'
+
+    if (isMaterial) {
+      return `<div class="card" style="display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:6px">
+        <span style="font-size:18px">${def.icon ?? '📦'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;color:#c0c0d8">${def.label ?? entry.id}</div>
+          <div style="font-size:10px;color:#666680;margin-top:1px">Material</div>
+        </div>
+        <span style="font-size:18px;font-weight:700;color:#e0e0f0">×${entry.qty}</span>
+      </div>`
+    }
+
+    const keyStat = Object.entries(def.stat_modifiers ?? {}).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))[0]
+    const keyStatHtml = keyStat
+      ? `<span style="font-size:11px;color:${keyStat[1] > 0 ? '#5DCAA5' : '#E24B4A'}">${keyStat[1] > 0 ? '+' : ''}${Math.round(keyStat[1])} ${formatStatLabel(keyStat[0])}</span>`
+      : ''
+
+    const selected = inventoryUiState.selectedItemId === entry.id
+    const heroesForItem = selected ? getHeroesForInventoryItem(s, entry.id) : []
+    const pickerHtml = selected ? `<div style="margin-top:8px;border-top:1px solid #2a2a3e;padding-top:8px">
+      <div style="font-size:10px;color:#666680;margin-bottom:6px">Equip to hero:</div>
+      ${heroesForItem.length
+        ? heroesForItem.map((hero) => {
+            const heroClass = getHeroClassForHero(s, hero)
+            const currentEquip = hero.equipment?.[def.slot]
+            const currentDef = currentEquip ? getItemDefById(s, currentEquip) : null
+            return `<button class="equipment-option" data-action="equip-item-from-inventory" data-hero-id="${hero.id}" data-item-id="${entry.id}" style="margin-bottom:6px">
+              <div style="min-width:0">
+                <div style="font-size:11px;font-weight:600;color:#e0e0f0">${hero.name}</div>
+                <div class="item-meta">${heroClass?.label ?? '?'} · Lv.${hero.level}</div>
+                ${currentDef ? `<div class="item-meta">Currently: ${currentDef.icon ?? ''} ${currentDef.label ?? currentEquip}</div>` : '<div class="item-meta">Slot empty</div>'}
+              </div>
+            </button>`
+          }).join('')
+        : `<div style="font-size:11px;color:#666680">No heroes can use this slot.</div>`}
+    </div>` : ''
+
+    return `<div class="card" style="margin-bottom:6px${selected ? ';border-color:#7F77DD55;background:#212136' : ''}">
+      <button style="width:100%;display:flex;align-items:center;gap:10px;background:transparent;border:none;color:inherit;text-align:left;cursor:pointer;padding:0" data-action="select-inventory-item" data-item-id="${entry.id}">
+        <span style="font-size:18px">${def.icon ?? '📦'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;color:${rarityColor}">${def.label ?? entry.id}</div>
+          <div style="font-size:10px;color:#666680;margin-top:1px">${def.slot ?? 'equipment'} · ×${entry.qty}</div>
+        </div>
+        ${keyStatHtml}
+      </button>
+      ${pickerHtml}
+    </div>`
+  }).join('')
 }
 
 function renderActs(s) {
@@ -1029,9 +1116,14 @@ function renderNav(s) {
     const btn = document.getElementById('nav-'+id)
     if (btn) btn.classList.toggle('active', s.ui.screen === id)
   })
-  document.getElementById('screen-world').style.display = s.ui.screen==='world' ? 'block' : 'none'
-  document.getElementById('screen-expedition').style.display = s.ui.screen==='expedition' ? 'block' : 'none'
-  document.getElementById('screen-forge').style.display = s.ui.screen==='forge' ? 'block' : 'none'
+  const activeTab = detailUiState.activeTab
+  ;['recruits','inventory','expedition','forge'].forEach((tab) => {
+    const el = document.getElementById('tab-' + tab)
+    if (el) el.style.display = tab === activeTab ? '' : 'none'
+  })
+  document.querySelectorAll('#detail-tab-bar .tab-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.tab === activeTab)
+  })
 }
 
 // ── Notification ──────────────────────────────────────────────────────────────
@@ -1511,7 +1603,7 @@ function handleExpeditionActionClick(e) {
 
 function ensureHeroActionDelegation() {
   if (heroActionsBound) return
-  const el = document.getElementById('right-panel')
+  const el = document.getElementById('tab-recruits')
   if (!el) return
   el.addEventListener('click', handleHeroActionClick)
   el.addEventListener('mouseover', handleHeroActionHover)
@@ -1606,6 +1698,32 @@ function handleHeroActionHover(e) {
       heroUiState.hoveredItemId = null
       if (snapshot) render(snapshot)
     }
+  }
+}
+
+function ensureInventoryActionDelegation() {
+  if (inventoryActionsBound) return
+  const el = document.getElementById('tab-inventory')
+  if (!el) return
+  el.addEventListener('click', handleInventoryActionClick)
+  inventoryActionsBound = true
+}
+
+function handleInventoryActionClick(e) {
+  const btn = e.target.closest('button[data-action]')
+  if (!btn || btn.disabled || !e.currentTarget.contains(btn)) return
+  const action = btn.dataset.action
+  if (action === 'select-inventory-item') {
+    const itemId = btn.dataset.itemId
+    inventoryUiState.selectedItemId = inventoryUiState.selectedItemId === itemId ? null : itemId
+    if (snapshot) render(snapshot)
+    return
+  }
+  if (action === 'equip-item-from-inventory') {
+    const result = actions.equipItem(btn.dataset.heroId, btn.dataset.itemId)
+    if (result?.ok) inventoryUiState.selectedItemId = null
+    if (snapshot) render(snapshot)
+    return
   }
 }
 
