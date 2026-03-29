@@ -313,6 +313,65 @@ Generate one building_upgrade node per level after level 1:
 
 ## Step 3 — Loot table construction
 
+## Step 2C — Mid-run event generation
+
+For each expedition and boss_expedition node, generate 2-3 events.
+Events make expeditions feel alive and give players meaningful choices.
+
+Event structure:
+```
+{
+  "id": "event-{expedition_key}-{N}",
+  "type": "event",
+  "label": "string — short evocative name (2-4 words)",
+  "description": "string — one sentence setting the scene",
+  "log_message": "string — what the player sees when it fires",
+  "trigger_type": "on_enter",
+  "trigger_target": "[expedition_id]",
+  "choices": [
+    {
+      "label": "string — player action (3-6 words)",
+      "outcome": {
+        "log_message": "string — result description",
+        // ONE of these outcome types:
+        "resource_delta": { "[resource_id]": [amount] },
+        "loot_table_id": "[loot_table_id]",
+        "hero_status": "inspired | exhausted | cursed"
+      }
+    }
+  ],
+  "visible": true,
+  "canvas_pos": { "x": [expedition_x], "y": [expedition_y + 200] }
+}
+```
+
+Event generation rules:
+- 2 choices minimum, 3 choices preferred
+- One choice should always be "safe" (no risk, small reward or nothing)
+- One choice should be "risky" (high reward but resource cost or curse risk)
+- One choice can be "clever" (uses narrative context for a unique outcome)
+- resource_delta amounts: ±20-100 for primary resource, ±5-20 for materials
+- hero_status "inspired" is the rarest outcome — use sparingly (1 event per act)
+- hero_status "cursed" on a risky choice adds meaningful stakes
+- Match event theme to zone label and loot_theme from world-template
+
+Calibration by act difficulty:
+  easy act:   mostly safe choices, 1 risky per act max
+  medium act: mix of safe and risky, curses possible
+  hard act:   risky choices more common, death-adjacent stakes
+
+Add expedition IDs to the ID manifest in Step 1:
+  event_ids: { "[expedition_key]-[N]": "event-{expedition_key}-{N}" }
+
+Add events to canvas layout in Step 4:
+  Events: x = expedition_x, y = expedition_y + 200 (below their expedition)
+
+Add to validation checklist in Step 8:
+  - [ ] Every expedition has at least 1 event
+  - [ ] Every event has at least 2 choices
+  - [ ] Every choice has a log_message in its outcome
+
+
 For each act, create one standard loot table and one boss loot table.
 
 **Standard loot table:**

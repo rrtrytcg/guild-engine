@@ -119,6 +119,14 @@ Formulas in `yield_formula`, `base_duration_ticks` overrides, and success table 
 
 ## 3. Artisan Hero System
 
+### Day 2 additions
+
+- **New nodes & workflow runtime**: Day 2 introduces `building_workflow`, `building_upgrade`, and `crafting_recipe`. Workflows model machine behaviour (timing, success/failure/crit) while recipes define concrete inputs→outputs.
+- **Formula evaluator & runtime tick**: `processBuildingTick` and the formula evaluator power streaks, momentum, crits, and success_table calculations at runtime.
+- **World-effect outputs**: Workflows may emit `world_effect` outputs (unlock nodes, apply modifiers) usable in generation and runtime.
+- **Editor placement**: Workflows and upgrades appear in the canvas right columns (x ≈ 1760 / 2000). Pass 2 generates workflows for crafting buildings.
+
+
 ### Artisan vs combat heroes
 
 | Property | Combat hero | Artisan hero |
@@ -153,6 +161,11 @@ Hero instances produced by `hero_instance` workflow outputs go to `state.recruit
 
 ## 4. Consumable Buff System
 
+### Day 2 additions
+
+- **Artisan production**: Artisan hero classes are auto-generated for crafting buildings (`hero_type: artisan`) and are produced by `hero_instance` workflow outputs. They have `xp_source: workflow`, `combat_eligible: false`, and are placed below combat classes on the canvas.
+
+
 ### Idle model
 
 Consumables use the **idle model** — buffs apply to the next N expeditions automatically on departure. They are not used mid-expedition.
@@ -178,6 +191,11 @@ Consumables produced by workflows go to `state.buff_stockpile` (item_id → qty)
 ---
 
 ## 5. Expedition Resolver
+
+### Day 2 additions
+
+- **Consumable schema & runtime**: `consumable_config` is supported (buff_type, stat_modifiers, duration_expeditions, stack_max). Apothecary-type workflows can produce consumables. The auto-apply idle model is implemented; Pass 2 generation of consumables is currently partial.
+
 
 Computed with the party assembled for the run.
 
@@ -326,6 +344,12 @@ Blueprints are reusable node packages — craft systems, building setups, hero c
 
 Blueprints do NOT include resource nodes. Resources are project concerns. Wire your project's resources to the blueprint's input slots using the auto-rig system.
 
+### Day 2 additions
+
+- **Preset library & parameter injection**: Day 2 adds a set of preset blueprints (Basic/Medium/Complex tiers) and a parameter injection modal (`injects_into`) that supports multi-target injections. Blueprints may auto-create missing dependency nodes on import and include pre-drawn edges for faster wiring.
+- **Acts tab**: ACTFORGE outputs appear in a dedicated "Acts" tab in the Blueprint Library for easier import and parameterization.
+
+
 ---
 
 ## 14. Auto-Wire + Auto-Rig System
@@ -368,6 +392,11 @@ Auto-rig reads all edges between selected nodes and fills in ID cross-reference 
 | hero_class → building (`assigned_to`) | `hero_class.building_affinity` |
 
 Auto-rig never overwrites existing values — it only fills empty fields.
+
+### Day 2 additions
+
+- **Smart edge inference & Rig action**: Day 2 introduces smart edge inference (≈15 relation types) and the **⚡ Rig** action that fills empty ID cross-references from selected edges. The editor includes an edge legend and semantic collision detection on import. Auto-rig remains editor-only and will not overwrite existing node fields.
+
 
 ---
 

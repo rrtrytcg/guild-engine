@@ -79,6 +79,22 @@ The designer may ask for any combination of:
 - "Add items to [zone/act]" — generate new items and wire them into existing loot tables
 - "Add events to expeditions" — generate mid-run events for existing expeditions
 - Free-form requests — interpret them into one or more of the above
+ 
+## Alternative: use ACTFORGE for act expansions
+
+When the expansion-prompt.txt requests a new act or significant 
+zone additions, consider using ACTFORGE.md instead of Pass 3:
+
+- Pass 3 is best for: adding zones to existing acts, new hero classes,
+  new items, mid-run events to existing expeditions
+- ACTFORGE is best for: generating entirely new acts with rich narrative,
+  boss phases, thematic events, and curated loot tables
+
+To use ACTFORGE as an expansion:
+1. Run ACTFORGE.md with the new act description
+2. Import the resulting blueprint via the Blueprint Library
+3. Wire the new act's expeditions to existing resources using auto-rig
+4. Run CANVASDOCTOR to validate before exporting
 
 If the prompt is ambiguous, make sensible decisions and document them in the expansion log.
 Do not ask for clarification — just proceed with the most reasonable interpretation.
