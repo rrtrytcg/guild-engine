@@ -1,0 +1,250 @@
+{
+  "blueprint_meta": {
+    "id": "blueprint-library-standard",
+    "label": "Library (Standard)",
+    "description": "A momentum-based research hall that passively converts knowledge resources into world-state events.",
+    "requires_schema_version": "1.2.0",
+    "created_at": "2026-03-29T00:00:00.000Z",
+    "flavor": "fantasy",
+    "complexity": "intermediate"
+  },
+  "nodes": [
+    {
+      "id": "bp-library-building",
+      "type": "building",
+      "label": "Library",
+      "description": "Stacks of tomes and luminous charts turn resources into steady discovery.",
+      "icon": "🏰",
+      "max_level": 3,
+      "has_workflows": true,
+      "artisan_slots": {
+        "base_count": 1,
+        "max_count": 3,
+        "expand_by": "building_upgrade"
+      },
+      "levels": [
+        { "build_cost": [{ "resource_id": "gold", "amount": 180 }], "build_time_s": 50, "hero_slots": 1, "recipe_slots": 1, "production": {} },
+        { "build_cost": [{ "resource_id": "gold", "amount": 520 }], "build_time_s": 90, "hero_slots": 1, "recipe_slots": 1, "production": {} },
+        { "build_cost": [{ "resource_id": "gold", "amount": 1100 }], "build_time_s": 140, "hero_slots": 2, "recipe_slots": 1, "production": {} }
+      ],
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "bp-library-scholar",
+      "type": "hero_class",
+      "label": "Scholar",
+      "description": "An artisan researcher who thrives on steady momentum and careful notes.",
+      "icon": "📚",
+      "hero_type": "artisan",
+      "combat_eligible": false,
+      "assignment_target": "building",
+      "xp_source": "building_jobs_completed",
+      "specializations": ["scribe", "researcher", "archivist"],
+      "building_affinity": ["bp-library-building"],
+      "base_stats": { "attack": 6, "defense": 6, "speed": 7, "hp": 90, "luck": 11 },
+      "stat_growth": { "attack": 1, "defense": 1, "speed": 1, "hp": 10, "luck": 2 },
+      "slots": ["relic", "accessory"],
+      "visible": true,
+      "canvas_pos": { "x": 240, "y": 0 }
+    },
+    {
+      "id": "bp-library-workflow-catalog",
+      "type": "building_workflow",
+      "label": "Catalog Findings",
+      "description": "Organize discoveries into indexed records that improve future research.",
+      "host_building": "bp-library-building",
+      "behavior": "consume_resource",
+      "workflow_mode": "passive",
+      "action_type": "catalog",
+      "base_duration_ticks": 100,
+      "duration_base_ticks": 100,
+      "input_rules": [{ "resource": "paper", "amount": 2 }, { "resource": "ink", "amount": 1 }],
+      "inputs": [{ "resource": "paper", "amount": 2 }, { "resource": "ink", "amount": 1 }],
+      "output_rules": [
+        { "output_type": "world_effect", "effect_type": "trigger_event", "target": "bp-library-event-cataloged", "chance": 1 }
+      ],
+      "success_table": {
+        "base_failure": 0.03,
+        "base_crit": 0.07,
+        "failure_behavior": "consume_inputs_no_output",
+        "crit_behavior": "breakthrough",
+        "crit_multiplier": 2,
+        "failure_grants_xp": true,
+        "failure_xp_multiplier": 0.5,
+        "xp_on_complete": 20
+      },
+      "xp_on_complete": 20,
+      "momentum_config": {
+        "gain_per_job": 1,
+        "decay_per_idle_tick": 0.05,
+        "thresholds": [
+          { "momentum": 3, "label": "Steady Study", "speed_bonus": 0.1, "crit_bonus": 0.02 },
+          { "momentum": 6, "label": "Flow State", "speed_bonus": 0.2, "crit_bonus": 0.05 }
+        ]
+      },
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 180 }
+    },
+    {
+      "id": "bp-library-workflow-research",
+      "type": "building_workflow",
+      "label": "Research Breakthrough",
+      "description": "Sustain long-form research until a breakthrough event fires.",
+      "host_building": "bp-library-building",
+      "behavior": "consume_resource",
+      "workflow_mode": "passive",
+      "action_type": "research",
+      "base_duration_ticks": 130,
+      "duration_base_ticks": 130,
+      "input_rules": [{ "resource": "paper", "amount": 3 }, { "resource": "ink", "amount": 1 }, { "resource": "crystal_dust", "amount": 1 }],
+      "inputs": [{ "resource": "paper", "amount": 3 }, { "resource": "ink", "amount": 1 }, { "resource": "crystal_dust", "amount": 1 }],
+      "output_rules": [
+        { "output_type": "world_effect", "effect_type": "trigger_event", "target": "bp-library-event-breakthrough", "chance": 1 }
+      ],
+      "success_table": {
+        "base_failure": 0.03,
+        "base_crit": 0.08,
+        "failure_behavior": "consume_inputs_no_output",
+        "crit_behavior": "breakthrough",
+        "crit_multiplier": 2,
+        "failure_grants_xp": true,
+        "failure_xp_multiplier": 0.5,
+        "xp_on_complete": 20
+      },
+      "xp_on_complete": 20,
+      "momentum_config": {
+        "gain_per_job": 1.2,
+        "decay_per_idle_tick": 0.05,
+        "thresholds": [
+          { "momentum": 3, "label": "Steady Study", "speed_bonus": 0.1, "crit_bonus": 0.02 },
+          { "momentum": 6, "label": "Flow State", "speed_bonus": 0.2, "crit_bonus": 0.05 }
+        ]
+      },
+      "visible": true,
+      "canvas_pos": { "x": 220, "y": 180 }
+    },
+    {
+      "id": "bp-library-workflow-archive",
+      "type": "building_workflow",
+      "label": "Archive Lore",
+      "description": "Preserve ancient knowledge so future discoveries arrive more reliably.",
+      "host_building": "bp-library-building",
+      "behavior": "consume_resource",
+      "workflow_mode": "passive",
+      "action_type": "archive",
+      "base_duration_ticks": 95,
+      "duration_base_ticks": 95,
+      "input_rules": [{ "resource": "paper", "amount": 2 }, { "resource": "binding", "amount": 1 }],
+      "inputs": [{ "resource": "paper", "amount": 2 }, { "resource": "binding", "amount": 1 }],
+      "output_rules": [
+        { "output_type": "world_effect", "effect_type": "trigger_event", "target": "bp-library-event-archive", "chance": 1 }
+      ],
+      "success_table": {
+        "base_failure": 0.03,
+        "base_crit": 0.07,
+        "failure_behavior": "consume_inputs_no_output",
+        "crit_behavior": "breakthrough",
+        "crit_multiplier": 2,
+        "failure_grants_xp": true,
+        "failure_xp_multiplier": 0.5,
+        "xp_on_complete": 20
+      },
+      "xp_on_complete": 20,
+      "momentum_config": {
+        "gain_per_job": 1,
+        "decay_per_idle_tick": 0.05,
+        "thresholds": [
+          { "momentum": 3, "label": "Steady Study", "speed_bonus": 0.1, "crit_bonus": 0.02 },
+          { "momentum": 6, "label": "Flow State", "speed_bonus": 0.2, "crit_bonus": 0.05 }
+        ]
+      },
+      "visible": true,
+      "canvas_pos": { "x": 440, "y": 180 }
+    },
+    {
+      "id": "bp-library-upgrade-reading-room",
+      "type": "building_upgrade",
+      "label": "Reading Room L1→L2",
+      "building_id": "bp-library-building",
+      "host_building": "bp-library-building",
+      "required_building_level": 2,
+      "level": 2,
+      "cost": [{ "resource": "gold", "amount": 250 }],
+      "unlocks_workflow_ids": ["bp-library-workflow-catalog"],
+      "artisan_slot_increase": 1,
+      "effects": {
+        "unlocks_workflows": ["bp-library-workflow-catalog"],
+        "slots_added": 1
+      },
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 360 }
+    },
+    {
+      "id": "bp-library-upgrade-study-hall",
+      "type": "building_upgrade",
+      "label": "Study Hall L2→L3",
+      "building_id": "bp-library-building",
+      "host_building": "bp-library-building",
+      "required_building_level": 3,
+      "level": 3,
+      "cost": [{ "resource": "gold", "amount": 900 }],
+      "unlocks_workflow_ids": ["bp-library-workflow-research"],
+      "artisan_slot_increase": 1,
+      "effects": {
+        "unlocks_workflows": ["bp-library-workflow-research"],
+        "slots_added": 1
+      },
+      "visible": true,
+      "canvas_pos": { "x": 220, "y": 360 }
+    },
+    {
+      "id": "bp-library-upgrade-grand-archive",
+      "type": "building_upgrade",
+      "label": "Grand Archive L3",
+      "building_id": "bp-library-building",
+      "host_building": "bp-library-building",
+      "required_building_level": 3,
+      "level": 3,
+      "cost": [{ "resource": "gold", "amount": 2200 }],
+      "unlocks_workflow_ids": ["bp-library-workflow-archive"],
+      "artisan_slot_increase": 0,
+      "effects": {
+        "unlocks_workflows": ["bp-library-workflow-archive"],
+        "slots_added": 0
+      },
+      "visible": true,
+      "canvas_pos": { "x": 440, "y": 360 }
+    },
+    {
+      "id": "bp-library-event-cataloged",
+      "type": "event",
+      "label": "Catalog Complete",
+      "description": "The ledgers are complete and cross-referenced.",
+      "log_message": "Freshly cataloged tomes reveal overlooked patterns.",
+      "choices": [],
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 540 }
+    },
+    {
+      "id": "bp-library-event-breakthrough",
+      "type": "event",
+      "label": "Research Breakthrough",
+      "description": "A scholar finally links disparate notes into a new discovery.",
+      "log_message": "A breakthrough echoes through the library halls.",
+      "choices": [],
+      "visible": true,
+      "canvas_pos": { "x": 220, "y": 540 }
+    },
+    {
+      "id": "bp-library-event-archive",
+      "type": "event",
+      "label": "Archive Secured",
+      "description": "Rare lore is preserved and future studies gain a safer footing.",
+      "log_message": "The archive grows deeper and easier to mine for answers.",
+      "choices": [],
+      "visible": true,
+      "canvas_pos": { "x": 440, "y": 540 }
+    }
+  ]
+}

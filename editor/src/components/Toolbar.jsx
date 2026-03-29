@@ -1,29 +1,42 @@
 import { useRef, useState } from 'react'
 import useStore from '../store/useStore'
 import CompileModal from './CompileModal'
+import BlueprintLibraryModal from './BlueprintLibraryModal'
 
 export default function Toolbar() {
   const importProject = useStore((s) => s.importProject)
+  const registerBlueprint = useStore((s) => s.registerBlueprint)
   const nodeCount = useStore((s) => s.nodes.length)
   const edgeCount = useStore((s) => s.edges.length)
   const fileInputRef = useRef(null)
   const [showCompile, setShowCompile] = useState(false)
+  const [showBlueprints, setShowBlueprints] = useState(false)
   const openDocs = () => window.open('/docs/WIKI.md', '_blank', 'noopener,noreferrer')
 
   const onFileChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+
     const reader = new FileReader()
     reader.onload = (ev) => {
       try {
-        const project = JSON.parse(ev.target.result)
-        importProject(project)
+        const payload = JSON.parse(ev.target.result)
+        if (payload?.blueprint_meta && Array.isArray(payload?.nodes)) {
+          registerBlueprint(payload)
+        } else {
+          importProject(payload)
+        }
       } catch {
-        alert('Invalid project.json — could not parse file.')
+        alert('Invalid JSON - could not parse file.')
       }
     }
     reader.readAsText(file)
     e.target.value = ''
+  }
+
+  const blueprintDropPosition = {
+    x: 280 + (nodeCount % 5) * 40,
+    y: 160 + (nodeCount % 4) * 36,
   }
 
   return (
@@ -32,7 +45,6 @@ export default function Toolbar() {
         height: 48, background: '#0a0a14', borderBottom: '1px solid #2a2a3e',
         display: 'flex', alignItems: 'center', padding: '0 16px', gap: 16, flexShrink: 0,
       }}>
-        {/* Brand */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 16 }}>⚔️</span>
           <span style={{ fontSize: 13, fontWeight: 700, color: '#e0e0f0', letterSpacing: '0.02em' }}>
@@ -48,12 +60,10 @@ export default function Toolbar() {
 
         <div style={{ flex: 1 }} />
 
-        {/* Stats */}
         <span style={{ fontSize: 11, color: '#444460' }}>
           {nodeCount} node{nodeCount !== 1 ? 's' : ''} · {edgeCount} edge{edgeCount !== 1 ? 's' : ''}
         </span>
 
-        {/* Hidden file input */}
         <input
           ref={fileInputRef}
           type="file"
@@ -62,14 +72,22 @@ export default function Toolbar() {
           style={{ display: 'none' }}
         />
 
-        {/* Import */}
         <button
           onClick={() => fileInputRef.current?.click()}
           style={ghostBtn}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#444460'; e.currentTarget.style.color = '#c0c0d8' }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2a2a3e'; e.currentTarget.style.color = '#8888aa' }}
         >
-          Import project.json
+          Import JSON
+        </button>
+
+        <button
+          onClick={() => setShowBlueprints(true)}
+          style={ghostBtn}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#444460'; e.currentTarget.style.color = '#c0c0d8' }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2a2a3e'; e.currentTarget.style.color = '#8888aa' }}
+        >
+          Blueprints
         </button>
 
         <button
@@ -81,7 +99,6 @@ export default function Toolbar() {
           Docs
         </button>
 
-        {/* Compile + Export */}
         <button
           onClick={() => setShowCompile(true)}
           style={solidBtn}
@@ -92,6 +109,12 @@ export default function Toolbar() {
         </button>
       </div>
 
+      {showBlueprints && (
+        <BlueprintLibraryModal
+          onClose={() => setShowBlueprints(false)}
+          dropPosition={blueprintDropPosition}
+        />
+      )}
       {showCompile && <CompileModal onClose={() => setShowCompile(false)} />}
     </>
   )

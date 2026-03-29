@@ -6,6 +6,7 @@ const useStore = create((set, get) => ({
   nodes: [],
   edges: [],
   selectedNodeId: null,
+  blueprints: [],
 
   // --- ReactFlow handlers (wired directly to <ReactFlow> props) ---
   onNodesChange: (changes) =>
@@ -92,6 +93,53 @@ const useStore = create((set, get) => ({
     set({ nodes: rfNodes, edges: rfEdges, selectedNodeId: null })
   },
 
+  // --- Save a .blueprint.json into the local preset library ---
+  registerBlueprint: (blueprintJson) => {
+    if (!blueprintJson?.blueprint_meta || !Array.isArray(blueprintJson.nodes)) return
+    set({
+      blueprints: upsertBlueprint(get().blueprints, blueprintJson),
+    })
+  },
+
+  // --- Import a blueprint graph onto the canvas ---
+  importBlueprint: (blueprintJson, dropPosition = { x: 320, y: 180 }) => {
+    if (!Array.isArray(blueprintJson?.nodes) || blueprintJson.nodes.length === 0) return
+
+    const timestamp = Date.now()
+    const idMap = Object.fromEntries(
+      blueprintJson.nodes
+        .filter((nodeData) => nodeData?.id)
+        .map((nodeData) => [nodeData.id, `import-${timestamp}-${nodeData.id}`])
+    )
+
+    const importedNodes = blueprintJson.nodes.map((nodeData, index) => {
+      const remappedData = remapBlueprintNode(nodeData, idMap)
+      const relativePos = nodeData.canvas_pos ?? {
+        x: (index % 4) * 220,
+        y: Math.floor(index / 4) * 160,
+      }
+      const absolutePos = {
+        x: Number(dropPosition.x ?? 0) + Number(relativePos.x ?? 0),
+        y: Number(dropPosition.y ?? 0) + Number(relativePos.y ?? 0),
+      }
+
+      return {
+        id: remappedData.id,
+        type: remappedData.type,
+        position: absolutePos,
+        data: {
+          ...remappedData,
+          canvas_pos: absolutePos,
+        },
+      }
+    })
+
+    set({
+      nodes: [...get().nodes, ...importedNodes],
+      selectedNodeId: importedNodes[0]?.id ?? get().selectedNodeId,
+    })
+  },
+
   // --- Export .blueprint.json from a blueprint node ---
   exportBlueprint: (blueprintNodeId) => {
     const blueprintNode = get().nodes.find((n) => n.id === blueprintNodeId)
@@ -113,6 +161,10 @@ const useStore = create((set, get) => ({
       },
       nodes: selectedNodes,
     }
+
+    set({
+      blueprints: upsertBlueprint(get().blueprints, payload),
+    })
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -319,6 +371,85 @@ const NODE_DEFAULTS = {
     resets: ['resources', 'buildings', 'heroes', 'upgrades'],
     bonuses: [],
   },
+}
+
+const SCALAR_REFERENCE_KEYS = new Set([
+  'id',
+  'loot_table_id',
+  'fail_loot_table_id',
+  'currency_id',
+  'output_item_id',
+  'boss_expedition_id',
+  'host_building',
+  'required_workflow',
+  'output_item',
+  'building_id',
+  'target',
+  'target_class',
+  'resource',
+  'resource_id',
+  'item_id',
+  'faction_id',
+  'apply_target',
+])
+
+const ARRAY_REFERENCE_KEYS = new Set([
+  'connections',
+  'node_ids',
+  'building_affinity',
+  'unlocks_workflow_ids',
+  'unlocks_workflows',
+  'unlocks_auto_repeat_on',
+  'building_prerequisites',
+  'hero_class_pool',
+  'unlock_node_ids',
+  'on_complete_events',
+  'unlocks_node_ids',
+  'on_success_unlock',
+  'expedition_ids',
+])
+
+function upsertBlueprint(blueprints, blueprintJson) {
+  const blueprintId = blueprintJson?.blueprint_meta?.id
+  if (!blueprintId) return blueprints
+
+  return [
+    blueprintJson,
+    ...blueprints.filter((blueprint) => blueprint?.blueprint_meta?.id !== blueprintId),
+  ]
+}
+
+function remapBlueprintNode(nodeData, idMap) {
+  return remapBlueprintValue(nodeData, '', idMap)
+}
+
+function remapBlueprintValue(value, key, idMap) {
+  if (Array.isArray(value)) {
+    const shouldMapArray = ARRAY_REFERENCE_KEYS.has(key) || key.endsWith('_ids')
+    return value.map((item) => {
+      if (shouldMapArray && typeof item === 'string') {
+        return idMap[item] ?? item
+      }
+      return remapBlueprintValue(item, '', idMap)
+    })
+  }
+
+  if (value && typeof value === 'object') {
+    const next = {}
+    for (const [childKey, childValue] of Object.entries(value)) {
+      next[childKey] = remapBlueprintValue(childValue, childKey, idMap)
+    }
+    return next
+  }
+
+  if (typeof value === 'string') {
+    const shouldMapScalar = key === 'id' || SCALAR_REFERENCE_KEYS.has(key) || key.endsWith('_id')
+    if (shouldMapScalar) {
+      return idMap[value] ?? value
+    }
+  }
+
+  return value
 }
 
 export default useStore
