@@ -1,10 +1,14 @@
 import { useState } from 'react'
-import { Field, TextArea, Toggle, Section, SearchableDropdown, useNodeUpdater } from './FormPrimitives'
+import { Field, TextArea, Toggle, Select, Section, SearchableDropdown, useNodeUpdater } from './FormPrimitives'
+
+const ARTISAN_SLOT_EXPAND_OPTIONS = ['building_upgrade', 'none']
+const PASSIVE_EVENT_TYPES = ['hero_available', 'resource_windfall', 'world_effect', 'random_encounter']
 
 export default function BuildingInspector({ node }) {
   const update = useNodeUpdater(node.id)
   const d = node.data
   const levels = d.levels ?? []
+  const passiveEvents = d.passive_events ?? []
 
   const normalizeLevel = (lvl = {}) => ({
     build_cost: Array.isArray(lvl.build_cost) ? lvl.build_cost : [],
@@ -12,6 +16,12 @@ export default function BuildingInspector({ node }) {
     hero_slots: lvl.hero_slots ?? 0,
     recipe_slots: lvl.recipe_slots ?? 0,
     production: lvl.production ?? {},
+  })
+
+  const normalizePassiveEvent = (event = {}) => ({
+    event_type: event.event_type ?? 'hero_available',
+    trigger: event.trigger ?? 'time_interval',
+    interval_formula: event.interval_formula ?? '',
   })
 
   const setMaxLevel = (n) => {
@@ -25,6 +35,50 @@ export default function BuildingInspector({ node }) {
     update({ levels: next })
   }
 
+  const setHasWorkflows = (value) => {
+    update({
+      has_workflows: value,
+      artisan_slots: value
+        ? {
+            base_count: d.artisan_slots?.base_count ?? 0,
+            max_count: d.artisan_slots?.max_count ?? 0,
+            expand_by: d.artisan_slots?.expand_by ?? 'building_upgrade',
+          }
+        : d.artisan_slots,
+    })
+  }
+
+  const updateArtisanSlots = (patch) => {
+    update({
+      artisan_slots: {
+        base_count: d.artisan_slots?.base_count ?? 0,
+        max_count: d.artisan_slots?.max_count ?? 0,
+        expand_by: d.artisan_slots?.expand_by ?? 'building_upgrade',
+        ...patch,
+      },
+    })
+  }
+
+  const addPassiveEvent = () => {
+    update({
+      passive_events: [...passiveEvents, normalizePassiveEvent()],
+    })
+  }
+
+  const updatePassiveEvent = (index, patch) => {
+    update({
+      passive_events: passiveEvents.map((event, idx) =>
+        idx === index ? normalizePassiveEvent({ ...event, ...patch }) : normalizePassiveEvent(event)
+      ),
+    })
+  }
+
+  const removePassiveEvent = (index) => {
+    update({
+      passive_events: passiveEvents.filter((_, idx) => idx !== index),
+    })
+  }
+
   return (
     <div>
       <Section title="Identity" />
@@ -35,6 +89,51 @@ export default function BuildingInspector({ node }) {
       <Section title="Config" />
       <Field label="Max level" value={d.max_level} onChange={setMaxLevel} type="number" />
       <Toggle label="Crafting station" value={d.is_crafting_station} onChange={(v) => update({ is_crafting_station: v })} />
+      <Toggle label="Has workflows" value={Boolean(d.has_workflows)} onChange={setHasWorkflows} />
+
+      {d.has_workflows && (
+        <>
+          <Section title="Artisan slots" />
+          <Field
+            label="Base count"
+            value={d.artisan_slots?.base_count ?? 0}
+            onChange={(v) => updateArtisanSlots({ base_count: Number(v) })}
+            type="number"
+          />
+          <Field
+            label="Max count"
+            value={d.artisan_slots?.max_count ?? 0}
+            onChange={(v) => updateArtisanSlots({ max_count: Number(v) })}
+            type="number"
+          />
+          <Select
+            label="Expand by"
+            value={d.artisan_slots?.expand_by ?? 'building_upgrade'}
+            onChange={(v) => updateArtisanSlots({ expand_by: v })}
+            options={ARTISAN_SLOT_EXPAND_OPTIONS}
+          />
+        </>
+      )}
+
+      <Section title="Passive events" />
+      {passiveEvents.map((event, index) => (
+        <div key={index} style={{ border: '1px solid #2a2a3e', borderRadius: 8, padding: '8px 10px', marginBottom: 6 }}>
+          <Select
+            label="Event type"
+            value={event.event_type ?? 'hero_available'}
+            onChange={(v) => updatePassiveEvent(index, { event_type: v, trigger: 'time_interval' })}
+            options={PASSIVE_EVENT_TYPES}
+          />
+          <Field
+            label="Interval formula"
+            value={event.interval_formula ?? ''}
+            onChange={(v) => updatePassiveEvent(index, { interval_formula: v, trigger: 'time_interval' })}
+            placeholder="600"
+          />
+          <button onClick={() => removePassiveEvent(index)} style={addBtn}>Remove event</button>
+        </div>
+      ))}
+      <button onClick={addPassiveEvent} style={addBtn}>+ passive event</button>
 
       <Section title="Loot" />
       <SearchableDropdown

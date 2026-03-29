@@ -8,12 +8,15 @@ import RecipeInspector from './RecipeInspector'
 import AbilityInspector from './AbilityInspector'
 import BuildingInspector from './BuildingInspector'
 import UpgradeInspector from './UpgradeInspector'
+import BuildingWorkflowInspector from './BuildingWorkflowInspector'
+import BuildingUpgradeInspector from './BuildingUpgradeInspector'
 import ExpeditionInspector from './ExpeditionInspector'
 import BossExpeditionInspector from './BossExpeditionInspector'
 import ActInspector from './ActInspector'
 import EventInspector from './EventInspector'
 import FactionInspector from './FactionInspector'
 import PrestigeInspector from './PrestigeInspector'
+import BlueprintInspector from './BlueprintInspector'
 
 const INSPECTOR_MAP = {
   resource:         ResourceInspector,
@@ -24,12 +27,15 @@ const INSPECTOR_MAP = {
   ability:          AbilityInspector,
   building:         BuildingInspector,
   upgrade:          UpgradeInspector,
+  building_workflow: BuildingWorkflowInspector,
+  building_upgrade: BuildingUpgradeInspector,
   expedition:       ExpeditionInspector,
   boss_expedition:  BossExpeditionInspector,
   act:              ActInspector,
   event:            EventInspector,
   faction:          FactionInspector,
   prestige:         PrestigeInspector,
+  blueprint:        BlueprintInspector,
 }
 
 export default function Inspector() {

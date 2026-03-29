@@ -1,7 +1,7 @@
 // Visual config for every node type.
-// color    → border accent + header background
-// textColor → header text
-// emoji    → shown in palette list and node chip header
+// color    -> border accent + header background
+// textColor -> header text
+// emoji    -> shown in palette list and node chip header
 
 export const NODE_CONFIG = {
   resource: {
@@ -57,6 +57,27 @@ export const NODE_CONFIG = {
     label: 'Upgrade',
     emoji: '⬆️',
     color: '#185FA5',       // blue dark
+    textColor: '#ffffff',
+    group: 'World',
+  },
+  building_workflow: {
+    label: 'Workflow',
+    emoji: '⚙️',
+    color: '#185FA5',       // blue dark — distinct from building (blue)
+    textColor: '#ffffff',
+    group: 'World',
+  },
+  building_upgrade: {
+    label: 'Bldg Upgrade',
+    emoji: '🔧',
+    color: '#0C447C',       // blue darkest — upgrade tier of building
+    textColor: '#ffffff',
+    group: 'World',
+  },
+  blueprint: {
+    label: 'Blueprint',
+    emoji: '📐',
+    color: '#3B6D11',       // green dark
     textColor: '#ffffff',
     group: 'World',
   },

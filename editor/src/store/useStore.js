@@ -38,7 +38,7 @@ const useStore = create((set, get) => ({
         ...get().nodes,
         {
           id,
-          type,           // maps to a custom ReactFlow node component
+          type,
           position,
           data: { id, type, ...defaults },
         },
@@ -55,15 +55,13 @@ const useStore = create((set, get) => ({
       selectedNodeId: get().selectedNodeId === id ? null : get().selectedNodeId,
     }),
 
-
   // --- Import project.json ---
   importProject: (project) => {
     if (!project?.nodes || !project?.edges) {
-      alert('Invalid project.json — missing nodes or edges array.')
+      alert('Invalid project.json - missing nodes or edges array.')
       return
     }
 
-    // Auto-layout: space nodes on a grid if canvas_pos is missing
     const COLS = 4
     const GAP_X = 260
     const GAP_Y = 180
@@ -94,7 +92,38 @@ const useStore = create((set, get) => ({
     set({ nodes: rfNodes, edges: rfEdges, selectedNodeId: null })
   },
 
-  // export is handled by compiler.js + CompileModal
+  // --- Export .blueprint.json from a blueprint node ---
+  exportBlueprint: (blueprintNodeId) => {
+    const blueprintNode = get().nodes.find((n) => n.id === blueprintNodeId)
+    if (!blueprintNode) return
+
+    const nodeIds = blueprintNode.data?.node_ids ?? []
+    const selectedNodes = nodeIds
+      .map((nodeId) => get().nodes.find((n) => n.id === nodeId))
+      .filter(Boolean)
+      .map((node) => node.data)
+
+    const payload = {
+      blueprint_meta: {
+        id: blueprintNode.id,
+        label: blueprintNode.data?.label || blueprintNode.id,
+        description: blueprintNode.data?.description || '',
+        requires_schema_version: blueprintNode.data?.requires_schema_version || '1.2.0',
+        created_at: new Date().toISOString(),
+      },
+      nodes: selectedNodes,
+    }
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `${(blueprintNode.data?.label || blueprintNode.id || 'blueprint').replace(/\s+/g, '-').toLowerCase()}.blueprint.json`
+    anchor.click()
+    URL.revokeObjectURL(url)
+  },
+
+  // project export is handled by compiler.js + CompileModal
 }))
 
 // Default field values when a node is first dropped onto the canvas
@@ -166,6 +195,53 @@ const NODE_DEFAULTS = {
     max_tier: 1,
     effect: {},
     unlock_conditions: [],
+  },
+  building_workflow: {
+    label: 'New Workflow',
+    behavior: 'consume_resource',
+    workflow_mode: 'queued',
+    action_type: '',
+    base_duration_ticks: 80,
+    duration_base_ticks: 80,
+    input_rules: [],
+    inputs: [],
+    output_rules: [],
+    success_table: {
+      base_failure: 0.10,
+      base_crit: 0.05,
+      failure_behavior: 'consume_inputs_no_output',
+      crit_behavior: 'double_output',
+      crit_multiplier: 2,
+      failure_grants_xp: true,
+      failure_xp_multiplier: 0.5,
+      xp_on_complete: 20,
+    },
+    xp_on_complete: 20,
+    streak_bonus: null,
+    momentum_config: null,
+    visible: true,
+  },
+  building_upgrade: {
+    label: 'New Upgrade',
+    building_id: '',
+    host_building: '',
+    required_building_level: 2,
+    level: 2,
+    cost: [],
+    unlocks_workflow_ids: [],
+    artisan_slot_increase: 0,
+    effects: {
+      unlocks_workflows: [],
+      slots_added: 0,
+    },
+    visible: true,
+  },
+  blueprint: {
+    label: 'New Blueprint',
+    description: '',
+    node_ids: [],
+    requires_schema_version: '1.2.0',
+    visible: true,
   },
   expedition: {
     label: 'New Expedition',

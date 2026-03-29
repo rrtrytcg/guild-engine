@@ -1,6 +1,6 @@
-import { CONNECTION_RULES, REQUIRED_FIELDS, WARNING_CHECKS } from './rules'
+import { CONNECTION_RULES, REQUIRED_FIELDS, VALIDATION_RULES, WARNING_CHECKS } from './rules'
 
-// ─── Main entry point ────────────────────────────────────────────────────────
+// Main entry point
 // Takes ReactFlow nodes + edges from the Zustand store.
 // Returns { ok, errors, warnings, project }
 // ok=true means the project.json is valid and ready to write.
@@ -10,11 +10,21 @@ export function compile(rfNodes, rfEdges, meta = {}) {
   const errors = []
   const warnings = []
 
-  // Build fast lookup maps
-  const nodeById = new Map(rfNodes.map((n) => [n.id, n]))
-  const dataNodes = rfNodes.map((n) => n.data)
+  const nodeById = new Map(rfNodes.map((node) => [node.id, node]))
+  const dataNodes = rfNodes.map((node) => node.data)
 
-  // ── Phase 1: Required field validation ──────────────────────────────────────
+  const pushRuleMessage = (severity, payload) => {
+    if (severity === 'error') {
+      errors.push(payload)
+      return
+    }
+    warnings.push(payload)
+  }
+
+  const toArray = (value) => Array.isArray(value) ? value : value ? [value] : []
+  const toRuleNode = (node) => ({ ...node.data, data: node.data, id: node.id })
+
+  // Phase 1: Required field validation
   for (const node of rfNodes) {
     const required = REQUIRED_FIELDS[node.data.type] ?? []
     for (const field of required) {
@@ -31,7 +41,7 @@ export function compile(rfNodes, rfEdges, meta = {}) {
     }
   }
 
-  // ── Phase 2: Duplicate ID check ─────────────────────────────────────────────
+  // Phase 2: Duplicate ID check
   const idCounts = {}
   for (const node of rfNodes) {
     idCounts[node.id] = (idCounts[node.id] ?? 0) + 1
@@ -40,17 +50,16 @@ export function compile(rfNodes, rfEdges, meta = {}) {
     if (count > 1) {
       errors.push({
         nodeId: id,
-        message: `Duplicate node ID "${id}" found ${count} times — all node IDs must be unique.`,
+        message: `Duplicate node ID "${id}" found ${count} times - all node IDs must be unique.`,
       })
     }
   }
 
-  // ── Phase 3: Edge / connection rule validation ───────────────────────────────
+  // Phase 3: Edge / connection rule validation
   for (const edge of rfEdges) {
     const source = nodeById.get(edge.source)
     const target = nodeById.get(edge.target)
 
-    // Dangling edge — one end missing
     if (!source) {
       errors.push({ edgeId: edge.id, message: `Edge "${edge.id}" references missing source node "${edge.source}".` })
       continue
@@ -72,25 +81,25 @@ export function compile(rfNodes, rfEdges, meta = {}) {
     } else if (!allowedTargets.includes(target.data.type)) {
       errors.push({
         edgeId: edge.id,
-        message: `Invalid connection: ${source.data.type} → "${relation}" → ${target.data.type}. Allowed targets: ${allowedTargets.join(', ')}.`,
+        message: `Invalid connection: ${source.data.type} -> "${relation}" -> ${target.data.type}. Allowed targets: ${allowedTargets.join(', ')}.`,
       })
     }
   }
 
-  // ── Phase 4: Cross-reference resolution ─────────────────────────────────────
-  // Check that any field ending in _id or _ids actually points to an existing node
-  const allIds = new Set(rfNodes.map((n) => n.id))
+  // Phase 4: Cross-reference resolution
+  const allIds = new Set(rfNodes.map((node) => node.id))
 
   for (const node of rfNodes) {
     const d = node.data
 
-    // Single ID references
     const singleRefs = [
       ['loot_table_id', d.loot_table_id],
       ['fail_loot_table_id', d.fail_loot_table_id],
       ['currency_id', d.currency_id],
       ['output_item_id', d.output_item_id],
       ['boss_expedition_id', d.boss_expedition_id],
+      ['host_building', d.host_building],
+      ['required_workflow', d.required_workflow],
     ]
     for (const [field, refId] of singleRefs) {
       if (refId && !allIds.has(refId)) {
@@ -101,13 +110,16 @@ export function compile(rfNodes, rfEdges, meta = {}) {
       }
     }
 
-    // Array ID references
     const arrayRefs = [
       ['unlock_node_ids', d.unlock_node_ids],
       ['on_complete_events', d.on_complete_events],
       ['unlocks_node_ids', d.unlocks_node_ids],
       ['on_success_unlock', d.on_success_unlock],
       ['expedition_ids', d.expedition_ids],
+      ['building_affinity', d.building_affinity],
+      ['unlocks_workflows', d.effects?.unlocks_workflows],
+      ['unlocks_auto_repeat_on', d.effects?.unlocks_auto_repeat_on],
+      ['building_prerequisites', d.unlocked_by?.building_prerequisites],
     ]
     for (const [field, ids] of arrayRefs) {
       for (const refId of ids ?? []) {
@@ -120,14 +132,14 @@ export function compile(rfNodes, rfEdges, meta = {}) {
       }
     }
 
-    // Resource ID checks used by cost/reward editors
-    const resourceCostArrays = [d.cost, d.entry_cost, d.recruit_cost]
+    const resourceCostArrays = [d.cost, d.entry_cost, d.recruit_cost, d.inputs]
     for (const costArray of resourceCostArrays) {
       for (const cost of costArray ?? []) {
-        if (cost.resource_id && !allIds.has(cost.resource_id)) {
+        const resourceId = cost.resource_id ?? cost.resource
+        if (resourceId && !allIds.has(resourceId)) {
           warnings.push({
             nodeId: node.id,
-            message: `"${d.label}" references unknown resource ID "${cost.resource_id}".`,
+            message: `"${d.label}" references unknown resource ID "${resourceId}".`,
           })
         }
       }
@@ -135,17 +147,16 @@ export function compile(rfNodes, rfEdges, meta = {}) {
 
     const conditionArrays = [d.unlock_conditions, d.completion_conditions, d.trigger_conditions]
     for (const conditionArray of conditionArrays) {
-      for (const cond of conditionArray ?? []) {
-        if (cond?.target_id && !allIds.has(cond.target_id)) {
+      for (const condition of conditionArray ?? []) {
+        if (condition?.target_id && !allIds.has(condition.target_id)) {
           warnings.push({
             nodeId: node.id,
-            message: `"${d.label}" condition references unknown node ID "${cond.target_id}".`,
+            message: `"${d.label}" condition references unknown node ID "${condition.target_id}".`,
           })
         }
       }
     }
 
-    // Loot table entries
     if (d.type === 'loot_table') {
       for (const entry of d.entries ?? []) {
         if (entry.item_id && !allIds.has(entry.item_id)) {
@@ -157,19 +168,26 @@ export function compile(rfNodes, rfEdges, meta = {}) {
       }
     }
 
-    // Recipe inputs and output
     if (d.type === 'recipe') {
-      for (const inp of d.inputs ?? []) {
-        if (inp.item_id && !allIds.has(inp.item_id)) {
+      for (const input of d.inputs ?? []) {
+        if (input.item_id && !allIds.has(input.item_id)) {
           warnings.push({
             nodeId: node.id,
-            message: `Recipe "${d.label}" input references unknown item ID "${inp.item_id}".`,
+            message: `Recipe "${d.label}" input references unknown item ID "${input.item_id}".`,
           })
         }
       }
     }
 
-    // Faction tier unlock_node_ids
+    if (d.type === 'crafting_recipe') {
+      if (d.output_item && !allIds.has(d.output_item)) {
+        warnings.push({
+          nodeId: node.id,
+          message: `Crafting recipe "${d.label || d.id}" output references unknown item ID "${d.output_item}".`,
+        })
+      }
+    }
+
     if (d.type === 'faction') {
       for (const tier of d.rep_tiers ?? []) {
         for (const refId of tier.unlock_node_ids ?? []) {
@@ -227,6 +245,17 @@ export function compile(rfNodes, rfEdges, meta = {}) {
       }
     }
 
+    if (d.type === 'building_workflow') {
+      for (const rule of d.output_rules ?? []) {
+        if (rule.output_type === 'hero_instance' && rule.target_class && !allIds.has(rule.target_class)) {
+          warnings.push({
+            nodeId: node.id,
+            message: `Building workflow "${d.label || d.id}" output references unknown hero class ID "${rule.target_class}".`,
+          })
+        }
+      }
+    }
+
     if (d.type === 'event') {
       for (const choice of d.choices ?? []) {
         for (const [resId] of Object.entries(choice.outcome?.resource_delta ?? {})) {
@@ -256,20 +285,36 @@ export function compile(rfNodes, rfEdges, meta = {}) {
       }
     }
 
-    // Prestige bonus IDs
     if (d.type === 'prestige') {
       for (const bonus of d.bonuses ?? []) {
         if (!bonus.id || bonus.id.trim() === '') {
           warnings.push({
             nodeId: node.id,
-            message: `Prestige "${d.label}" has a bonus with no ID — it may cause runtime issues.`,
+            message: `Prestige "${d.label}" has a bonus with no ID - it may cause runtime issues.`,
           })
         }
       }
     }
   }
 
-  // ── Phase 5: Warning checks ──────────────────────────────────────────────────
+  // Phase 5: Custom validation rules
+  for (const rule of VALIDATION_RULES) {
+    if (rule.global) {
+      for (const message of toArray(rule.check(null, dataNodes))) {
+        pushRuleMessage(rule.severity ?? 'error', { message })
+      }
+      continue
+    }
+
+    for (const node of rfNodes) {
+      const ruleNode = toRuleNode(node)
+      for (const message of toArray(rule.check(ruleNode, dataNodes))) {
+        pushRuleMessage(rule.severity ?? 'error', { nodeId: node.id, message })
+      }
+    }
+  }
+
+  // Phase 6: Warning checks
   for (const rule of WARNING_CHECKS) {
     if (rule.global) {
       if (rule.check(null, dataNodes)) {
@@ -277,25 +322,25 @@ export function compile(rfNodes, rfEdges, meta = {}) {
       }
     } else {
       for (const node of rfNodes) {
-        if (node.data.type && rule.check(node, dataNodes)) {
-          warnings.push({ nodeId: node.id, message: rule.message(node) })
+        const ruleNode = toRuleNode(node)
+        if (ruleNode.type && rule.check(ruleNode, dataNodes)) {
+          warnings.push({ nodeId: node.id, message: rule.message(ruleNode) })
         }
       }
     }
   }
 
-  // ── Phase 6: Serialize ───────────────────────────────────────────────────────
-  // Attach canvas_pos from ReactFlow position back into node data before writing
-  const serializedNodes = rfNodes.map((n) => ({
-    ...n.data,
-    canvas_pos: { x: Math.round(n.position.x), y: Math.round(n.position.y) },
+  // Phase 7: Serialize
+  const serializedNodes = rfNodes.map((node) => ({
+    ...node.data,
+    canvas_pos: { x: Math.round(node.position.x), y: Math.round(node.position.y) },
   }))
 
-  const serializedEdges = rfEdges.map((e) => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    relation: e.data?.relation ?? 'unlocks',
+  const serializedEdges = rfEdges.map((edge) => ({
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    relation: edge.data?.relation ?? 'unlocks',
   }))
 
   const project = {
@@ -324,23 +369,20 @@ export function compile(rfNodes, rfEdges, meta = {}) {
   }
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 function countByType(nodes) {
   const counts = {}
-  for (const n of nodes) {
-    counts[n.data.type] = (counts[n.data.type] ?? 0) + 1
+  for (const node of nodes) {
+    counts[node.data.type] = (counts[node.data.type] ?? 0) + 1
   }
   return counts
 }
 
-// Download a project.json file from a compile result
 export function downloadProject(result) {
   const blob = new Blob([JSON.stringify(result.project, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${result.project.meta.title.replace(/\s+/g, '-').toLowerCase() || 'project'}.json`
-  a.click()
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `${result.project.meta.title.replace(/\s+/g, '-').toLowerCase() || 'project'}.json`
+  anchor.click()
   URL.revokeObjectURL(url)
 }
