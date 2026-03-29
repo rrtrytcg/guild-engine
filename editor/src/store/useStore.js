@@ -145,8 +145,11 @@ const useStore = create((set, get) => ({
         .map((nodeData) => [nodeData.id, `import-${timestamp}-${nodeData.id}`])
     )
 
-    const importedNodes = blueprintJson.nodes.map((nodeData, index) => {
-      const remappedData = remapBlueprintNode(nodeData, idMap)
+    const remappedBlueprintNodes = blueprintJson.nodes
+      .map((nodeData) => remapBlueprintNode(nodeData, idMap))
+      .map((nodeData) => normalizeImportedBlueprintNode(nodeData, idMap))
+
+    const importedNodes = remappedBlueprintNodes.map((remappedData, index) => {
       const relativePos = blueprintPositions[index]
       const absolutePos = {
         x: Number(safeDropX) + Number(relativePos.x ?? 0) - Number(blueprintOrigin?.x ?? 0),
@@ -498,6 +501,43 @@ function remapBlueprintValue(value, key, idMap) {
   }
 
   return value
+}
+
+function normalizeImportedBlueprintNode(nodeData, idMap) {
+  if (!nodeData || typeof nodeData !== 'object') return nodeData
+
+  if (nodeData.type === 'building_workflow') {
+    const buildingId = nodeData.building_id ?? nodeData.host_building
+    if (!buildingId) return nodeData
+
+    const remappedBuildingId = idMap[buildingId] ?? buildingId
+    return {
+      ...nodeData,
+      building_id: remappedBuildingId,
+      host_building: remappedBuildingId,
+    }
+  }
+
+  if (nodeData.type === 'building_upgrade') {
+    const buildingId = nodeData.building_id ?? nodeData.host_building
+    const remappedBuildingId = buildingId ? (idMap[buildingId] ?? buildingId) : ''
+    const unlocksWorkflowIds = (nodeData.unlocks_workflow_ids ?? []).map((workflowId) => idMap[workflowId] ?? workflowId)
+
+    return {
+      ...nodeData,
+      building_id: remappedBuildingId,
+      host_building: remappedBuildingId,
+      unlocks_workflow_ids: unlocksWorkflowIds,
+      effects: nodeData.effects
+        ? {
+            ...nodeData.effects,
+            unlocks_workflows: (nodeData.effects.unlocks_workflows ?? []).map((workflowId) => idMap[workflowId] ?? workflowId),
+          }
+        : nodeData.effects,
+    }
+  }
+
+  return nodeData
 }
 
 function buildAutoCreatedDependencyNodes(importedNodes, context) {

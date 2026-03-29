@@ -1,11 +1,11 @@
 {
   "meta": {
     "schema_version": "0.1.0",
-    "title": "Shadowbound Guild",
+    "title": "f4",
     "author": "",
-    "description": "A dark fantasy guild-management story about a plague-ravaged empire where the city survives by sending mercenaries into shadow-cursed districts.",
-    "created_at": "2026-03-28T11:30:11.420Z",
-    "updated_at": "2026-03-28T11:30:11.420Z"
+    "description": "",
+    "created_at": "2026-03-29T02:06:50.442Z",
+    "updated_at": "2026-03-29T02:06:50.442Z"
   },
   "nodes": [
     {
@@ -431,55 +431,6 @@
       "canvas_pos": {
         "x": 80,
         "y": 680
-      }
-    },
-    {
-      "id": "building-forge",
-      "type": "building",
-      "label": "Forge",
-      "description": "A soot-choked workshop where iron gear is hammered and fitted.",
-      "icon": "🔨",
-      "max_level": 3,
-      "levels": [
-        {
-          "build_cost": [],
-          "production": {},
-          "hero_slots": 0,
-          "recipe_slots": 1,
-          "unlock_node_ids": []
-        },
-        {
-          "build_cost": [
-            {
-              "resource_id": "resource-gold",
-              "amount": 420
-            }
-          ],
-          "production": {},
-          "hero_slots": 0,
-          "recipe_slots": 2,
-          "unlock_node_ids": []
-        },
-        {
-          "build_cost": [
-            {
-              "resource_id": "resource-gold",
-              "amount": 1680
-            }
-          ],
-          "production": {},
-          "hero_slots": 0,
-          "recipe_slots": 3,
-          "unlock_node_ids": []
-        }
-      ],
-      "is_crafting_station": true,
-      "loot_table_id": "",
-      "unlock_conditions": [],
-      "visible": true,
-      "canvas_pos": {
-        "x": 80,
-        "y": 880
       }
     },
     {
@@ -975,6 +926,517 @@
       "canvas_pos": {
         "x": 560,
         "y": 280
+      }
+    },
+    {
+      "id": "iron_ingot",
+      "type": "resource",
+      "label": "Iron Ingot",
+      "icon": "📦",
+      "base_income": 0,
+      "base_cap": 500,
+      "is_material": true,
+      "visible": true,
+      "canvas_pos": {
+        "x": 2096,
+        "y": 288
+      }
+    },
+    {
+      "id": "iron_ore",
+      "type": "resource",
+      "label": "Iron Ore",
+      "icon": "📦",
+      "base_income": 0,
+      "base_cap": 500,
+      "is_material": true,
+      "visible": true,
+      "canvas_pos": {
+        "x": 2096,
+        "y": 448
+      }
+    },
+    {
+      "id": "coal",
+      "type": "resource",
+      "label": "Coal",
+      "icon": "📦",
+      "base_income": 0,
+      "base_cap": 500,
+      "is_material": true,
+      "visible": true,
+      "canvas_pos": {
+        "x": 2096,
+        "y": 608
+      }
+    },
+    {
+      "id": "leather",
+      "type": "resource",
+      "label": "Leather",
+      "icon": "📦",
+      "base_income": 0,
+      "base_cap": 500,
+      "is_material": true,
+      "visible": true,
+      "canvas_pos": {
+        "x": 2096,
+        "y": 768
+      }
+    },
+    {
+      "id": "cloth",
+      "type": "resource",
+      "label": "Cloth",
+      "icon": "📦",
+      "base_income": 0,
+      "base_cap": 500,
+      "is_material": true,
+      "visible": true,
+      "canvas_pos": {
+        "x": 2096,
+        "y": 928
+      }
+    },
+    {
+      "id": "import-1774747509040-bp-forge-building",
+      "type": "building",
+      "label": "Forge",
+      "description": "A heat-soaked workshop for smelting ore and shaping weapons.",
+      "icon": "🏰",
+      "max_level": 3,
+      "has_workflows": true,
+      "artisan_slots": {
+        "base_count": 1,
+        "max_count": 3,
+        "expand_by": "building_upgrade"
+      },
+      "levels": [
+        {
+          "build_cost": [
+            {
+              "resource_id": "resource-gold",
+              "amount": 150
+            }
+          ],
+          "build_time_s": 45,
+          "hero_slots": 1,
+          "recipe_slots": 1,
+          "production": {}
+        },
+        {
+          "build_cost": [
+            {
+              "resource_id": "resource-gold",
+              "amount": 450
+            }
+          ],
+          "build_time_s": 80,
+          "hero_slots": 1,
+          "recipe_slots": 2,
+          "production": {}
+        },
+        {
+          "build_cost": [
+            {
+              "resource_id": "resource-gold",
+              "amount": 900
+            }
+          ],
+          "build_time_s": 120,
+          "hero_slots": 2,
+          "recipe_slots": 3,
+          "production": {}
+        }
+      ],
+      "visible": true,
+      "canvas_pos": {
+        "x": 2336,
+        "y": 128
+      }
+    },
+    {
+      "id": "import-1774747509040-bp-forge-forgemaster",
+      "type": "hero_class",
+      "label": "Forgemaster",
+      "description": "An artisan who thrives near anvils, bellows, and glowing steel.",
+      "icon": "⚒️",
+      "hero_type": "artisan",
+      "combat_eligible": false,
+      "assignment_target": "building",
+      "xp_source": "building_jobs_completed",
+      "specializations": [
+        "smelter",
+        "weaponsmith",
+        "armorsmith"
+      ],
+      "building_affinity": [
+        "import-1774747509040-bp-forge-building"
+      ],
+      "base_stats": {
+        "attack": 10,
+        "defense": 5,
+        "speed": 5,
+        "hp": 80,
+        "luck": 8
+      },
+      "stat_growth": {
+        "attack": 1,
+        "defense": 1,
+        "speed": 1,
+        "hp": 10,
+        "luck": 1
+      },
+      "slots": [
+        "weapon",
+        "armor"
+      ],
+      "visible": true,
+      "canvas_pos": {
+        "x": 2576,
+        "y": 128
+      }
+    },
+    {
+      "id": "import-1774747509040-bp-forge-workflow-smelt",
+      "type": "building_workflow",
+      "label": "Smelt Ore",
+      "description": "Melt raw ore into forge-ready ingots.",
+      "host_building": "import-1774747509040-bp-forge-building",
+      "behavior": "consume_item",
+      "workflow_mode": "queued",
+      "action_type": "smelt",
+      "base_duration_ticks": 80,
+      "duration_base_ticks": 80,
+      "input_rules": [],
+      "inputs": [],
+      "output_rules": [
+        {
+          "output_type": "resource",
+          "target": "iron_ingot",
+          "quantity": 2,
+          "chance": 1
+        }
+      ],
+      "success_table": {
+        "base_failure": 0.1,
+        "base_crit": 0.05,
+        "failure_behavior": "consume_inputs_no_output",
+        "crit_behavior": "quality_upgrade",
+        "crit_multiplier": 2,
+        "failure_grants_xp": true,
+        "failure_xp_multiplier": 0.5,
+        "xp_on_complete": 20
+      },
+      "xp_on_complete": 20,
+      "visible": true,
+      "canvas_pos": {
+        "x": 2336,
+        "y": 336
+      }
+    },
+    {
+      "id": "import-1774747509040-bp-forge-workflow-weapon",
+      "type": "building_workflow",
+      "label": "Forge Weapon",
+      "description": "Shape balanced blades from ingots and fittings.",
+      "host_building": "import-1774747509040-bp-forge-building",
+      "behavior": "consume_item",
+      "workflow_mode": "queued",
+      "action_type": "weaponsmith",
+      "base_duration_ticks": 110,
+      "duration_base_ticks": 110,
+      "input_rules": [],
+      "inputs": [],
+      "output_rules": [
+        {
+          "output_type": "item",
+          "target": "import-1774747509040-bp-forge-item-iron-sword",
+          "quantity": 1,
+          "chance": 1
+        }
+      ],
+      "success_table": {
+        "base_failure": 0.1,
+        "base_crit": 0.05,
+        "failure_behavior": "consume_inputs_no_output",
+        "crit_behavior": "quality_upgrade",
+        "crit_multiplier": 2,
+        "crit_output_item": "bp-forge-item-iron-sword-masterwork",
+        "failure_grants_xp": true,
+        "failure_xp_multiplier": 0.5,
+        "xp_on_complete": 20
+      },
+      "xp_on_complete": 20,
+      "visible": true,
+      "canvas_pos": {
+        "x": 2336,
+        "y": 528
+      }
+    },
+    {
+      "id": "import-1774747509040-bp-forge-workflow-armor",
+      "type": "building_workflow",
+      "label": "Forge Armor",
+      "description": "Hammer protective plates and reinforced fittings.",
+      "host_building": "import-1774747509040-bp-forge-building",
+      "behavior": "consume_item",
+      "workflow_mode": "queued",
+      "action_type": "armorsmith",
+      "base_duration_ticks": 120,
+      "duration_base_ticks": 120,
+      "input_rules": [],
+      "inputs": [],
+      "output_rules": [
+        {
+          "output_type": "item",
+          "target": "import-1774747509040-bp-forge-item-iron-sword",
+          "quantity": 1,
+          "chance": 1
+        }
+      ],
+      "success_table": {
+        "base_failure": 0.1,
+        "base_crit": 0.05,
+        "failure_behavior": "consume_inputs_no_output",
+        "crit_behavior": "quality_upgrade",
+        "crit_multiplier": 2,
+        "crit_output_item": "bp-forge-item-iron-sword-masterwork",
+        "failure_grants_xp": true,
+        "failure_xp_multiplier": 0.5,
+        "xp_on_complete": 20
+      },
+      "xp_on_complete": 20,
+      "visible": true,
+      "canvas_pos": {
+        "x": 2336,
+        "y": 736
+      }
+    },
+    {
+      "id": "import-1774747509040-bp-forge-upgrade-basic-smelter",
+      "type": "building_upgrade",
+      "label": "Basic Smelter L1→L2",
+      "building_id": "import-1774747509040-bp-forge-building",
+      "host_building": "import-1774747509040-bp-forge-building",
+      "required_building_level": 2,
+      "level": 2,
+      "cost": [
+        {
+          "resource": "resource-gold",
+          "amount": 200
+        }
+      ],
+      "unlocks_workflow_ids": [
+        "import-1774747509040-bp-forge-workflow-smelt"
+      ],
+      "artisan_slot_increase": 1,
+      "effects": {
+        "unlocks_workflows": [
+          "import-1774747509040-bp-forge-workflow-smelt"
+        ],
+        "slots_added": 1
+      },
+      "visible": true,
+      "canvas_pos": {
+        "x": 2576,
+        "y": 336
+      }
+    },
+    {
+      "id": "import-1774747509040-bp-forge-upgrade-smelter-ii",
+      "type": "building_upgrade",
+      "label": "Smelter II L2→L3",
+      "building_id": "import-1774747509040-bp-forge-building",
+      "host_building": "import-1774747509040-bp-forge-building",
+      "required_building_level": 3,
+      "level": 3,
+      "cost": [
+        {
+          "resource": "resource-gold",
+          "amount": 800
+        }
+      ],
+      "unlocks_workflow_ids": [
+        "import-1774747509040-bp-forge-workflow-weapon"
+      ],
+      "artisan_slot_increase": 1,
+      "effects": {
+        "unlocks_workflows": [
+          "import-1774747509040-bp-forge-workflow-weapon"
+        ],
+        "slots_added": 1
+      },
+      "visible": true,
+      "canvas_pos": {
+        "x": 2576,
+        "y": 528
+      }
+    },
+    {
+      "id": "import-1774747509040-bp-forge-upgrade-master-forge",
+      "type": "building_upgrade",
+      "label": "Master Forge L3",
+      "building_id": "import-1774747509040-bp-forge-building",
+      "host_building": "import-1774747509040-bp-forge-building",
+      "required_building_level": 3,
+      "level": 3,
+      "cost": [
+        {
+          "resource": "resource-gold",
+          "amount": 2500
+        }
+      ],
+      "unlocks_workflow_ids": [
+        "import-1774747509040-bp-forge-workflow-armor"
+      ],
+      "artisan_slot_increase": 0,
+      "effects": {
+        "unlocks_workflows": [
+          "import-1774747509040-bp-forge-workflow-armor"
+        ],
+        "slots_added": 0
+      },
+      "visible": true,
+      "canvas_pos": {
+        "x": 2576,
+        "y": 736
+      }
+    },
+    {
+      "id": "import-1774747509040-bp-forge-item-iron-sword",
+      "type": "item",
+      "label": "Iron Sword",
+      "description": "A dependable blade forged for guild adventurers.",
+      "icon": "🗡️",
+      "rarity": "common",
+      "item_type": "equipment",
+      "subtype": "equipment",
+      "slot": "weapon",
+      "stat_modifiers": {
+        "attack": 6
+      },
+      "stack_limit": 1,
+      "visible": true,
+      "canvas_pos": {
+        "x": 2816,
+        "y": 336
+      }
+    },
+    {
+      "id": "import-1774747509040-bp-forge-item-iron-sword-masterwork",
+      "type": "item",
+      "label": "Iron Sword Masterwork",
+      "description": "A polished masterwork blade with tighter balance and sharper edge.",
+      "icon": "🗡️",
+      "rarity": "rare",
+      "item_type": "equipment",
+      "subtype": "equipment",
+      "slot": "weapon",
+      "stat_modifiers": {
+        "attack": 10
+      },
+      "stack_limit": 1,
+      "visible": true,
+      "canvas_pos": {
+        "x": 2816,
+        "y": 528
+      }
+    },
+    {
+      "id": "import-1774747509040-bp-forge-recipe-smelt-billet",
+      "type": "crafting_recipe",
+      "label": "Smelt Billet",
+      "inputs": [
+        {
+          "resource": "iron_ore",
+          "amount": 3
+        },
+        {
+          "resource": "coal",
+          "amount": 1
+        }
+      ],
+      "output_item": "import-1774747509040-bp-forge-item-iron-sword",
+      "required_workflow": "import-1774747509040-bp-forge-workflow-smelt",
+      "required_building_level": 1,
+      "output_quantity": 1,
+      "visible": true,
+      "canvas_pos": {
+        "x": 2816,
+        "y": 128
+      }
+    },
+    {
+      "id": "import-1774747509040-bp-forge-recipe-sword",
+      "type": "crafting_recipe",
+      "label": "Forge Iron Sword",
+      "inputs": [
+        {
+          "resource": "iron_ingot",
+          "amount": 4
+        },
+        {
+          "resource": "leather",
+          "amount": 1
+        }
+      ],
+      "output_item": "import-1774747509040-bp-forge-item-iron-sword",
+      "required_workflow": "import-1774747509040-bp-forge-workflow-weapon",
+      "required_building_level": 2,
+      "output_quantity": 1,
+      "visible": true,
+      "canvas_pos": {
+        "x": 2816,
+        "y": 736
+      }
+    },
+    {
+      "id": "import-1774747509040-bp-forge-recipe-masterwork-sword",
+      "type": "crafting_recipe",
+      "label": "Temper Masterwork Sword",
+      "inputs": [
+        {
+          "resource": "iron_ingot",
+          "amount": 6
+        },
+        {
+          "resource": "coal",
+          "amount": 2
+        }
+      ],
+      "output_item": "import-1774747509040-bp-forge-item-iron-sword-masterwork",
+      "required_workflow": "import-1774747509040-bp-forge-workflow-weapon",
+      "required_building_level": 3,
+      "output_quantity": 1,
+      "visible": true,
+      "canvas_pos": {
+        "x": 2816,
+        "y": 928
+      }
+    },
+    {
+      "id": "import-1774747509040-bp-forge-recipe-armor-plating",
+      "type": "crafting_recipe",
+      "label": "Forge Reinforced Plating",
+      "inputs": [
+        {
+          "resource": "iron_ingot",
+          "amount": 5
+        },
+        {
+          "resource": "cloth",
+          "amount": 2
+        }
+      ],
+      "output_item": "import-1774747509040-bp-forge-item-iron-sword-masterwork",
+      "required_workflow": "import-1774747509040-bp-forge-workflow-armor",
+      "required_building_level": 3,
+      "output_quantity": 1,
+      "visible": true,
+      "canvas_pos": {
+        "x": 2816,
+        "y": 1136
       }
     }
   ],
