@@ -5,12 +5,16 @@ import useStore from '../store/useStore'
 export default function CompileModal({ onClose }) {
   const nodes = useStore((s) => s.nodes)
   const edges = useStore((s) => s.edges)
+  const exportProject = useStore((s) => s.exportProject)
   const [meta, setMeta] = useState({ title: 'My Guild Game', author: '' })
   const [result, setResult] = useState(null)
 
   const runCompile = () => {
     const r = compile(nodes, edges, meta)
-    setResult(r)
+    setResult({
+      ...r,
+      project: exportProject(r.project),
+    })
   }
 
   const handleDownload = () => {

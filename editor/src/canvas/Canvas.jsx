@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import ReactFlow, {
   Background,
   Controls,
@@ -12,28 +12,37 @@ import useStore from '../store/useStore'
 import GuildNode from '../nodes/GuildNode'
 import { NODE_CONFIG } from '../nodes/nodeConfig'
 
-// Map every node type string to our single GuildNode component.
-// ReactFlow requires this object to be stable (defined outside component).
 const nodeTypes = Object.fromEntries(
   Object.keys(NODE_CONFIG).map((type) => [type, GuildNode])
 )
 
-export default function Canvas() {
+const NODE_WIDTH = 220
+const NODE_HEIGHT = 150
+
+export default function Canvas({ focusGroupId = null }) {
   const nodes = useStore((s) => s.nodes)
   const edges = useStore((s) => s.edges)
+  const groups = useStore((s) => s.groups)
   const onNodesChange = useStore((s) => s.onNodesChange)
   const onEdgesChange = useStore((s) => s.onEdgesChange)
   const onConnect = useStore((s) => s.onConnect)
   const clearSelection = useStore((s) => s.clearSelection)
   const selectNode = useStore((s) => s.selectNode)
   const addNode = useStore((s) => s.addNode)
+  const createGroup = useStore((s) => s.createGroup)
+  const addNodesToGroup = useStore((s) => s.addNodesToGroup)
+  const removeNodesFromGroup = useStore((s) => s.removeNodesFromGroup)
   const deleteNodes = useStore((s) => s.deleteNodes)
+  const setActiveGroup = useStore((s) => s.setActiveGroup)
 
   const reactFlowWrapper = useRef(null)
   const reactFlowInstance = useRef(null)
+  const [reactFlowReady, setReactFlowReady] = useState(false)
   const [selectedNodeIds, setSelectedNodeIds] = useState([])
+  const [isCreatingSelectionGroup, setIsCreatingSelectionGroup] = useState(false)
+  const [selectionGroupLabel, setSelectionGroupLabel] = useState('')
+  const [contextMenu, setContextMenu] = useState(null)
 
-  // Drop handler - converts screen coords to ReactFlow canvas coords
   const onDrop = useCallback(
     (e) => {
       e.preventDefault()
@@ -59,8 +68,49 @@ export default function Canvas() {
     e.preventDefault()
   }, [])
 
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null)
+  }, [])
+
+  useEffect(() => {
+    if (!contextMenu) return undefined
+
+    const handleWindowClick = () => {
+      setContextMenu(null)
+    }
+
+    window.addEventListener('click', handleWindowClick)
+    return () => window.removeEventListener('click', handleWindowClick)
+  }, [contextMenu])
+
+  useEffect(() => {
+    if (!reactFlowReady || !focusGroupId || !reactFlowInstance.current) return
+
+    const targetGroup = groups.find((group) => group.id === focusGroupId)
+    if (!targetGroup || targetGroup.nodeIds.length === 0) return
+
+    const targetNodes = nodes.filter((node) => targetGroup.nodeIds.includes(node.id))
+    if (targetNodes.length === 0) return
+
+    const frame = window.requestAnimationFrame(() => {
+      reactFlowInstance.current?.fitBounds(calculateNodesBounds(targetNodes), {
+        padding: 0.18,
+        duration: 240,
+      })
+      setActiveGroup(null)
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [focusGroupId, groups, nodes, reactFlowReady, setActiveGroup])
+
   const handleSelectionChange = useCallback((selection) => {
     const nextIds = (selection?.nodes ?? []).map((node) => node.id)
+
+    if (nextIds.length < 2) {
+      setIsCreatingSelectionGroup(false)
+      setSelectionGroupLabel('')
+    }
+
     setSelectedNodeIds((currentIds) => {
       if (
         currentIds.length === nextIds.length &&
@@ -72,10 +122,67 @@ export default function Canvas() {
     })
   }, [])
 
+  const resetCanvasSelection = useCallback(() => {
+    setSelectedNodeIds([])
+    setIsCreatingSelectionGroup(false)
+    setSelectionGroupLabel('')
+    clearSelection()
+    closeContextMenu()
+  }, [clearSelection, closeContextMenu])
+
   const handleDeleteSelected = useCallback(() => {
     deleteNodes(selectedNodeIds)
     setSelectedNodeIds([])
+    setIsCreatingSelectionGroup(false)
+    setSelectionGroupLabel('')
   }, [deleteNodes, selectedNodeIds])
+
+  const submitSelectionGroup = useCallback(() => {
+    const trimmedLabel = selectionGroupLabel.trim()
+    if (!trimmedLabel || selectedNodeIds.length < 2) return
+
+    createGroup(selectedNodeIds, trimmedLabel)
+    setIsCreatingSelectionGroup(false)
+    setSelectionGroupLabel('')
+  }, [createGroup, selectedNodeIds, selectionGroupLabel])
+
+  const openNodeContextMenu = useCallback((event, node) => {
+    const bounds = reactFlowWrapper.current?.getBoundingClientRect()
+    if (!bounds) return
+
+    event.preventDefault()
+    selectNode(node.id)
+    setSelectedNodeIds([node.id])
+    setIsCreatingSelectionGroup(false)
+    setSelectionGroupLabel('')
+
+    setContextMenu({
+      nodeId: node.id,
+      x: event.clientX - bounds.left + 8,
+      y: event.clientY - bounds.top + 8,
+      showAddMenu: false,
+      createMode: false,
+      draftLabel: '',
+    })
+  }, [selectNode])
+
+  const submitContextGroup = useCallback(() => {
+    const trimmedLabel = contextMenu?.draftLabel?.trim() ?? ''
+    if (!contextMenu?.nodeId || !trimmedLabel) return
+
+    createGroup([contextMenu.nodeId], trimmedLabel)
+    setContextMenu(null)
+  }, [contextMenu, createGroup])
+
+  const updateContextMenu = useCallback((patch) => {
+    setContextMenu((currentMenu) => (
+      currentMenu ? { ...currentMenu, ...patch } : currentMenu
+    ))
+  }, [])
+
+  const contextGroup = contextMenu
+    ? groups.find((group) => group.nodeIds.includes(contextMenu.nodeId))
+    : null
 
   return (
     <div
@@ -103,13 +210,144 @@ export default function Canvas() {
             boxShadow: '0 14px 30px rgba(0,0,0,0.35)',
           }}
         >
-          <button type="button" style={labelBtn} disabled>
-            Group move
-          </button>
-          <span style={{ fontSize: 11, color: '#555570' }}>{selectedNodeIds.length} selected</span>
+          <span style={{ fontSize: 11, color: '#555570' }}>
+            {selectedNodeIds.length} selected
+          </span>
+
+          {!isCreatingSelectionGroup && (
+            <button
+              type="button"
+              onClick={() => setIsCreatingSelectionGroup(true)}
+              style={ghostBtn}
+            >
+              Group
+            </button>
+          )}
+
+          {isCreatingSelectionGroup && (
+            <input
+              autoFocus
+              value={selectionGroupLabel}
+              onChange={(e) => setSelectionGroupLabel(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submitSelectionGroup()
+                if (e.key === 'Escape') {
+                  setIsCreatingSelectionGroup(false)
+                  setSelectionGroupLabel('')
+                }
+              }}
+              onBlur={() => {
+                if (!selectionGroupLabel.trim()) {
+                  setIsCreatingSelectionGroup(false)
+                  setSelectionGroupLabel('')
+                }
+              }}
+              placeholder="Group name"
+              style={toolbarInput}
+            />
+          )}
+
           <button type="button" onClick={handleDeleteSelected} style={deleteBtn}>
             Delete selected
           </button>
+        </div>
+      )}
+
+      {contextMenu && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'absolute',
+            top: contextMenu.y,
+            left: contextMenu.x,
+            zIndex: 25,
+            width: 220,
+            padding: 6,
+            background: '#13131f',
+            border: '1px solid #2a2a3e',
+            borderRadius: 10,
+            boxShadow: '0 18px 42px rgba(0,0,0,0.38)',
+          }}
+        >
+          <div
+            style={{ position: 'relative' }}
+            onMouseEnter={() => updateContextMenu({ showAddMenu: true })}
+            onMouseLeave={() => updateContextMenu({ showAddMenu: false })}
+          >
+            <button
+              type="button"
+              disabled={groups.length === 0}
+              style={{
+                ...contextMenuBtn,
+                color: groups.length === 0 ? '#555570' : '#e0e0f0',
+                cursor: groups.length === 0 ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Add to group {'>'}
+            </button>
+
+            {contextMenu.showAddMenu && groups.length > 0 && (
+              <div style={submenuStyle}>
+                {groups.map((group) => (
+                  <button
+                    key={group.id}
+                    type="button"
+                    onClick={() => {
+                      addNodesToGroup(group.id, [contextMenu.nodeId])
+                      setContextMenu(null)
+                    }}
+                    style={contextMenuBtn}
+                  >
+                    <span
+                      style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: 999,
+                        background: group.color,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span>{group.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {contextGroup && (
+            <button
+              type="button"
+              onClick={() => {
+                removeNodesFromGroup([contextMenu.nodeId])
+                setContextMenu(null)
+              }}
+              style={contextMenuBtn}
+            >
+              Remove from group
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => updateContextMenu({ createMode: true, showAddMenu: false })}
+            style={contextMenuBtn}
+          >
+            Create new group
+          </button>
+
+          {contextMenu.createMode && (
+            <input
+              autoFocus
+              value={contextMenu.draftLabel}
+              onChange={(e) => updateContextMenu({ draftLabel: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submitContextGroup()
+                if (e.key === 'Escape') setContextMenu(null)
+              }}
+              placeholder="Group name"
+              style={{ ...toolbarInput, width: '100%', marginTop: 6 }}
+            />
+          )}
         </div>
       )}
 
@@ -119,24 +357,20 @@ export default function Canvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        onPaneClick={() => {
-          setSelectedNodeIds([])
-          clearSelection()
-        }}
+        onPaneClick={resetCanvasSelection}
         onPaneContextMenu={(e) => {
           e.preventDefault()
-          setSelectedNodeIds([])
-          clearSelection()
+          resetCanvasSelection()
         }}
-        onNodeContextMenu={(e, node) => {
-          e.preventDefault()
-          selectNode(node.id)
-        }}
+        onNodeContextMenu={openNodeContextMenu}
         onSelectionChange={handleSelectionChange}
-        onInit={(instance) => (reactFlowInstance.current = instance)}
+        onInit={(instance) => {
+          reactFlowInstance.current = instance
+          setReactFlowReady(true)
+        }}
         nodeTypes={nodeTypes}
         nodesDraggable
-        fitView
+        fitView={!focusGroupId}
         deleteKeyCode="Delete"
         selectionMode={SelectionMode.Partial}
         multiSelectionKeyCode="Shift"
@@ -177,16 +411,29 @@ export default function Canvas() {
   )
 }
 
-const labelBtn = {
+function calculateNodesBounds(nodes) {
+  const minX = Math.min(...nodes.map((node) => Number(node.position?.x ?? 0)))
+  const minY = Math.min(...nodes.map((node) => Number(node.position?.y ?? 0)))
+  const maxX = Math.max(...nodes.map((node) => Number(node.position?.x ?? 0) + NODE_WIDTH))
+  const maxY = Math.max(...nodes.map((node) => Number(node.position?.y ?? 0) + NODE_HEIGHT))
+
+  return {
+    x: minX - 80,
+    y: minY - 80,
+    width: (maxX - minX) + 160,
+    height: (maxY - minY) + 160,
+  }
+}
+
+const ghostBtn = {
   background: '#1e1e2e',
   border: '1px solid #2a2a3e',
   borderRadius: 7,
-  color: '#8888aa',
+  color: '#c0c0d8',
   fontSize: 11,
   fontWeight: 600,
   padding: '6px 10px',
-  cursor: 'default',
-  opacity: 0.9,
+  cursor: 'pointer',
 }
 
 const deleteBtn = {
@@ -198,4 +445,43 @@ const deleteBtn = {
   fontWeight: 600,
   padding: '6px 10px',
   cursor: 'pointer',
+}
+
+const toolbarInput = {
+  background: '#0f0f1b',
+  border: '1px solid #2a2a3e',
+  borderRadius: 7,
+  color: '#e0e0f0',
+  fontSize: 11,
+  fontWeight: 500,
+  padding: '6px 10px',
+  outline: 'none',
+}
+
+const contextMenuBtn = {
+  width: '100%',
+  background: 'transparent',
+  border: 'none',
+  borderRadius: 8,
+  color: '#e0e0f0',
+  fontSize: 12,
+  fontWeight: 500,
+  padding: '9px 10px',
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  textAlign: 'left',
+  cursor: 'pointer',
+}
+
+const submenuStyle = {
+  position: 'absolute',
+  top: 0,
+  left: 'calc(100% + 6px)',
+  width: 200,
+  padding: 6,
+  background: '#13131f',
+  border: '1px solid #2a2a3e',
+  borderRadius: 10,
+  boxShadow: '0 18px 42px rgba(0,0,0,0.38)',
 }

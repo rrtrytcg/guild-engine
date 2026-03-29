@@ -1,16 +1,43 @@
 import { create } from 'zustand'
 import { addEdge, applyNodeChanges, applyEdgeChanges } from 'reactflow'
 
+export const GROUP_COLOR_PALETTE = [
+  '#185FA5',
+  '#1D9E75',
+  '#BA7517',
+  '#993C1D',
+  '#534AB7',
+  '#3B6D11',
+  '#993556',
+  '#5F5E5A',
+]
+
 const useStore = create((set, get) => ({
   // --- Graph state ---
   nodes: [],
   edges: [],
   selectedNodeId: null,
   blueprints: [],
+  groups: [],
+  canvasView: 'nodes',
+  activeGroupId: null,
 
   // --- ReactFlow handlers (wired directly to <ReactFlow> props) ---
-  onNodesChange: (changes) =>
-    set({ nodes: applyNodeChanges(changes, get().nodes) }),
+  onNodesChange: (changes) => {
+    const removedNodeIds = changes
+      .filter((change) => change.type === 'remove')
+      .map((change) => change.id)
+
+    set({
+      nodes: applyNodeChanges(changes, get().nodes),
+      groups: removedNodeIds.length > 0
+        ? removeNodesFromGroups(get().groups, removedNodeIds)
+        : get().groups,
+      selectedNodeId: removedNodeIds.includes(get().selectedNodeId)
+        ? null
+        : get().selectedNodeId,
+    })
+  },
 
   onEdgesChange: (changes) =>
     set({ edges: applyEdgeChanges(changes, get().edges) }),
@@ -21,6 +48,79 @@ const useStore = create((set, get) => ({
   // --- Node selection ---
   selectNode: (id) => set({ selectedNodeId: id }),
   clearSelection: () => set({ selectedNodeId: null }),
+
+  // --- Group metadata ---
+  createGroup: (nodeIds, label) => {
+    const nodes = get().nodes
+    const validNodeIds = sanitizeGroupNodeIds(nodeIds, nodes)
+    if (validNodeIds.length === 0) return null
+
+    const groups = get().groups
+    const groupId = `group-${Date.now()}`
+    const trimmedLabel = String(label ?? '').trim()
+    const group = {
+      id: groupId,
+      label: trimmedLabel || `Group ${groups.length + 1}`,
+      color: pickNextGroupColor(groups),
+      nodeIds: validNodeIds,
+      position: calculateGroupCentroid(nodes, validNodeIds),
+      size: calculateGroupSize(validNodeIds.length),
+    }
+
+    set({
+      groups: assignNodesToGroup([...groups, group], groupId, validNodeIds),
+    })
+
+    return groupId
+  },
+
+  renameGroup: (groupId, label) =>
+    set({
+      groups: get().groups.map((group) => (
+        group.id === groupId
+          ? { ...group, label: String(label ?? '').trim() || group.label }
+          : group
+      )),
+    }),
+
+  recolorGroup: (groupId, color) =>
+    set({
+      groups: get().groups.map((group) => (
+        group.id === groupId ? { ...group, color } : group
+      )),
+    }),
+
+  deleteGroup: (groupId) =>
+    set({
+      groups: get().groups.filter((group) => group.id !== groupId),
+      activeGroupId: get().activeGroupId === groupId ? null : get().activeGroupId,
+    }),
+
+  addNodesToGroup: (groupId, nodeIds) => {
+    const validNodeIds = sanitizeGroupNodeIds(nodeIds, get().nodes)
+    if (validNodeIds.length === 0) return
+
+    set({
+      groups: assignNodesToGroup(get().groups, groupId, validNodeIds),
+    })
+  },
+
+  removeNodesFromGroup: (nodeIds) => {
+    const validNodeIds = sanitizeGroupNodeIds(nodeIds, get().nodes)
+    if (validNodeIds.length === 0) return
+
+    set({
+      groups: removeNodesFromGroups(get().groups, validNodeIds),
+    })
+  },
+
+  setCanvasView: (view) =>
+    set((state) => ({
+      canvasView: view === 'groups' ? 'groups' : 'nodes',
+      activeGroupId: view === 'groups' ? null : state.activeGroupId,
+    })),
+
+  setActiveGroup: (groupId) => set({ activeGroupId: groupId }),
 
   // --- Node data update (called from Inspector forms) ---
   updateNodeData: (id, patch) =>
@@ -53,6 +153,7 @@ const useStore = create((set, get) => ({
     set({
       nodes: get().nodes.filter((n) => n.id !== id),
       edges: get().edges.filter((e) => e.source !== id && e.target !== id),
+      groups: removeNodesFromGroups(get().groups, [id]),
       selectedNodeId: get().selectedNodeId === id ? null : get().selectedNodeId,
     }),
 
@@ -63,6 +164,7 @@ const useStore = create((set, get) => ({
     set({
       nodes: get().nodes.filter((n) => !targets.has(n.id)),
       edges: get().edges.filter((e) => !targets.has(e.source) && !targets.has(e.target)),
+      groups: removeNodesFromGroups(get().groups, Array.from(targets)),
       selectedNodeId: targets.has(get().selectedNodeId) ? null : get().selectedNodeId,
     })
   },
@@ -101,7 +203,14 @@ const useStore = create((set, get) => ({
       style: { stroke: '#444466', strokeWidth: 1.5 },
     }))
 
-    set({ nodes: rfNodes, edges: rfEdges, selectedNodeId: null })
+    set({
+      nodes: rfNodes,
+      edges: rfEdges,
+      groups: normalizeImportedGroups(project.groups, rfNodes),
+      selectedNodeId: null,
+      canvasView: 'nodes',
+      activeGroupId: null,
+    })
   },
 
   // --- Save a .blueprint.json into the local preset library ---
@@ -181,6 +290,13 @@ const useStore = create((set, get) => ({
       selectedNodeId: importedNodes[0]?.id ?? get().selectedNodeId,
     })
 
+    if (importedNodes.length > 0) {
+      get().createGroup(
+        importedNodes.map((node) => node.id),
+        blueprintJson?.blueprint_meta?.label ?? 'Imported Blueprint'
+      )
+    }
+
     return {
       importedCount: importedNodes.length,
       autoCreatedCount: autoCreatedNodes.length,
@@ -225,6 +341,11 @@ const useStore = create((set, get) => ({
     anchor.click()
     URL.revokeObjectURL(url)
   },
+
+  exportProject: (project) => ({
+    ...project,
+    groups: get().groups.map(serializeProjectGroup),
+  }),
 
   // project export is handled by compiler.js + CompileModal
 }))
@@ -641,6 +762,103 @@ function humanizeId(id) {
     .filter(Boolean)
     .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
     .join(' ')
+}
+
+function sanitizeGroupNodeIds(nodeIds, nodes) {
+  const validNodeIds = new Set(nodes.map((node) => node.id))
+  return Array.from(new Set((nodeIds ?? []).filter((nodeId) => validNodeIds.has(nodeId))))
+}
+
+function calculateGroupCentroid(nodes, nodeIds) {
+  const selectedNodes = nodes.filter((node) => nodeIds.includes(node.id))
+  if (selectedNodes.length === 0) {
+    return { x: 80, y: 80 }
+  }
+
+  const totals = selectedNodes.reduce((acc, node) => ({
+    x: acc.x + Number(node.position?.x ?? 0),
+    y: acc.y + Number(node.position?.y ?? 0),
+  }), { x: 0, y: 0 })
+
+  return {
+    x: Math.round(totals.x / selectedNodes.length),
+    y: Math.round(totals.y / selectedNodes.length),
+  }
+}
+
+function calculateGroupSize(nodeCount) {
+  return {
+    w: Math.max(200, Number(nodeCount ?? 0) * 40),
+    h: 160,
+  }
+}
+
+function pickNextGroupColor(groups) {
+  return GROUP_COLOR_PALETTE[groups.length % GROUP_COLOR_PALETTE.length]
+}
+
+function removeNodesFromGroups(groups, nodeIds) {
+  const removedIds = new Set(nodeIds)
+  return groups.map((group) => {
+    const nextNodeIds = group.nodeIds.filter((nodeId) => !removedIds.has(nodeId))
+    return {
+      ...group,
+      nodeIds: nextNodeIds,
+      size: calculateGroupSize(nextNodeIds.length),
+    }
+  })
+}
+
+function assignNodesToGroup(groups, groupId, nodeIds) {
+  const assignedIds = new Set(nodeIds)
+
+  return groups.map((group) => {
+    const withoutMovedNodes = group.nodeIds.filter((nodeId) => !assignedIds.has(nodeId))
+    const nextNodeIds = group.id === groupId
+      ? Array.from(new Set([...withoutMovedNodes, ...nodeIds]))
+      : withoutMovedNodes
+
+    return {
+      ...group,
+      nodeIds: nextNodeIds,
+      size: calculateGroupSize(nextNodeIds.length),
+    }
+  })
+}
+
+function normalizeImportedGroups(groups, nodes) {
+  const safeGroups = Array.isArray(groups) ? groups : []
+
+  return safeGroups.map((group, index) => {
+    const nodeIds = sanitizeGroupNodeIds(group?.nodeIds, nodes)
+    const color = GROUP_COLOR_PALETTE.includes(group?.color) ? group.color : pickNextGroupColor(safeGroups.slice(0, index))
+
+    return {
+      id: group?.id || `group-${Date.now()}-${index}`,
+      label: String(group?.label ?? '').trim() || `Group ${index + 1}`,
+      color,
+      nodeIds,
+      position: {
+        x: Number(group?.position?.x ?? calculateGroupCentroid(nodes, nodeIds).x),
+        y: Number(group?.position?.y ?? calculateGroupCentroid(nodes, nodeIds).y),
+      },
+      size: {
+        w: Number(group?.size?.w ?? calculateGroupSize(nodeIds.length).w),
+        h: Number(group?.size?.h ?? calculateGroupSize(nodeIds.length).h),
+      },
+    }
+  })
+}
+
+function serializeProjectGroup(group) {
+  return {
+    id: group.id,
+    label: group.label,
+    color: group.color,
+    nodeIds: [...group.nodeIds],
+    position: { ...group.position },
+    size: { ...group.size },
+  }
 }
 
 export default useStore

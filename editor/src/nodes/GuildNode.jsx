@@ -6,13 +6,13 @@ import useStore from '../store/useStore'
 const GuildNode = memo(({ id, data, selected }) => {
   const config = NODE_CONFIG[data.type] ?? { label: data.type, emoji: '?', color: '#888', textColor: '#fff' }
   const selectNode = useStore((s) => s.selectNode)
+  const groupColor = useStore((s) => getGroupColorForNode(s.groups, id))
 
   return (
     <div
       onClick={() => selectNode(id)}
       onContextMenu={(e) => {
         e.preventDefault()
-        e.stopPropagation()
         selectNode(id)
       }}
       style={{
@@ -20,6 +20,7 @@ const GuildNode = memo(({ id, data, selected }) => {
         maxWidth: 220,
         borderRadius: 10,
         border: `2px solid ${selected ? '#fff' : config.color}`,
+        borderLeft: groupColor ? `3px solid ${groupColor}` : undefined,
         boxShadow: selected
           ? `0 0 0 3px ${config.color}, 0 4px 20px rgba(0,0,0,0.4)`
           : '0 2px 8px rgba(0,0,0,0.3)',
@@ -204,6 +205,10 @@ function fmt(n) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
   if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
   return String(n)
+}
+
+function getGroupColorForNode(groups, nodeId) {
+  return groups.find((group) => group.nodeIds.includes(nodeId))?.color ?? null
 }
 
 GuildNode.displayName = 'GuildNode'
