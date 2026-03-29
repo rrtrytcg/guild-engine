@@ -562,6 +562,10 @@ const ghostBtn = {
   fontWeight: 600,
   padding: '6px 10px',
   cursor: 'pointer',
+  touchAction: 'manipulation',
+  WebkitTapHighlightColor: 'transparent',
+  userSelect: 'none',
+  WebkitUserSelect: 'none',
 }
 
 const deleteBtn = {
@@ -573,6 +577,10 @@ const deleteBtn = {
   fontWeight: 600,
   padding: '6px 10px',
   cursor: 'pointer',
+  touchAction: 'manipulation',
+  WebkitTapHighlightColor: 'transparent',
+  userSelect: 'none',
+  WebkitUserSelect: 'none',
 }
 
 const rigBtn = {
@@ -584,6 +592,10 @@ const rigBtn = {
   fontWeight: 600,
   padding: '6px 10px',
   cursor: 'pointer',
+  touchAction: 'manipulation',
+  WebkitTapHighlightColor: 'transparent',
+  userSelect: 'none',
+  WebkitUserSelect: 'none',
 }
 
 const toolbarInput = {

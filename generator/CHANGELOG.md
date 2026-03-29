@@ -48,11 +48,10 @@ Each entry has:
 
 ## Pending systems (post-MVP — not yet in generators)
 
-### Hero inventory UI
+### PENDING: Hero inventory UI
 - TYPE: SYSTEM
 - SCOPE: NONE (data already in schema — UI only)
-- STATUS: IMPLEMENTED
-- SUMMARY: Screen for equipping items to hero slots. Day 1 extended — equip/unequip, stat diff preview, party picker.
+- SUMMARY: Screen for equipping items to hero slots. No schema change needed.
 - GENERATOR IMPACT: None — items and slots already generated correctly.
 - WIKI SECTION: To be added under "Hero Management"
 
@@ -70,11 +69,10 @@ Each entry has:
 - GENERATOR IMPACT: Pass 2 needs new RECIPE GENERATION section with calibration table.
 - WIKI SECTION: Section 6 (Crafting system)
 
-### Buildings that affect heroes (infirmary, barracks, war room)
+### PENDING: Buildings that affect heroes (infirmary, barracks, war room)
 - TYPE: SYSTEM
 - SCOPE: PASS2
-- STATUS: PARTIAL
-- SUMMARY: Buildings with hero_effect field — heal injured, clear exhausted, apply inspired. Artisan system implemented via `building_workflow` hero_instance output. Healing/infirmary buildings pending.
+- SUMMARY: Buildings with hero_effect field — heal injured, clear exhausted, apply inspired.
 - GENERATOR IMPACT: Pass 2 needs new building_effect calibration and layout logic.
 - WIKI SECTION: To be added under "Buildings"
 
@@ -92,29 +90,19 @@ Each entry has:
 - GENERATOR IMPACT: Pass 2 needs PRESTIGE GENERATION section with formula calibration.
 - WIKI SECTION: Section 8 (Prestige system)
 
-### Mid-run events on expeditions
+### PENDING: Mid-run events on expeditions
 - TYPE: FIELD
 - SCOPE: PASS2
-- STATUS: PARTIAL
-- SUMMARY: Pass 2 currently generates expeditions with empty events[]. ACTFORGE generates events for act blueprints. GENERATORPASS2 does not yet generate events for world expeditions — see UPDATE 2 below.
+- SUMMARY: Pass 2 currently generates expeditions with empty events[]. Needs event generation with choices and outcomes.
 - GENERATOR IMPACT: Pass 2 needs EVENT GENERATION section — 2-3 events per expedition, thematic to zone.
 - WIKI SECTION: Section 2 (Expedition resolver)
 
-### Consumable items (War Horn, health potion etc.)
+### PENDING: Consumable items (War Horn, health potion etc.)
 - TYPE: SYSTEM
 - SCOPE: PASS2
-- STATUS: PARTIAL
-- SUMMARY: Schema + runtime implemented. Pass 2 generation pending — see UPDATE 2 below.
+- SUMMARY: Items with use_effect field, consumed on use. Triggers status effects pre-expedition.
 - GENERATOR IMPACT: Pass 2 needs consumable item calibration table.
 - WIKI SECTION: To be added under "Items"
-
-### PENDING: ACTFORGE v1.1 — Item parameter injection
-- TYPE: SYSTEM
-- SCOPE: ACTFORGE (generator only)
-- STATUS: IMPLEMENTED
-- SUMMARY: Generated loot tables reference item IDs that may not exist in the project. ACTFORGE v1.1 now auto-generates stub item nodes themed to the act, positioned in a left column (x: -300 to -200). Each loot table gets 2-4 items: common material, uncommon equipment, and rare boss drop.
-- GENERATOR IMPACT: ACTFORGE.md updated with item generation rules, stub item templates, thematic naming tables, and drops_from edge generation.
-- WIKI SECTION: Section 13 (Blueprint System), ACTFORGE.md
 
 ---
 
@@ -124,13 +112,6 @@ Each entry has:
 |-------------------|---------------|-------------------------------|
 | v1.0.0            | 0.1.0         | Yes                           |
 | v1.1.0            | 0.1.0         | Yes — adds new fields         |
-| v1.2.0            | 1.2.0         | Yes                           |
-| v1.3.0            | 1.2.0         | Yes                           |
-| v1.4.0            | 1.2.0         | Yes — adds workflows, artisan classes, consumables |
-| v1.5.0            | 1.2.0         | Yes — editor only             |
-| v1.6.0            | 1.2.0         | Yes — editor only             |
-| v1.7.0            | 1.2.0         | Yes — ACTFORGE adds act blueprints |
-| v1.8.0            | 1.2.0         | Yes — validation only         |
 
 ---
 
@@ -165,65 +146,12 @@ Do not skip step 5. The changelog is how the designer knows what the generator c
 - SUMMARY: Two new passes for adapting existing IP/creative works. Extract Pass 0 reads source files (txt/md/html/rtf/docx/odt/epub/csv/json/yaml) and extracts world elements using 8 universal translation questions into source-analysis.json. Translate Pass maps source terms to game schema, outputs world-template.json (same format as Pass 1), flags ambiguous translations to translation-flags.md. Pass 2 and Pass 3 unchanged — they read world-template.json regardless of origin.
 - GENERATOR IMPACT: New EXTRACTPASS0.md and TRANSLATEPASS.md prompts. GENERATORPASS1/2/3 unchanged.
 - WIKI SECTION: To be added under "World Generator — IP Adaptation"
--
-### v1.4.0 — Building workflow system
+
+### v1.9.0 — WORLDFORGE (Forge Suite — Forge 1 of 7)
 - DATE: 2026-03-29
 - TYPE: SYSTEM
-- SCOPE: PASS2
+- SCOPE: WORLDFORGE (new forge — pre-pipeline, replaces PASS1 economy section for Forge Suite runs)
 - STATUS: IMPLEMENTED
-- SUMMARY: building_workflow, building_upgrade, crafting_recipe, blueprint node types. Artisan hero classes. Consumable buff system. world_effect output type. Formula evaluator. processBuildingTick runtime. 7 new compiler rules.
-- GENERATOR IMPACT: GENERATORPASS2.md updated with Step 2B (workflow generation), artisan class generation, building_upgrade generation, new canvas columns x=1760/2000.
-- WIKI SECTION: Sections 2, 3, 4 (Building Workflow, Artisan, Consumable)
-
-### v1.5.0 — Auto-wire + auto-rig system
-- DATE: 2026-03-29
-- TYPE: SYSTEM
-- SCOPE: NONE
-- STATUS: IMPLEMENTED
-- SUMMARY: Smart edge inference (15 relation types, color-coded). Auto-rig fills all ID cross-references from drawn edges. ⚡ Rig button in toolbar and multi-select toolbar. Edge legend. Project import migrates old edges.
-- GENERATOR IMPACT: None — editor-only feature. Generated projects import cleanly and edges are inferred on import.
-- WIKI SECTION: Section 14 (Auto-Wire + Auto-Rig)
-
-### v1.6.0 — Blueprint library + parameter injection
-- DATE: 2026-03-29
-- TYPE: SYSTEM
-- SCOPE: NONE
-- STATUS: IMPLEMENTED
-- SUMMARY: 9 preset blueprints across Basic/Medium/Complex tiers with pre-drawn edges. Parameter injection modal (use existing / create new). Multi-target injects_into path syntax. Semantic ID collision detection. Auto-create missing dependency nodes.
-- GENERATOR IMPACT: None — blueprints are editor-side. Pass 2 generates building systems as nodes; blueprints are the designer-facing layer on top.
-- WIKI SECTION: Section 13 (Blueprint System)
-
-### v1.7.0 — ACTFORGE act generator
-- DATE: 2026-03-29
-- TYPE: SYSTEM
-- SCOPE: ACTFORGE
-- STATUS: IMPLEMENTED
-- SUMMARY: New ACTFORGE.md prompt generates complete act blueprints from narrative descriptions. Outputs act + expedition + boss_expedition + loot_table + event nodes with pre-drawn edges. Blueprint format imports via Blueprint Library Acts tab. Parameter injection for act_number, difficulty_level, loot_prefix. Calibration tables for danger levels, loot tiers, boss phases.
-- GENERATOR IMPACT: New ACTFORGE.md prompt. PASS1/2/3 unchanged. ACTFORGE is an independent act-level generator that complements Pass 2's world-level generation.
-- WIKI SECTION: To be added — "Act Generator (ACTFORGE)"
-
-### v1.8.0 — CANVASDOCTOR validation tool
-- DATE: 2026-03-29
-- TYPE: SYSTEM
-- SCOPE: NONE
-- STATUS: IMPLEMENTED
-- SUMMARY: New CANVASDOCTOR.md prompt runs 23 validation checks (6 errors, 11 warnings, 6 balance hints) against any project.json. Generates canvas-doctor-report.md with exact fix instructions. Offers auto-fix for safe inferred fixes. Non-destructive — never modifies project without confirmation.
-- GENERATOR IMPACT: None — validation tool. Run after Pass 2 or ACTFORGE before compiling.
-- WIKI SECTION: To be added — "Canvas Doctor"
-
-### ActForge Run — 2026-03-29
- - DATE: 2026-03-29
- - TYPE: SYSTEM
- - SCOPE: PASS1
- - STATUS: IMPLEMENTED
- - SUMMARY: Generated act blueprint "The Tides of Rot" (coastal, mid difficulty).
- - GENERATOR IMPACT: New act blueprint available for import; contains 3 standard expeditions, 1 side zone, boss with phases and tide mechanics, and 3 loot tables.
- - WIKI SECTION: Acts (generation examples)
- 
-
-Generation details:
-- INPUT: Plague-ridden coast. Smugglers in tidal caves. Baron's son kidnapped by fish-cultists. Sunken cathedral finale.
-- OUTPUT: act-tides-of-rot.blueprint.json
-- COMPLEXITY: medium
-- NODES: 16 total (4 expeditions, 1 boss, 4 events, 3 loot tables, 1 act, edges)
-- ESTIMATED PLAYTIME: 50 minutes
+- SUMMARY: First forge in the Forge Suite. Economy theorist, not a field-filler. Reads source-analysis.json or world-template.json (or free-text pitch), applies five-step analysis (resource themes, scarcity intentions, economic loops, pacing signals, translation flags), runs mandatory calibration (income-to-cost ratios, income curves, scarcity classification, expedition reward bands), and generates resource nodes + economy_calibration object + downstream_contracts for all five downstream forges. Outputs world-economy.json to generated/ directory. Flags source material contradictions to economy-flags.md. PASS1/2/3 unchanged — Forge Suite is an additive pipeline running in parallel to, not replacing, the existing generator.
+- GENERATOR IMPACT: New WORLDFORGE.md prompt. Outputs guild-engine/generated/world-economy.json. HEROFORGE, BUILDFORGE, ACTFORGE (existing), ITEMFORGE, UPGRADEFORGE, and ASSEMBLER (all future) read downstream_contracts from this file. ACTFORGE must be updated when run as part of Forge Suite to read expedition_reward_bands from world-economy.json rather than its own internal calibration tables.
+- WIKI SECTION: To be added under "Forge Suite — WORLDFORGE"

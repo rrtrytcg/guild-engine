@@ -123,6 +123,7 @@ export default function Toolbar() {
         />
 
         <button
+          type="button"
           onClick={() => fileInputRef.current?.click()}
           style={ghostBtn}
           onMouseEnter={(e) => {
@@ -133,11 +134,20 @@ export default function Toolbar() {
             e.currentTarget.style.borderColor = '#2a2a3e'
             e.currentTarget.style.color = '#8888aa'
           }}
+          onMouseDown={(e) => {
+            e.currentTarget.style.background = '#1a1a2e'
+            e.currentTarget.style.color = '#fff'
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = '#8888aa'
+          }}
         >
           Import JSON
         </button>
 
         <button
+          type="button"
           onClick={() => setShowBlueprints(true)}
           style={ghostBtn}
           onMouseEnter={(e) => {
@@ -148,11 +158,20 @@ export default function Toolbar() {
             e.currentTarget.style.borderColor = '#2a2a3e'
             e.currentTarget.style.color = '#8888aa'
           }}
+          onMouseDown={(e) => {
+            e.currentTarget.style.background = '#1a1a2e'
+            e.currentTarget.style.color = '#fff'
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = '#8888aa'
+          }}
         >
           Blueprints
         </button>
 
         <button
+          type="button"
           onClick={handleRig}
           disabled={selectedNodeIds.length < 2}
           title="Fill ID references from drawn connections"
@@ -160,12 +179,25 @@ export default function Toolbar() {
             ...rigToolbarBtn,
             opacity: selectedNodeIds.length < 2 ? 0.4 : 1,
             cursor: selectedNodeIds.length < 2 ? 'not-allowed' : 'pointer',
+            pointerEvents: 'auto',
+            touchAction: 'manipulation',
+          }}
+          onMouseDown={(e) => {
+            if (selectedNodeIds.length >= 2) {
+              e.currentTarget.style.background = '#8B5A0F'
+            }
+          }}
+          onMouseUp={(e) => {
+            if (selectedNodeIds.length >= 2) {
+              e.currentTarget.style.background = '#BA7517'
+            }
           }}
         >
           ⚡ Rig
         </button>
 
         <button
+          type="button"
           onClick={() => setShowTuning(true)}
           style={ghostBtn}
           onMouseEnter={(e) => {
@@ -176,11 +208,20 @@ export default function Toolbar() {
             e.currentTarget.style.borderColor = '#2a2a3e'
             e.currentTarget.style.color = '#8888aa'
           }}
+          onMouseDown={(e) => {
+            e.currentTarget.style.background = '#1a1a2e'
+            e.currentTarget.style.color = '#fff'
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = '#8888aa'
+          }}
         >
           Tuning
         </button>
 
         <button
+          type="button"
           onClick={openDocs}
           style={ghostBtn}
           onMouseEnter={(e) => {
@@ -191,15 +232,26 @@ export default function Toolbar() {
             e.currentTarget.style.borderColor = '#2a2a3e'
             e.currentTarget.style.color = '#8888aa'
           }}
+          onMouseDown={(e) => {
+            e.currentTarget.style.background = '#1a1a2e'
+            e.currentTarget.style.color = '#fff'
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = '#8888aa'
+          }}
         >
           Docs
         </button>
 
         <button
+          type="button"
           onClick={() => setShowCompile(true)}
           style={solidBtn}
           onMouseEnter={(e) => (e.currentTarget.style.background = '#534AB7')}
           onMouseLeave={(e) => (e.currentTarget.style.background = '#7F77DD')}
+          onMouseDown={(e) => (e.currentTarget.style.background = '#4A3F9F')}
+          onMouseUp={(e) => (e.currentTarget.style.background = '#7F77DD')}
         >
           Compile &amp; Export
         </button>
@@ -248,6 +300,10 @@ const ghostBtn = {
   fontWeight: 600,
   padding: '6px 14px',
   cursor: 'pointer',
+  touchAction: 'manipulation',
+  WebkitTapHighlightColor: 'transparent',
+  userSelect: 'none',
+  WebkitUserSelect: 'none',
 }
 
 const solidBtn = {
@@ -259,6 +315,10 @@ const solidBtn = {
   fontWeight: 600,
   padding: '6px 14px',
   cursor: 'pointer',
+  touchAction: 'manipulation',
+  WebkitTapHighlightColor: 'transparent',
+  userSelect: 'none',
+  WebkitUserSelect: 'none',
 }
 
 const rigToolbarBtn = {
@@ -269,6 +329,10 @@ const rigToolbarBtn = {
   fontSize: 12,
   fontWeight: 600,
   padding: '6px 14px',
+  touchAction: 'manipulation',
+  WebkitTapHighlightColor: 'transparent',
+  userSelect: 'none',
+  WebkitUserSelect: 'none',
 }
 
 const viewToggleWrap = {
@@ -290,4 +354,8 @@ const viewPill = (active) => ({
   fontWeight: 700,
   padding: '6px 12px',
   cursor: 'pointer',
+  touchAction: 'manipulation',
+  WebkitTapHighlightColor: 'transparent',
+  userSelect: 'none',
+  WebkitUserSelect: 'none',
 })
