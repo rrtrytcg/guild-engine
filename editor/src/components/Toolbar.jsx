@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import useStore from '../store/useStore'
 import CompileModal from './CompileModal'
 import BlueprintLibraryModal from './BlueprintLibraryModal'
+import TuningModal from './TuningModal'
 
 export default function Toolbar() {
   const importProject = useStore((s) => s.importProject)
@@ -11,6 +12,7 @@ export default function Toolbar() {
   const fileInputRef = useRef(null)
   const [showCompile, setShowCompile] = useState(false)
   const [showBlueprints, setShowBlueprints] = useState(false)
+  const [showTuning, setShowTuning] = useState(false)
   const openDocs = () => window.open('/docs/WIKI.md', '_blank', 'noopener,noreferrer')
 
   const onFileChange = (e) => {
@@ -91,6 +93,15 @@ export default function Toolbar() {
         </button>
 
         <button
+          onClick={() => setShowTuning(true)}
+          style={ghostBtn}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#444460'; e.currentTarget.style.color = '#c0c0d8' }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2a2a3e'; e.currentTarget.style.color = '#8888aa' }}
+        >
+          Tuning
+        </button>
+
+        <button
           onClick={openDocs}
           style={ghostBtn}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#444460'; e.currentTarget.style.color = '#c0c0d8' }}
@@ -115,6 +126,7 @@ export default function Toolbar() {
           dropPosition={blueprintDropPosition}
         />
       )}
+      {showTuning && <TuningModal onClose={() => setShowTuning(false)} />}
       {showCompile && <CompileModal onClose={() => setShowCompile(false)} />}
     </>
   )

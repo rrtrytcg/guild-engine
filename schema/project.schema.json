@@ -2922,6 +2922,75 @@
       "compiler_check": "referenced building must exist in graph and have sufficient max_level"
     }
   },
+  "x-tuning-config": {
+    "description": "Configuration for the Tuning utility tab in the editor. Defines danger zone thresholds for the Formula Lab panel.",
+    "formula_lab": {
+      "danger_zones": [
+        {
+          "variable": "failure_chance",
+          "red_above": 0.3,
+          "yellow_above": 0.15,
+          "label": "High failure rate"
+        },
+        {
+          "variable": "crit_chance",
+          "red_above": 0.4,
+          "yellow_above": 0.25,
+          "label": "Crit rate may trivialize content"
+        },
+        {
+          "variable": "duration_ticks",
+          "red_below": 10,
+          "yellow_below": 30,
+          "label": "Very short jobs may cause performance issues"
+        },
+        {
+          "variable": "batch_size",
+          "red_above": 20,
+          "yellow_above": 10,
+          "label": "Large batches may cause UI lag"
+        }
+      ]
+    },
+    "xp_curves": {
+      "available_shapes": [
+        "linear",
+        "polynomial",
+        "exponential",
+        "s_curve"
+      ],
+      "shape_parameters": {
+        "linear": [
+          "slope",
+          "intercept"
+        ],
+        "polynomial": [
+          "coefficient",
+          "exponent",
+          "intercept"
+        ],
+        "exponential": [
+          "base",
+          "multiplier"
+        ],
+        "s_curve": [
+          "min_xp",
+          "max_xp",
+          "inflection_level",
+          "steepness"
+        ]
+      }
+    },
+    "economy_balance": {
+      "simulation_hours": 10,
+      "tick_rate": 4,
+      "flags": {
+        "deadlock_threshold": 0,
+        "bottleneck_ratio": 10,
+        "sink_warning_after_act": 1
+      }
+    }
+  },
   "x-changelog": {
     "1.2.0": {
       "date": "2026-03-29",
