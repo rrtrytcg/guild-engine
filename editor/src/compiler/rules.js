@@ -106,15 +106,15 @@ function detectCyclePath(graph) {
 // Connection rules mirrored from project.schema.json x-connection-rules.
 // source type -> { relation -> allowed target types[] }
 export const CONNECTION_RULES = {
-  resource:        { produces: ['building'], modifies: ['upgrade'] },
-  item:            { drops_from: ['loot_table'], consumes: ['recipe'] },
+  resource:        { produces: ['building'], modifies: ['upgrade'], consumes: ['building_workflow', 'crafting_recipe'] },
+  item:            { drops_from: ['loot_table'], consumes: ['recipe', 'crafting_recipe'] },
   loot_table:      { drops_from: ['expedition', 'boss_expedition', 'building'] },
   recipe:          { hosts_recipe: ['building'], consumes: ['item'], produces: ['item'] },
-  crafting_recipe: { used_by: ['building_workflow'] },
-  hero_class:      { trains: ['building'], preferred_class: ['expedition', 'boss_expedition'], assigned_to: ['building'] },
+  crafting_recipe: { used_by: ['building_workflow'], produces: ['item', 'resource'] },
+  hero_class:      { trains: ['building'], preferred_class: ['expedition', 'boss_expedition'], assigned_to: ['building', 'building_workflow'] },
   ability:         { trains: ['hero_class'] },
-  building:        { produces: ['resource'], hosts_recipe: ['recipe'], unlocks: ['upgrade', 'expedition', 'boss_expedition'], gates: ['act'] },
-  building_workflow: { available_at: ['building'] },
+  building:        { produces: ['resource'], hosts_recipe: ['recipe', 'crafting_recipe'], unlocks: ['upgrade', 'expedition', 'boss_expedition'], gates: ['act'], available_at: ['building_workflow'] },
+  building_workflow: { available_at: ['building'], produces: ['resource', 'item', 'consumable'], used_by: ['crafting_recipe'], unlocks: ['building_upgrade'] },
   upgrade:         { modifies: ['resource', 'building', 'hero_class', 'expedition'] },
   building_upgrade: { hosts: ['building'], unlocks: ['building_workflow'], requires_building: ['building'] },
   expedition:      { drops_from: ['loot_table'], gates: ['act'], triggers: ['event'] },

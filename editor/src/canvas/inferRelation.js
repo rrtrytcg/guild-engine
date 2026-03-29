@@ -1,13 +1,15 @@
 export function inferRelation(sourceType, targetType) {
   // Full lookup table from x-connection-rules in the schema
   const rules = {
-    resource:        { building: 'produces',         upgrade: 'modifies' },
+    resource:        { building: 'produces',         upgrade: 'modifies',
+                      building_workflow: 'consumes', crafting_recipe: 'consumes' },
     item:            { loot_table: 'drops_from',      recipe: 'consumes',
                       crafting_recipe: 'consumes' },
     loot_table:      { expedition: 'drops_from',      boss_expedition: 'drops_from',
                       building: 'drops_from' },
     recipe:          { building: 'hosts_recipe',      item: 'produces' },
-    crafting_recipe: { building_workflow: 'used_by',  item: 'produces' },
+    crafting_recipe: { building_workflow: 'used_by',  item: 'produces',
+                      resource: 'produces' },
     hero_class:      { building: 'trains',            expedition: 'preferred_class',
                       boss_expedition: 'preferred_class',
                       building_workflow: 'assigned_to' },
@@ -18,7 +20,8 @@ export function inferRelation(sourceType, targetType) {
                       upgrade: 'unlocks',            expedition: 'unlocks',
                       boss_expedition: 'unlocks',    act: 'gates' },
     building_workflow:{ building: 'available_at',    resource: 'produces',
-                       item: 'produces',             crafting_recipe: 'used_by' },
+                       item: 'produces',             crafting_recipe: 'used_by',
+                       building_upgrade: 'unlocks' },
     building_upgrade: { building: 'hosts',           building_workflow: 'unlocks' },
     upgrade:         { resource: 'modifies',         building: 'modifies',
                       hero_class: 'modifies',        expedition: 'modifies' },
