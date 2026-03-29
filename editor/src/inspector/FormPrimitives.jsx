@@ -618,23 +618,81 @@ export function Section({ title }) {
 // Stat block editor (key: number pairs)
 export function StatBlock({ label, value = {}, onChange }) {
   const entries = Object.entries(value)
-  const nextStatId = useRef(1)
+  const [showAddMenu, setShowAddMenu] = useState(false)
+  const [customMode, setCustomMode] = useState(false)
+  const [customKey, setCustomKey] = useState('')
+  const [focusRequest, setFocusRequest] = useState(null)
+  const focusSeq = useRef(0)
+  const numberRefs = useRef({})
+  const customInputRef = useRef(null)
 
   const updateStat = (key, val) => onChange({ ...value, [key]: Number(val) })
-  const addStat = () => {
-    let index = nextStatId.current
-    while (Object.prototype.hasOwnProperty.call(value, `stat_${index}`)) {
-      index += 1
-    }
-    nextStatId.current = index + 1
-    const key = `stat_${index}`
-    onChange({ ...value, [key]: 0 })
-  }
   const removeStat = (key) => {
     const next = { ...value }
     delete next[key]
     onChange(next)
   }
+
+  const requestFocus = (key) => {
+    focusSeq.current += 1
+    setFocusRequest({ key, token: focusSeq.current })
+  }
+
+  const ensureStat = (key) => {
+    const statKey = String(key ?? '').trim()
+    if (!statKey) return
+
+    if (!Object.prototype.hasOwnProperty.call(value, statKey)) {
+      onChange({ ...value, [statKey]: 0 })
+    }
+
+    setShowAddMenu(false)
+    setCustomMode(false)
+    setCustomKey('')
+    requestFocus(statKey)
+  }
+
+  const toggleAddMenu = () => {
+    setShowAddMenu((current) => !current)
+    setCustomMode(false)
+    setCustomKey('')
+  }
+
+  const openCustomMode = () => {
+    setShowAddMenu(true)
+    setCustomMode(true)
+    setCustomKey('')
+  }
+
+  const commitCustomStat = () => {
+    const statKey = customKey.trim()
+    if (!statKey) {
+      setCustomMode(false)
+      return
+    }
+    ensureStat(statKey)
+  }
+
+  useEffect(() => {
+    if (!focusRequest?.key) return undefined
+    const timer = requestAnimationFrame(() => {
+      const el = numberRefs.current[focusRequest.key]
+      if (el) {
+        el.focus()
+        el.select?.()
+      }
+    })
+    return () => cancelAnimationFrame(timer)
+  }, [focusRequest, entries])
+
+  useEffect(() => {
+    if (!customMode) return undefined
+    const timer = requestAnimationFrame(() => {
+      customInputRef.current?.focus()
+      customInputRef.current?.select?.()
+    })
+    return () => cancelAnimationFrame(timer)
+  }, [customMode])
 
   return (
     <div style={{ marginBottom: 12 }}>
@@ -642,8 +700,47 @@ export function StatBlock({ label, value = {}, onChange }) {
         <label style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666680' }}>
           {label}
         </label>
-        <button onClick={addStat} style={addBtnStyle}>+ stat</button>
+        <button type="button" onClick={toggleAddMenu} style={addBtnStyle}>+ stat</button>
       </div>
+      {showAddMenu && (
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: customMode ? 8 : 0 }}>
+            {STAT_PRESETS.map((stat) => (
+              <button
+                key={stat}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => ensureStat(stat)}
+                style={chipStyle}
+              >
+                {stat}
+              </button>
+            ))}
+            <button type="button" onClick={openCustomMode} style={customChipStyle}>
+              + custom
+            </button>
+          </div>
+          {customMode && (
+            <input
+              ref={customInputRef}
+              value={customKey}
+              onChange={(e) => setCustomKey(e.target.value)}
+              onBlur={commitCustomStat}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  commitCustomStat()
+                } else if (e.key === 'Escape') {
+                  setCustomMode(false)
+                  setCustomKey('')
+                }
+              }}
+              placeholder="e.g. attack"
+              style={{ ...inputStyle, width: '100%' }}
+            />
+          )}
+        </div>
+      )}
       {entries.map(([key, val]) => (
         <div key={key} style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'center' }}>
           <input
@@ -653,16 +750,33 @@ export function StatBlock({ label, value = {}, onChange }) {
               entries.forEach(([k, v]) => { next[k === key ? e.target.value : k] = v })
               onChange(next)
             }}
+            onBlur={(e) => {
+              if (!String(e.target.value ?? '').trim()) {
+                removeStat(key)
+              }
+            }}
             style={{ ...inputStyle, flex: 1 }}
-            placeholder="stat"
+            placeholder="e.g. attack"
           />
-          <input
-            type="number"
-            value={val}
-            onChange={(e) => updateStat(key, e.target.value)}
-            style={{ ...inputStyle, width: 60 }}
-          />
-          <button onClick={() => removeStat(key)} style={removeBtnStyle}>×</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <span style={{ ...statValueBadgeStyle, ...getStatToneStyle(val) }}>
+              {formatStatValue(val)}
+            </span>
+            <input
+              ref={(el) => {
+                if (el) {
+                  numberRefs.current[key] = el
+                } else {
+                  delete numberRefs.current[key]
+                }
+              }}
+              type="number"
+              value={val}
+              onChange={(e) => updateStat(key, e.target.value)}
+              style={{ ...inputStyle, width: 72, textAlign: 'right' }}
+            />
+          </div>
+          <button type="button" onClick={() => removeStat(key)} style={removeBtnStyle}>×</button>
         </div>
       ))}
     </div>
@@ -795,4 +909,64 @@ const removeBtnStyle = {
   cursor: 'pointer',
   fontSize: 14,
   padding: '0 2px',
+}
+
+const STAT_PRESETS = ['attack', 'defense', 'speed', 'hp', 'luck']
+
+const chipStyle = {
+  background: '#1e1e2e',
+  border: '1px solid #2a2a3e',
+  borderRadius: 999,
+  color: '#c0c0d8',
+  cursor: 'pointer',
+  fontSize: 11,
+  padding: '4px 10px',
+  textTransform: 'lowercase',
+}
+
+const customChipStyle = {
+  ...chipStyle,
+  color: '#7F77DD',
+  borderColor: '#7F77DD55',
+  background: '#7F77DD18',
+}
+
+const statValueBadgeStyle = {
+  minWidth: 40,
+  padding: '4px 8px',
+  borderRadius: 999,
+  fontSize: 11,
+  fontWeight: 700,
+  textAlign: 'center',
+  border: '1px solid transparent',
+}
+
+function formatStatValue(value) {
+  const numeric = Number(value ?? 0)
+  if (!Number.isFinite(numeric)) return '0'
+  if (numeric > 0) return `+${numeric}`
+  return String(numeric)
+}
+
+function getStatToneStyle(value) {
+  const numeric = Number(value ?? 0)
+  if (numeric > 0) {
+    return {
+      color: '#5DCAA5',
+      background: '#1D9E7522',
+      borderColor: '#1D9E7544',
+    }
+  }
+  if (numeric < 0) {
+    return {
+      color: '#E24B4A',
+      background: '#E24B4A22',
+      borderColor: '#E24B4A44',
+    }
+  }
+  return {
+    color: '#8888aa',
+    background: '#2a2a3e',
+    borderColor: '#444460',
+  }
 }

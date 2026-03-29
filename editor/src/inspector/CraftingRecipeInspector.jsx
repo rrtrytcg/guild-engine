@@ -51,11 +51,11 @@ export default function CraftingRecipeInspector({ node }) {
 
       <Section title="Result" />
       <SearchableDropdown
-        label="Output item"
-        value={d.output_item ?? ''}
-        onChange={(v) => update({ output_item: v })}
-        typeFilter="item"
-        placeholder="Search items"
+        label="Output item / resource"
+        value={d.output_item_id ?? d.output_item ?? ''}
+        onChange={(v) => update({ output_item_id: v, output_item: v })}
+        typeFilter={['item', 'resource']}
+        placeholder="Search items or resources"
       />
       <Field
         label="Output quantity"
@@ -67,8 +67,8 @@ export default function CraftingRecipeInspector({ node }) {
       <Section title="Unlocks" />
       <SearchableDropdown
         label="Required workflow"
-        value={d.required_workflow ?? ''}
-        onChange={(v) => update({ required_workflow: v })}
+        value={d.workflow_id ?? d.required_workflow ?? ''}
+        onChange={(v) => update({ workflow_id: v, required_workflow: v })}
         typeFilter="building_workflow"
         placeholder="Search workflows"
       />

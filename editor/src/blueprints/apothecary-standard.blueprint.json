@@ -23,9 +23,9 @@
         "expand_by": "building_upgrade"
       },
       "levels": [
-        { "build_cost": [{ "resource_id": "gold", "amount": 140 }], "build_time_s": 40, "hero_slots": 1, "recipe_slots": 1, "production": {} },
-        { "build_cost": [{ "resource_id": "gold", "amount": 420 }], "build_time_s": 70, "hero_slots": 1, "recipe_slots": 2, "production": {} },
-        { "build_cost": [{ "resource_id": "gold", "amount": 900 }], "build_time_s": 110, "hero_slots": 2, "recipe_slots": 3, "production": {} }
+        { "build_cost": [], "build_time_s": 40, "hero_slots": 1, "recipe_slots": 1, "production": {} },
+        { "build_cost": [], "build_time_s": 70, "hero_slots": 1, "recipe_slots": 2, "production": {} },
+        { "build_cost": [], "build_time_s": 110, "hero_slots": 2, "recipe_slots": 3, "production": {} }
       ],
       "visible": true,
       "canvas_pos": { "x": 0, "y": 0 }
@@ -59,8 +59,8 @@
       "action_type": "brew",
       "base_duration_ticks": 70,
       "duration_base_ticks": 70,
-      "input_rules": [{ "resource": "herbs", "amount": 3 }, { "resource": "water", "amount": 1 }],
-      "inputs": [{ "resource": "herbs", "amount": 3 }, { "resource": "water", "amount": 1 }],
+      "input_rules": [],
+      "inputs": [],
       "output_rules": [
         { "output_type": "consumable", "target": "bp-apothecary-item-health-potion", "quantity": 1, "chance": 1 }
       ],
@@ -91,8 +91,8 @@
       "action_type": "distill",
       "base_duration_ticks": 90,
       "duration_base_ticks": 90,
-      "input_rules": [{ "resource": "herbs", "amount": 4 }, { "resource": "crystal_dust", "amount": 1 }],
-      "inputs": [{ "resource": "herbs", "amount": 4 }, { "resource": "crystal_dust", "amount": 1 }],
+      "input_rules": [],
+      "inputs": [],
       "output_rules": [
         { "output_type": "consumable", "target": "bp-apothecary-item-health-potion-superior", "quantity": 1, "chance": 1 }
       ],
@@ -123,8 +123,8 @@
       "action_type": "preserve",
       "base_duration_ticks": 60,
       "duration_base_ticks": 60,
-      "input_rules": [{ "resource": "glass_vials", "amount": 2 }, { "resource": "herbs", "amount": 2 }],
-      "inputs": [{ "resource": "glass_vials", "amount": 2 }, { "resource": "herbs", "amount": 2 }],
+      "input_rules": [],
+      "inputs": [],
       "output_rules": [
         { "output_type": "consumable", "target": "bp-apothecary-item-health-potion", "quantity": 2, "chance": 1 }
       ],
@@ -152,7 +152,7 @@
       "host_building": "bp-apothecary-building",
       "required_building_level": 2,
       "level": 2,
-      "cost": [{ "resource": "gold", "amount": 180 }],
+      "cost": [],
       "unlocks_workflow_ids": ["bp-apothecary-workflow-brew"],
       "artisan_slot_increase": 1,
       "effects": {
@@ -170,7 +170,7 @@
       "host_building": "bp-apothecary-building",
       "required_building_level": 3,
       "level": 3,
-      "cost": [{ "resource": "gold", "amount": 650 }],
+      "cost": [],
       "unlocks_workflow_ids": ["bp-apothecary-workflow-distill"],
       "artisan_slot_increase": 1,
       "effects": {
@@ -188,7 +188,7 @@
       "host_building": "bp-apothecary-building",
       "required_building_level": 3,
       "level": 3,
-      "cost": [{ "resource": "gold", "amount": 1800 }],
+      "cost": [],
       "unlocks_workflow_ids": ["bp-apothecary-workflow-preserve"],
       "artisan_slot_increase": 0,
       "effects": {
@@ -252,9 +252,9 @@
       "id": "bp-apothecary-recipe-potion",
       "type": "crafting_recipe",
       "label": "Brew Health Potion",
-      "inputs": [{ "resource": "herbs", "amount": 3 }, { "resource": "water", "amount": 1 }],
-      "output_item": "bp-apothecary-item-health-potion",
-      "required_workflow": "bp-apothecary-workflow-brew",
+      "inputs": [],
+      "output_item_id": "bp-apothecary-item-health-potion",
+      "workflow_id": "bp-apothecary-workflow-brew",
       "required_building_level": 1,
       "output_quantity": 1,
       "visible": true,
@@ -264,9 +264,9 @@
       "id": "bp-apothecary-recipe-superior",
       "type": "crafting_recipe",
       "label": "Distill Superior Potion",
-      "inputs": [{ "resource": "herbs", "amount": 5 }, { "resource": "crystal_dust", "amount": 1 }],
-      "output_item": "bp-apothecary-item-health-potion-superior",
-      "required_workflow": "bp-apothecary-workflow-distill",
+      "inputs": [],
+      "output_item_id": "bp-apothecary-item-health-potion-superior",
+      "workflow_id": "bp-apothecary-workflow-distill",
       "required_building_level": 2,
       "output_quantity": 1,
       "visible": true,
@@ -276,9 +276,9 @@
       "id": "bp-apothecary-recipe-preserve",
       "type": "crafting_recipe",
       "label": "Preserve Expedition Batch",
-      "inputs": [{ "resource": "glass_vials", "amount": 2 }, { "resource": "herbs", "amount": 2 }],
-      "output_item": "bp-apothecary-item-health-potion",
-      "required_workflow": "bp-apothecary-workflow-preserve",
+      "inputs": [],
+      "output_item_id": "bp-apothecary-item-health-potion",
+      "workflow_id": "bp-apothecary-workflow-preserve",
       "required_building_level": 3,
       "output_quantity": 2,
       "visible": true,

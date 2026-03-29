@@ -23,7 +23,7 @@ export default function App() {
       }}
     >
       <Toolbar />
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minWidth: 0 }}>
         <Palette />
         {canvasView === 'nodes' ? (
           <Canvas focusGroupId={focusGroupId} />

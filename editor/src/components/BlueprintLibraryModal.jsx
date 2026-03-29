@@ -3,8 +3,9 @@ import useStore from '../store/useStore'
 import forgeStandard from '../blueprints/forge-standard.blueprint.json'
 import apothecaryStandard from '../blueprints/apothecary-standard.blueprint.json'
 import libraryStandard from '../blueprints/library-standard.blueprint.json'
+import mineStandard from '../blueprints/mine-standard.blueprint.json'
 
-const PRESET_BLUEPRINTS = [forgeStandard, apothecaryStandard, libraryStandard]
+const PRESET_BLUEPRINTS = [forgeStandard, apothecaryStandard, libraryStandard, mineStandard]
 
 export default function BlueprintLibraryModal({ onClose, dropPosition }) {
   const importBlueprint = useStore((s) => s.importBlueprint)

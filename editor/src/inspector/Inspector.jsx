@@ -50,7 +50,7 @@ export default function Inspector() {
   if (!node) {
     return (
       <div style={{
-        width: 360, background: '#13131f', borderLeft: '1px solid #2a2a3e',
+        width: 480, background: '#13131f', borderLeft: '1px solid #2a2a3e',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         color: '#444460', fontSize: 12, textAlign: 'center', padding: 24,
       }}>
@@ -64,7 +64,7 @@ export default function Inspector() {
 
   return (
     <div style={{
-      width: 360, background: '#13131f', borderLeft: '1px solid #2a2a3e',
+      width: 480, background: '#13131f', borderLeft: '1px solid #2a2a3e',
       display: 'flex', flexDirection: 'column', overflowY: 'auto',
     }}>
       {/* Header */}

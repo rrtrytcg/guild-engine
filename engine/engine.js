@@ -1,5 +1,5 @@
 import { bootstrapState } from './systems/bootstrap.js'
-import { tickResources, formatNumber, canAfford, spend, spendItems } from './systems/resources.js'
+import { tickResources, formatNumber, spendItems } from './systems/resources.js'
 import {
   tickExpeditions,
   startExpedition,
@@ -83,7 +83,7 @@ function rarityToTier(rarity) {
 
 function getWorkflowRecipe(workflowId, buildingLevel = 0) {
   const recipes = Object.values(state?.craftingRecipes ?? {}).filter((recipe) =>
-    recipe.required_workflow === workflowId
+    (recipe.required_workflow ?? recipe.workflow_id) === workflowId
     && recipe.visible !== false
     && (recipe.required_building_level ?? 1) <= buildingLevel
   )
@@ -150,7 +150,7 @@ function resolveWorkflowDuration(building, workflow, options = {}) {
   return Math.max(0.1, Number(workflow?.total_ticks_required ?? workflow?.duration_base_ticks ?? 1))
 }
 
-function resolveWorkflowResourceInputs(building, workflow, recipe = null) {
+function resolveWorkflowInputs(building, workflow, recipe = null) {
   const artisan = building?.artisan_assigned
     ? state?.heroes?.find((hero) => hero.id === building.artisan_assigned) ?? null
     : null
@@ -158,15 +158,47 @@ function resolveWorkflowResourceInputs(building, workflow, recipe = null) {
   const source = recipe?.inputs ?? workflow?.inputs ?? []
 
   return source.map((entry) => {
-    const resourceId = entry.resource ?? entry.resource_id
-    const amount = typeof entry.amount === 'string'
-      ? evaluateFormulaSafe(entry.amount, variables, 0)
-      : Number(entry.amount ?? 0)
+    const inputId = entry.item_id ?? entry.resource_id ?? entry.resource ?? entry.item ?? ''
+    const amountSource = entry.qty ?? entry.amount ?? 0
+    const amount = typeof amountSource === 'string'
+      ? evaluateFormulaSafe(amountSource, variables, 0)
+      : Number(amountSource)
+    const isResource = Boolean(inputId && state?.resources?.[inputId])
+    const isItem = Boolean(inputId && state?.itemDefs?.[inputId])
     return {
-      resource_id: resourceId,
-      amount: Math.max(0, amount),
+      id: inputId,
+      qty: Math.max(0, amount),
+      kind: isResource ? 'resource' : (isItem ? 'item' : 'unknown'),
     }
-  }).filter((entry) => entry.resource_id && entry.amount > 0)
+  }).filter((entry) => entry.id && entry.qty > 0)
+}
+
+function getAvailableWorkflowInputAmount(input) {
+  if (!input?.id) return 0
+  if (input.kind === 'resource') return Number(state?.resources?.[input.id]?.amount ?? 0)
+  if (input.kind === 'item') return Number(state?.inventory?.[input.id] ?? 0)
+
+  const resourceAmount = Number(state?.resources?.[input.id]?.amount ?? 0)
+  if (resourceAmount > 0 || state?.resources?.[input.id]) return resourceAmount
+  return Number(state?.inventory?.[input.id] ?? 0)
+}
+
+function canCommitWorkflowInputs(inputs) {
+  return inputs.every((input) => getAvailableWorkflowInputAmount(input) >= input.qty)
+}
+
+function commitWorkflowInputs(inputs) {
+  if (!canCommitWorkflowInputs(inputs)) return false
+
+  for (const input of inputs) {
+    if (input.kind === 'resource' || (input.kind === 'unknown' && state?.resources?.[input.id])) {
+      state.resources[input.id].amount -= input.qty
+      continue
+    }
+    state.inventory[input.id] = Math.max(0, Number(state.inventory?.[input.id] ?? 0) - input.qty)
+  }
+
+  return true
 }
 
 function getWorkflowCandidateItems(workflow) {
@@ -256,13 +288,18 @@ function queueWorkflowJobForBuilding(buildingId, workflowId) {
   if (queuedJobs.length >= queueLimit) return { ok: false, reason: 'Workflow queue is full.' }
 
   const recipe = getWorkflowRecipe(workflowId, building.level ?? 0)
-  const resourceInputs = resolveWorkflowResourceInputs(building, workflow, recipe)
-  if (resourceInputs.length && !canAfford(state, resourceInputs)) {
-    return { ok: false, reason: 'Missing resources.' }
+  const workflowInputs = resolveWorkflowInputs(building, workflow, recipe)
+  if (workflowInputs.length && !canCommitWorkflowInputs(workflowInputs)) {
+    return { ok: false, reason: 'Missing inputs.' }
   }
 
   let sourceItemId = null
-  if (workflow.behavior === 'consume_item' || workflow.behavior === 'modify_item') {
+  const explicitItemInput = workflowInputs.find((input) => input.kind === 'item')?.id ?? null
+  if (explicitItemInput) {
+    sourceItemId = explicitItemInput
+  }
+
+  if ((workflow.behavior === 'consume_item' || workflow.behavior === 'modify_item') && !workflowInputs.length) {
     const candidate = getWorkflowCandidateItems(workflow)[0]
     if (!candidate) return { ok: false, reason: 'Missing item input.' }
     if (!spendItems(state, [{ item_id: candidate.itemId, qty: 1 }])) {
@@ -271,8 +308,8 @@ function queueWorkflowJobForBuilding(buildingId, workflowId) {
     sourceItemId = candidate.itemId
   }
 
-  if (resourceInputs.length) {
-    spend(state, resourceInputs)
+  if (workflowInputs.length && !commitWorkflowInputs(workflowInputs)) {
+    return { ok: false, reason: 'Missing inputs.' }
   }
 
   const batchSize = Number(recipe?.output_quantity ?? workflow?.batch_config?.max_size ?? 1)
@@ -290,7 +327,7 @@ function queueWorkflowJobForBuilding(buildingId, workflowId) {
     }),
     batch_size: batchSize,
     inputs_committed: true,
-    consumed_resources: resourceInputs,
+    consumed_resources: workflowInputs,
     item_level: 1,
     item_quality_tier: 0,
     passive: false,

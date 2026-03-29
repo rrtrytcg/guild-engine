@@ -23,9 +23,9 @@
         "expand_by": "building_upgrade"
       },
       "levels": [
-        { "build_cost": [{ "resource_id": "gold", "amount": 180 }], "build_time_s": 50, "hero_slots": 1, "recipe_slots": 1, "production": {} },
-        { "build_cost": [{ "resource_id": "gold", "amount": 520 }], "build_time_s": 90, "hero_slots": 1, "recipe_slots": 1, "production": {} },
-        { "build_cost": [{ "resource_id": "gold", "amount": 1100 }], "build_time_s": 140, "hero_slots": 2, "recipe_slots": 1, "production": {} }
+        { "build_cost": [], "build_time_s": 50, "hero_slots": 1, "recipe_slots": 1, "production": {} },
+        { "build_cost": [], "build_time_s": 90, "hero_slots": 1, "recipe_slots": 1, "production": {} },
+        { "build_cost": [], "build_time_s": 140, "hero_slots": 2, "recipe_slots": 1, "production": {} }
       ],
       "visible": true,
       "canvas_pos": { "x": 0, "y": 0 }
@@ -59,8 +59,8 @@
       "action_type": "catalog",
       "base_duration_ticks": 100,
       "duration_base_ticks": 100,
-      "input_rules": [{ "resource": "paper", "amount": 2 }, { "resource": "ink", "amount": 1 }],
-      "inputs": [{ "resource": "paper", "amount": 2 }, { "resource": "ink", "amount": 1 }],
+      "input_rules": [],
+      "inputs": [],
       "output_rules": [
         { "output_type": "world_effect", "effect_type": "trigger_event", "target": "bp-library-event-cataloged", "chance": 1 }
       ],
@@ -97,8 +97,8 @@
       "action_type": "research",
       "base_duration_ticks": 130,
       "duration_base_ticks": 130,
-      "input_rules": [{ "resource": "paper", "amount": 3 }, { "resource": "ink", "amount": 1 }, { "resource": "crystal_dust", "amount": 1 }],
-      "inputs": [{ "resource": "paper", "amount": 3 }, { "resource": "ink", "amount": 1 }, { "resource": "crystal_dust", "amount": 1 }],
+      "input_rules": [],
+      "inputs": [],
       "output_rules": [
         { "output_type": "world_effect", "effect_type": "trigger_event", "target": "bp-library-event-breakthrough", "chance": 1 }
       ],
@@ -135,8 +135,8 @@
       "action_type": "archive",
       "base_duration_ticks": 95,
       "duration_base_ticks": 95,
-      "input_rules": [{ "resource": "paper", "amount": 2 }, { "resource": "binding", "amount": 1 }],
-      "inputs": [{ "resource": "paper", "amount": 2 }, { "resource": "binding", "amount": 1 }],
+      "input_rules": [],
+      "inputs": [],
       "output_rules": [
         { "output_type": "world_effect", "effect_type": "trigger_event", "target": "bp-library-event-archive", "chance": 1 }
       ],
@@ -170,7 +170,7 @@
       "host_building": "bp-library-building",
       "required_building_level": 2,
       "level": 2,
-      "cost": [{ "resource": "gold", "amount": 250 }],
+      "cost": [],
       "unlocks_workflow_ids": ["bp-library-workflow-catalog"],
       "artisan_slot_increase": 1,
       "effects": {
@@ -188,7 +188,7 @@
       "host_building": "bp-library-building",
       "required_building_level": 3,
       "level": 3,
-      "cost": [{ "resource": "gold", "amount": 900 }],
+      "cost": [],
       "unlocks_workflow_ids": ["bp-library-workflow-research"],
       "artisan_slot_increase": 1,
       "effects": {
@@ -206,7 +206,7 @@
       "host_building": "bp-library-building",
       "required_building_level": 3,
       "level": 3,
-      "cost": [{ "resource": "gold", "amount": 2200 }],
+      "cost": [],
       "unlocks_workflow_ids": ["bp-library-workflow-archive"],
       "artisan_slot_increase": 0,
       "effects": {

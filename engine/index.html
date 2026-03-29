@@ -206,6 +206,7 @@ const renderCache = {
 }
 let worldActionsBound = false
 let expeditionActionsBound = false
+let forgeActionsBound = false
 let heroActionsBound = false
 let inventoryActionsBound = false
 
@@ -718,7 +719,7 @@ function getBuildingWorkflows(s, buildingId) {
 
 function getWorkflowRecipe(s, workflowId, buildingLevel = 0) {
   return (s.craftingRecipes ?? [])
-    .filter((recipe) => recipe.required_workflow === workflowId && recipe.visible !== false && (recipe.required_building_level ?? 1) <= buildingLevel)
+    .filter((recipe) => (recipe.required_workflow ?? recipe.workflow_id) === workflowId && recipe.visible !== false && (recipe.required_building_level ?? 1) <= buildingLevel)
     .sort((left, right) => (left.label ?? left.id).localeCompare(right.label ?? right.id))[0] ?? null
 }
 
@@ -735,13 +736,87 @@ function formatResourceCostLabel(s, cost = []) {
     : 'Free'
 }
 
+function getWorkflowInputEntries(workflow, recipe) {
+  return (recipe?.inputs ?? workflow?.inputs ?? [])
+    .map((entry) => ({
+      item_id: entry.item_id ?? entry.item ?? '',
+      resource_id: entry.resource_id ?? entry.resource ?? '',
+      qty: Number(entry.qty ?? entry.amount ?? 0),
+    }))
+    .filter((entry) => (entry.item_id || entry.resource_id) && entry.qty > 0)
+}
+
+function getInventoryQuantity(s, itemId) {
+  return (s.inventory ?? []).find((entry) => entry.id === itemId)?.qty ?? 0
+}
+
+function getResourceQuantity(s, resourceId) {
+  return (s.resources ?? []).find((entry) => entry.id === resourceId)?.amount ?? 0
+}
+
+function hasResourceEntry(s, resourceId) {
+  return (s.resources ?? []).some((entry) => entry.id === resourceId)
+}
+
+function hasItemEntry(s, itemId) {
+  return Boolean(s.itemDefs?.[itemId])
+}
+
+function getWorkflowInputAvailableQuantity(s, input) {
+  const inputId = input.item_id || input.resource_id
+  if (!inputId) return 0
+
+  if (hasResourceEntry(s, inputId)) return getResourceQuantity(s, inputId)
+  if (hasItemEntry(s, inputId)) return getInventoryQuantity(s, inputId)
+
+  const resourceQty = getResourceQuantity(s, inputId)
+  if (resourceQty > 0) return resourceQty
+  return getInventoryQuantity(s, inputId)
+}
+
+function getWorkflowCandidateItemsForUi(s, workflow) {
+  const filter = workflow?.target_filter ?? {}
+  const requiredTags = new Set(filter.item_tags ?? [])
+  const excludedTags = new Set(filter.exclude_tags ?? [])
+  const allowedRarities = new Set(filter.item_rarity ?? [])
+
+  return (s.inventory ?? [])
+    .filter((entry) => entry.qty > 0 && entry.def)
+    .filter((entry) => {
+      const tags = new Set(entry.def?.tags ?? [])
+      if (requiredTags.size > 0 && [...requiredTags].some((tag) => !tags.has(tag))) return false
+      if (excludedTags.size > 0 && [...excludedTags].some((tag) => tags.has(tag))) return false
+      if (allowedRarities.size > 0 && !allowedRarities.has(entry.def?.rarity ?? 'common')) return false
+      return true
+    })
+}
+
+function canQueueWorkflowJobUi(s, building, workflow, recipe) {
+  if (!building || !workflow) return false
+  if (building.workflow_queue?.length >= getWorkflowQueueLimit(building)) return false
+  if (workflow.visible === false) return false
+  if (workflow.workflow_mode === 'passive') return false
+
+  const inputs = getWorkflowInputEntries(workflow, recipe)
+  for (const input of inputs) {
+    if (getWorkflowInputAvailableQuantity(s, input) < input.qty) return false
+  }
+
+  if (!inputs.length && (workflow.behavior === 'consume_item' || workflow.behavior === 'modify_item')) {
+    if (!getWorkflowCandidateItemsForUi(s, workflow).length) return false
+  }
+
+  return true
+}
+
 function formatWorkflowInputs(s, workflow, recipe) {
-  const resourceInputs = recipe?.inputs ?? workflow?.inputs ?? []
-  if (resourceInputs.length) {
-    return resourceInputs.map((entry) => {
-      const resourceId = entry.resource ?? entry.resource_id
-      const amount = entry.amount ?? 0
-      return `${amount} ${s.resources.find((resource) => resource.id === resourceId)?.label ?? resourceId}`
+  const inputs = getWorkflowInputEntries(workflow, recipe)
+  if (inputs.length) {
+    return inputs.map((entry) => {
+      if (entry.item_id) {
+        return `${entry.qty} ${s.itemDefs?.[entry.item_id]?.label ?? entry.item_id}`
+      }
+      return `${entry.qty} ${s.resources.find((resource) => resource.id === entry.resource_id)?.label ?? entry.resource_id}`
     }).join(', ')
   }
   if (workflow?.behavior === 'consume_item' || workflow?.behavior === 'modify_item') {
@@ -751,9 +826,14 @@ function formatWorkflowInputs(s, workflow, recipe) {
 }
 
 function formatWorkflowOutputs(s, workflow, recipe) {
-  if (recipe?.output_item) {
-    const outputDef = s.itemDefs?.[recipe.output_item]
-    return `${outputDef?.icon ?? 'Item'} ${outputDef?.label ?? recipe.output_item} x${recipe.output_quantity ?? 1}`
+  const outputId = recipe?.output_item_id ?? recipe?.output_item
+  if (outputId) {
+    const outputRes = s.resources.find((resource) => resource.id === outputId)
+    if (outputRes) {
+      return `${outputRes?.icon ?? 'Resource'} ${outputRes?.label ?? outputId} x${recipe.output_quantity ?? recipe.output_qty ?? 1}`
+    }
+    const outputDef = s.itemDefs?.[outputId]
+    return `${outputDef?.icon ?? 'Item'} ${outputDef?.label ?? outputId} x${recipe.output_quantity ?? recipe.output_qty ?? 1}`
   }
   const rules = workflow?.output_rules ?? []
   if (!rules.length) return 'No outputs'
@@ -790,8 +870,9 @@ function formatBuffDescription(itemDef) {
 function buildingProducesConsumables(s, building) {
   return getBuildingWorkflows(s, building.id).some((workflow) => {
     const recipe = getWorkflowRecipe(s, workflow.id, building.level ?? 0)
-    if (recipe?.output_item) {
-      return s.itemDefs?.[recipe.output_item]?.item_type === 'consumable'
+    const outputId = recipe?.output_item_id ?? recipe?.output_item
+    if (outputId) {
+      return s.itemDefs?.[outputId]?.item_type === 'consumable'
     }
     return (workflow.output_rules ?? []).some((rule) => rule.output_type === 'consumable')
   })
@@ -1674,6 +1755,55 @@ function handleInventoryActionClick(e) {
   }
 }
 
+function ensureForgeActionDelegation() {
+  if (forgeActionsBound) return
+  const el = document.getElementById('screen-forge')
+  if (!el) return
+  el.addEventListener('click', handleForgeActionClick)
+  forgeActionsBound = true
+}
+
+function handleForgeActionClick(e) {
+  const btn = e.target.closest('button[data-action]')
+  if (!btn || btn.disabled || !e.currentTarget.contains(btn)) return
+
+  const action = btn.dataset.action
+  if (action === 'toggle-forge-artisan-picker') {
+    actions.toggleArtisanPicker(btn.dataset.buildingId)
+    return
+  }
+
+  if (action === 'assign-forge-artisan') {
+    queueAction(btn.dataset.actionKey || getActionKey(action, `${btn.dataset.buildingId}:${btn.dataset.heroId}`), () => {
+      actions.assignArtisan(btn.dataset.buildingId, btn.dataset.heroId)
+    })
+    return
+  }
+
+  if (action === 'recruit-assign-forge-artisan') {
+    queueAction(btn.dataset.actionKey || getActionKey(action, `${btn.dataset.buildingId}:${btn.dataset.heroId}`), () => {
+      const recruitResult = actions.recruitFromPool(btn.dataset.heroId)
+      if (recruitResult?.ok) {
+        actions.assignArtisan(btn.dataset.buildingId, btn.dataset.heroId)
+      }
+    })
+    return
+  }
+
+  if (action === 'unassign-forge-artisan') {
+    queueAction(btn.dataset.actionKey || getActionKey(action, btn.dataset.buildingId), () => {
+      actions.unassignArtisan(btn.dataset.buildingId)
+    })
+    return
+  }
+
+  if (action === 'queue-workflow-job') {
+    queueAction(btn.dataset.actionKey || getActionKey(action, `${btn.dataset.buildingId}:${btn.dataset.workflowId}`), () => {
+      actions.queueWorkflowJob(btn.dataset.buildingId, btn.dataset.workflowId)
+    })
+  }
+}
+
 function handleWorldActionClick(e) {
   const btn = e.target.closest('button[data-action]')
   if (!btn || btn.disabled || !e.currentTarget.contains(btn)) return
@@ -1697,7 +1827,10 @@ function handleWorldActionClick(e) {
   }
   if (action === 'open-building-forge') {
     detailUiState.activeTab = 'forge'
-    actions.setScreen('forge', { selectedBuildingId: btn.dataset.buildingId })
+    actions.setScreen('forge', {
+      selectedBuildingId: btn.dataset.buildingId,
+      artisanPickerBuildingId: btn.dataset.buildingId,
+    })
   }
 }
 
@@ -1706,6 +1839,11 @@ function handleHeroActionClick(e) {
   if (!btn || btn.disabled || !e.currentTarget.contains(btn)) return
 
   const action = btn.dataset.action
+  if (action === 'recruit-hero') {
+    queueAction(btn.dataset.actionKey || getActionKey(action, btn.dataset.classId), () => actions.recruitHero(btn.dataset.classId))
+    return
+  }
+
   if (action === 'toggle-hero') {
     const heroId = btn.dataset.heroId
     if (heroUiState.expandedHeroId === heroId) {
@@ -1790,6 +1928,7 @@ function handleHeroActionClick(e) {
 
   if (action === 'recruit-from-pool') {
     actions.recruitFromPool(btn.dataset.heroId)
+    if (snapshot) render(snapshot)
   }
 }
 
@@ -1856,10 +1995,12 @@ function buildWorldRenderHash(s) {
     })),
     recipes: (s.craftingRecipes ?? []).map((recipe) => ({
       id: recipe.id,
-      required_workflow: recipe.required_workflow,
+      required_workflow: recipe.required_workflow ?? recipe.workflow_id,
+      workflow_id: recipe.workflow_id ?? recipe.required_workflow,
       visible: recipe.visible,
-      output_item: recipe.output_item,
-      output_quantity: recipe.output_quantity,
+      output_item: recipe.output_item ?? recipe.output_item_id,
+      output_item_id: recipe.output_item_id ?? recipe.output_item,
+      output_quantity: recipe.output_quantity ?? recipe.output_qty,
     })),
     recruitPool: (s.recruitPool ?? []).map((hero) => ({ id: hero.id, rarity: hero.rarity, level: hero.level })),
     heroes: (s.heroes ?? []).map((hero) => ({
@@ -1983,23 +2124,206 @@ function renderForgeScreen(s) {
     ${stations.length ? `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#444460;margin-bottom:8px">Crafting stations</div>${stationsHtml}` : '<div style="color:#444460;font-size:12px">No crafting stations built yet.</div>'}`
 }
 
+function renderForgeArtisanPicker(s, building) {
+  const guildArtisans = getAvailableArtisans(s, building.id)
+  const recruitPoolArtisans = getRecruitPoolArtisans(s)
+
+  const renderGuildArtisan = (hero) => {
+    const heroClass = getHeroClassForHero(s, hero)
+    const actionKey = getActionKey('assign-artisan', `${building.id}:${hero.id}`)
+    const pending = pendingActions.has(actionKey)
+    return `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:8px;border:1px solid #2a2a3e;border-radius:8px;background:#171724">
+      <div style="min-width:0">
+        <div style="font-size:11px;font-weight:600;color:#e0e0f0">${hero.name}</div>
+        <div style="font-size:10px;color:#666680">${heroClass?.label ?? '?'} · Lv.${hero.level}</div>
+      </div>
+      <button class="btn btn-primary" ${pending ? 'disabled' : ''} data-action="assign-forge-artisan" data-building-id="${building.id}" data-hero-id="${hero.id}" data-action-key="${actionKey}">
+        ${pending ? 'Assigning...' : 'Assign'}
+      </button>
+    </div>`
+  }
+
+  const renderRecruitPoolArtisan = (hero) => {
+    const heroClass = getHeroClassForHero(s, hero)
+    const actionKey = getActionKey('recruit-assign-artisan', `${building.id}:${hero.id}`)
+    const pending = pendingActions.has(actionKey)
+    return `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:8px;border:1px solid #2a2a3e;border-radius:8px;background:#171724">
+      <div style="min-width:0">
+        <div style="font-size:11px;font-weight:600;color:#e0e0f0">${hero.name}</div>
+        <div style="font-size:10px;color:#666680">${heroClass?.label ?? '?'} · Lv.${hero.level} · Recruit pool</div>
+      </div>
+      <button class="btn btn-primary" ${pending ? 'disabled' : ''} data-action="recruit-assign-forge-artisan" data-building-id="${building.id}" data-hero-id="${hero.id}" data-action-key="${actionKey}">
+        ${pending ? 'Recruiting...' : 'Recruit & assign'}
+      </button>
+    </div>`
+  }
+
+  const sections = []
+  if (guildArtisans.length) {
+    sections.push(`<div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#666680;margin-bottom:6px">Guild artisans</div>
+      <div style="display:flex;flex-direction:column;gap:6px">${guildArtisans.map(renderGuildArtisan).join('')}</div>
+    </div>`)
+  }
+  if (recruitPoolArtisans.length) {
+    sections.push(`<div style="margin-top:10px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#666680;margin-bottom:6px">Recruit pool</div>
+      <div style="display:flex;flex-direction:column;gap:6px">${recruitPoolArtisans.map(renderRecruitPoolArtisan).join('')}</div>
+    </div>`)
+  }
+
+  if (!sections.length) {
+    return '<div style="font-size:11px;color:#666680">No artisan candidates available.</div>'
+  }
+
+  return `<div style="margin-top:10px;border:1px solid #2a2a3e;border-radius:10px;background:#11111b;padding:10px">
+    ${sections.join('')}
+  </div>`
+}
+
+function renderForgeWorkflowList(s, building) {
+  const workflows = getBuildingWorkflows(s, building.id)
+  if (!workflows.length) {
+    return '<div style="font-size:11px;color:#666680;margin-top:8px">No workflows linked to this station.</div>'
+  }
+
+  return workflows.map((workflow) => {
+    const recipe = getWorkflowRecipe(s, workflow.id, building.level ?? 0)
+    const canQueue = canQueueWorkflowJobUi(s, building, workflow, recipe)
+    const actionKey = getActionKey('queue-workflow-job', `${building.id}:${workflow.id}`)
+    const durationTicks = Number(workflow.total_ticks_required ?? workflow.duration_base_ticks ?? 0)
+    const statusColor = workflow.visible === false
+      ? '#666680'
+      : workflow.workflow_mode === 'passive'
+        ? '#BA7517'
+        : '#1D9E75'
+    const statusLabel = workflow.visible === false
+      ? 'Locked'
+      : workflow.workflow_mode === 'passive'
+        ? 'Passive'
+        : 'Ready'
+
+    return `<div class="card" style="margin:8px 0 0;padding:10px;border-color:${statusColor}44">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+        <div style="min-width:0">
+          <div style="font-size:12px;font-weight:600;color:#e0e0f0">${workflow.label ?? workflow.id}</div>
+          <div style="font-size:10px;color:#666680;margin-top:2px">Duration: ${durationTicks} ticks</div>
+        </div>
+        <span class="badge" style="background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44">${statusLabel}</span>
+      </div>
+      <div style="font-size:11px;color:#8888aa;margin-top:6px">Inputs: ${formatWorkflowInputs(s, workflow, recipe)}</div>
+      <div style="font-size:11px;color:#8888aa;margin-top:4px">Output: ${formatWorkflowOutputs(s, workflow, recipe)}</div>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px">
+        <button class="btn ${canQueue ? 'btn-primary' : 'btn-ghost'}" ${canQueue ? '' : 'disabled'} data-action="queue-workflow-job" data-building-id="${building.id}" data-workflow-id="${workflow.id}" data-action-key="${actionKey}">
+          Queue job
+        </button>
+      </div>
+    </div>`
+  }).join('')
+}
+
+function renderForgeQueueList(s, building) {
+  const queue = building.workflow_queue ?? []
+  if (!queue.length) {
+    return '<div style="font-size:11px;color:#666680">Queue empty</div>'
+  }
+
+  const workflowById = new Map((s.buildingWorkflows ?? []).map((workflow) => [workflow.id, workflow]))
+  const recipeById = new Map((s.craftingRecipes ?? []).map((recipe) => [recipe.id, recipe]))
+
+  return queue.map((job) => {
+    const workflow = workflowById.get(job.workflow_id)
+    const recipe = job.recipe_id ? recipeById.get(job.recipe_id) : null
+    const label = recipe?.label ?? workflow?.label ?? job.recipe_id ?? job.workflow_id
+    const pct = Math.max(0, Math.min(100, (Number(job.progress_s ?? 0) / Math.max(1, Number(job.total_s ?? 0))) * 100))
+
+    return `<div style="padding:8px;border:1px solid #2a2a3e;border-radius:8px;background:#171724;margin-top:6px">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;margin-bottom:6px">
+        <div style="min-width:0">
+          <div style="font-size:11px;font-weight:600;color:#e0e0f0">${label}</div>
+          <div style="font-size:10px;color:#666680;margin-top:2px">${workflow?.label ?? job.workflow_id}${job.passive ? ' · Passive' : ''}</div>
+        </div>
+        <div style="font-size:10px;color:#8888aa;flex-shrink:0">${Number(job.progress_s ?? 0).toFixed(1)} / ${Number(job.total_s ?? 0).toFixed(1)}s · ${Math.round(pct)}%</div>
+      </div>
+      <div class="progress-bar-outer"><div class="progress-bar-inner" style="width:${pct}%;background:#BA7517"></div></div>
+    </div>`
+  }).join('')
+}
+
 function renderForgeScreenV2(s) {
   const el = document.getElementById('screen-forge')
-  const stations = s.buildings.filter((b) => (b.is_crafting_station || b.has_workflows) && b.level > 0)
-  const stationsHtml = stations.map((bld) => {
-    const levelData = bld.levels[bld.level - 1]
-    const slots = levelData?.recipe_slots ?? 1
-    return `<div class="card">
-      <div style="font-weight:600;margin-bottom:6px">${bld.icon ?? '🔨'} ${bld.label} <span style="font-size:10px;color:#666680">${bld.craft_queue.length}/${slots} slots</span></div>
-      ${bld.craft_queue.map((job) => {
-        const pct = Math.min(100, (job.progress_s / job.total_s) * 100)
-        return `<div style="margin-bottom:6px"><div style="font-size:11px;color:#8888aa;margin-bottom:3px">${job.recipe_id}</div><div class="progress-bar-outer"><div class="progress-bar-inner" style="width:${pct}%;background:#BA7517"></div></div></div>`
-      }).join('') || '<div style="font-size:11px;color:#444460">Queue empty</div>'}
+  ensureForgeActionDelegation()
+  try {
+
+  const stations = (s.buildings ?? [])
+    .filter((building) => (building.is_crafting_station || building.has_workflows) && building.level > 0)
+    .slice()
+    .sort((left, right) => {
+      const selectedId = s.ui?.selectedBuildingId
+      if (left.id === selectedId && right.id !== selectedId) return -1
+      if (right.id === selectedId && left.id !== selectedId) return 1
+      return (left.label ?? left.id).localeCompare(right.label ?? right.id)
+    })
+
+  const stationsHtml = stations.map((building) => {
+    const isSelected = s.ui?.selectedBuildingId === building.id
+    const currentArtisan = building.artisan_assigned ? (s.heroes ?? []).find((hero) => hero.id === building.artisan_assigned) : null
+    const currentArtisanClass = currentArtisan ? getHeroClassForHero(s, currentArtisan) : null
+    const artisanPickerOpen = s.ui?.artisanPickerBuildingId === building.id
+    const workflowCount = getBuildingWorkflows(s, building.id).length
+    const queueCount = (building.workflow_queue ?? []).length
+
+    return `<div class="card" style="${isSelected ? 'border-color:#7F77DD55;background:#212136' : ''};margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+        <div style="min-width:0">
+          <div style="font-size:13px;font-weight:700;color:#e0e0f0">${building.icon ?? '🔨'} ${building.label}</div>
+          <div style="font-size:10px;color:#666680;margin-top:2px">Level ${building.level}/${building.max_level} · Workflows ${workflowCount} · Queue ${queueCount}</div>
+        </div>
+        <button class="btn btn-ghost" data-action="toggle-forge-artisan-picker" data-building-id="${building.id}">
+          ${artisanPickerOpen ? 'Hide artisans' : 'Assign artisan'}
+        </button>
+      </div>
+
+      <div style="margin-top:10px;border-top:1px solid #2a2a3e;padding-top:10px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#666680;margin-bottom:6px">Artisan slot</div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;border:1px solid #2a2a3e;border-radius:8px;background:#171724;padding:10px">
+          <div style="min-width:0">
+            ${currentArtisan
+              ? `<div style="font-size:12px;font-weight:600;color:#e0e0f0">${currentArtisan.name}</div>
+                 <div style="font-size:10px;color:#666680">${currentArtisanClass?.label ?? '?'} · Lv.${currentArtisan.level}</div>`
+              : `<div style="font-size:11px;color:#8888aa">No artisan assigned</div>`
+            }
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            ${currentArtisan ? `<button class="btn btn-ghost" data-action="unassign-forge-artisan" data-building-id="${building.id}">Unassign</button>` : ''}
+            <button class="btn btn-primary" data-action="toggle-forge-artisan-picker" data-building-id="${building.id}">Assign artisan</button>
+          </div>
+        </div>
+        ${artisanPickerOpen ? renderForgeArtisanPicker(s, building) : ''}
+      </div>
+
+      <div style="margin-top:10px;border-top:1px solid #2a2a3e;padding-top:10px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#666680;margin-bottom:6px">Workflows</div>
+        ${renderForgeWorkflowList(s, building)}
+      </div>
+
+      <div style="margin-top:10px;border-top:1px solid #2a2a3e;padding-top:10px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#666680;margin-bottom:6px">Active queue</div>
+        ${renderForgeQueueList(s, building)}
+      </div>
     </div>`
   }).join('')
 
   el.innerHTML = `<h2 style="font-size:15px;font-weight:700;margin-bottom:12px">Forge</h2>
-    ${stations.length ? `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#444460;margin-bottom:8px">Crafting stations</div>${stationsHtml}` : '<div style="color:#444460;font-size:12px">No crafting stations built yet.</div>'}`
+    ${stations.length ? stationsHtml : '<div style="color:#444460;font-size:12px">No crafting stations built yet.</div>'}`
+  } catch (error) {
+    console.error('Forge tab render failed.', error)
+    el.innerHTML = `<h2 style="font-size:15px;font-weight:700;margin-bottom:12px">Forge</h2>
+      <div class="card" style="border-color:#E24B4A44">
+        <div style="font-size:12px;color:#E24B4A;font-weight:600">Forge UI failed to render.</div>
+        <div style="font-size:11px;color:#8888aa;margin-top:6px">${error?.message ?? 'Unknown error'}</div>
+      </div>`
+  }
 }
 
 function showRestartConfirm() {

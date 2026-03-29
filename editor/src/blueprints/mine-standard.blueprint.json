@@ -1,0 +1,29 @@
+{
+  "blueprint_meta": {
+    "id": "blueprint-mine-standard",
+    "label": "Iron Mine (Standard)",
+    "description": "A blank mine shell for custom resource wiring.",
+    "requires_schema_version": "1.2.0",
+    "created_at": "2026-03-29T00:00:00.000Z",
+    "flavor": "fantasy",
+    "complexity": "simple"
+  },
+  "nodes": [
+    {
+      "id": "bp-mine-building",
+      "type": "building",
+      "label": "Iron Mine",
+      "icon": "⛏️",
+      "max_level": 3,
+      "has_workflows": false,
+      "is_crafting_station": false,
+      "levels": [
+        { "build_cost": [], "build_time_s": 45, "hero_slots": 0, "recipe_slots": 0, "production": {} },
+        { "build_cost": [], "build_time_s": 80, "hero_slots": 0, "recipe_slots": 0, "production": {} },
+        { "build_cost": [], "build_time_s": 120, "hero_slots": 0, "recipe_slots": 0, "production": {} }
+      ],
+      "visible": true,
+      "canvas_pos": { "x": 0, "y": 0 }
+    }
+  ]
+}

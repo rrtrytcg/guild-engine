@@ -99,7 +99,7 @@ export function compile(rfNodes, rfEdges, meta = {}) {
       ['output_item_id', d.output_item_id],
       ['boss_expedition_id', d.boss_expedition_id],
       ['host_building', d.host_building],
-      ['required_workflow', d.required_workflow],
+      ['workflow_id', d.workflow_id ?? d.required_workflow],
     ]
     for (const [field, refId] of singleRefs) {
       if (refId && !allIds.has(refId)) {
@@ -180,10 +180,11 @@ export function compile(rfNodes, rfEdges, meta = {}) {
     }
 
     if (d.type === 'crafting_recipe') {
-      if (d.output_item && !allIds.has(d.output_item)) {
+      const outputId = d.output_item_id ?? d.output_item
+      if (outputId && !allIds.has(outputId)) {
         warnings.push({
           nodeId: node.id,
-          message: `Crafting recipe "${d.label || d.id}" output references unknown item ID "${d.output_item}".`,
+          message: `Crafting recipe "${d.label || d.id}" output references unknown ID "${outputId}".`,
         })
       }
     }

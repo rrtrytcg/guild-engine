@@ -411,9 +411,9 @@ const NODE_DEFAULTS = {
     label: 'New Craft Recipe',
     description: '',
     inputs: [],
-    output_item: '',
+    output_item_id: '',
     output_quantity: 1,
-    required_workflow: '',
+    workflow_id: '',
     required_building_level: 1,
     visible: true,
   },
@@ -577,6 +577,7 @@ const SCALAR_REFERENCE_KEYS = new Set([
   'output_item_id',
   'boss_expedition_id',
   'host_building',
+  'workflow_id',
   'required_workflow',
   'output_item',
   'building_id',
@@ -708,15 +709,12 @@ function applyImportedBlueprintCrossReferences(nodeData, idMap) {
   if (nodeData.type === 'crafting_recipe') {
     return {
       ...nodeData,
-      workflow_id: idMap[nodeData.workflow_id] ?? nodeData.workflow_id,
       output_item_id: idMap[nodeData.output_item_id] ?? nodeData.output_item_id,
-      inputs: nodeData.inputs?.map((input) => {
-        const referenceId = input?.item_id ?? input?.resource
-        return {
-          ...input,
-          item_id: idMap[referenceId] ?? referenceId,
-        }
-      }),
+      workflow_id: idMap[nodeData.workflow_id] ?? nodeData.workflow_id,
+      inputs: nodeData.inputs?.map((inp) => ({
+        ...inp,
+        item_id: idMap[inp.item_id] ?? inp.item_id,
+      })),
     }
   }
 

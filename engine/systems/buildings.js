@@ -544,41 +544,75 @@ function buildFormulaVariables(state, building, workflow, job = {}, extra = {}) 
   return variables
 }
 
-function buildResourceInputEntries(state, building, workflow, job = {}) {
+function buildWorkflowInputEntries(state, building, workflow, job = {}) {
   const recipe = job.recipe_id ? state.craftingRecipes?.[job.recipe_id] : null
   const rawInputs = recipe?.inputs ?? workflow?.inputs ?? []
   const variables = buildFormulaVariables(state, building, workflow, job)
 
-  return rawInputs.map((entry) => ({
-    resource_id: entry.resource,
-    amount: Math.max(
+  return rawInputs.map((entry) => {
+    const inputId = entry.item_id ?? entry.resource_id ?? entry.resource ?? entry.item ?? ''
+    const amountSource = entry.qty ?? entry.amount ?? 0
+    const amount = Math.max(
       0,
-      typeof entry.amount === 'string'
-        ? safeEvaluateFormula(entry.amount, variables, 0)
-        : Number(entry.amount ?? 0)
-    ),
-  }))
+      typeof amountSource === 'string'
+        ? safeEvaluateFormula(amountSource, variables, 0)
+        : Number(amountSource)
+    )
+    const isResource = Boolean(inputId && state.resources?.[inputId])
+    const isItem = Boolean(inputId && state.itemDefs?.[inputId])
+    return {
+      id: inputId,
+      qty: amount,
+      kind: isResource ? 'resource' : (isItem ? 'item' : 'unknown'),
+    }
+  }).filter((entry) => entry.id && entry.qty > 0)
 }
 
-function canAffordResourceInputs(state, inputs) {
-  return inputs.every(({ resource_id, amount }) => (state.resources?.[resource_id]?.amount ?? 0) >= amount)
+function getWorkflowInputAvailableAmount(state, input) {
+  if (!input?.id) return 0
+  if (input.kind === 'resource') return Number(state.resources?.[input.id]?.amount ?? 0)
+  if (input.kind === 'item') return Number(state.inventory?.[input.id] ?? 0)
+
+  const resourceAmount = Number(state.resources?.[input.id]?.amount ?? 0)
+  if (resourceAmount > 0 || state.resources?.[input.id]) return resourceAmount
+  return Number(state.inventory?.[input.id] ?? 0)
 }
 
-function spendResourceInputs(state, inputs) {
-  if (!canAffordResourceInputs(state, inputs)) return false
-  for (const { resource_id, amount } of inputs) {
-    if (!state.resources?.[resource_id]) continue
-    state.resources[resource_id].amount -= amount
+function canAffordWorkflowInputs(state, inputs) {
+  return inputs.every((input) => getWorkflowInputAvailableAmount(state, input) >= input.qty)
+}
+
+function spendWorkflowInputs(state, inputs) {
+  if (!canAffordWorkflowInputs(state, inputs)) return false
+  for (const input of inputs) {
+    if (input.kind === 'resource' || (input.kind === 'unknown' && state.resources?.[input.id])) {
+      if (!state.resources?.[input.id]) continue
+      state.resources[input.id].amount -= input.qty
+      continue
+    }
+    state.inventory[input.id] = Math.max(0, Number(state.inventory?.[input.id] ?? 0) - input.qty)
   }
   return true
 }
 
-function refundResourceInputs(state, inputs, rate = 1) {
-  const refund = {}
-  for (const { resource_id, amount } of inputs ?? []) {
-    refund[resource_id] = (refund[resource_id] ?? 0) + (amount * rate)
+function refundWorkflowInputs(state, inputs, rate = 1) {
+  const resourceRefund = {}
+  for (const input of inputs ?? []) {
+    const refundAmount = input.qty * rate
+    if (!(refundAmount > 0)) continue
+
+    if (input.kind === 'resource' || (input.kind === 'unknown' && state.resources?.[input.id])) {
+      resourceRefund[input.id] = (resourceRefund[input.id] ?? 0) + refundAmount
+      continue
+    }
+
+    const wholeRefund = Math.floor(refundAmount)
+    if (wholeRefund <= 0) continue
+    state.inventory[input.id] = (state.inventory[input.id] ?? 0) + wholeRefund
   }
-  gain(state, refund)
+  if (Object.keys(resourceRefund).length > 0) {
+    gain(state, resourceRefund)
+  }
 }
 
 function createWorkflowJob(state, building, workflow, options = {}) {
@@ -607,14 +641,14 @@ function createWorkflowJob(state, building, workflow, options = {}) {
 function ensureJobInputsCommitted(state, building, workflow, job) {
   if (job.inputs_committed) return true
 
-  const inputs = buildResourceInputEntries(state, building, workflow, job)
+  const inputs = buildWorkflowInputEntries(state, building, workflow, job)
   if (!inputs.length) {
     job.inputs_committed = true
     job.consumed_resources = []
     return true
   }
 
-  if (!spendResourceInputs(state, inputs)) return false
+  if (!spendWorkflowInputs(state, inputs)) return false
   job.inputs_committed = true
   job.consumed_resources = inputs
   return true
@@ -682,13 +716,22 @@ function getWorkflowOutputRules(state, workflow, job, recipe) {
     return (state.itemDefs?.[job.source_item_id]?.salvage_profile?.outputs ?? []).map((rule) => ({ ...rule }))
   }
 
-  if (recipe?.output_item) {
-    const outputDef = state.itemDefs?.[recipe.output_item]
+  const outputId = recipe?.output_item_id ?? recipe?.output_item
+  if (outputId) {
+    if (state.resources?.[outputId]) {
+      return [{
+        output_type: 'resource',
+        target: outputId,
+        quantity: recipe.output_quantity ?? recipe.output_qty ?? 1,
+      }]
+    }
+
+    const outputDef = state.itemDefs?.[outputId]
     const outputType = outputDef?.item_type === 'consumable' ? 'consumable' : 'item'
     return [{
       output_type: outputType,
-      target: recipe.output_item,
-      quantity: recipe.output_quantity ?? 1,
+      target: outputId,
+      quantity: recipe.output_quantity ?? recipe.output_qty ?? 1,
     }]
   }
 
@@ -931,9 +974,9 @@ function resolveWorkflowJobCompletion(state, building, workflow, job) {
 
   if (Math.random() < failureChance) {
     if (successTable.failure_behavior === 'partial_refund') {
-      refundResourceInputs(state, job.consumed_resources, Number(successTable.failure_refund_rate ?? 0.5))
+      refundWorkflowInputs(state, job.consumed_resources, Number(successTable.failure_refund_rate ?? 0.5))
     } else if (successTable.failure_behavior === 'reset_progress_refund_inputs') {
-      refundResourceInputs(state, job.consumed_resources, 1)
+      refundWorkflowInputs(state, job.consumed_resources, 1)
       job.progress_s = 0
       job.total_s = computeWorkflowDuration(state, building, workflow, job)
       job.inputs_committed = false
@@ -985,7 +1028,7 @@ function refreshWorkflowUnlocksForBuilding(state, buildingId) {
   }
 
   for (const recipe of Object.values(state.craftingRecipes ?? {})) {
-    const workflow = state.buildingWorkflows?.[recipe.required_workflow]
+    const workflow = state.buildingWorkflows?.[recipe.required_workflow ?? recipe.workflow_id]
     if (!workflow || workflow.host_building !== buildingId) continue
     recipe.visible = !!workflow.visible && (building.level ?? 0) >= (recipe.required_building_level ?? 1)
   }
@@ -1218,7 +1261,7 @@ export function startCraft(state, buildingId, recipeId) {
 
   const building = state.buildings?.[buildingId]
   const recipe = state.craftingRecipes?.[recipeId]
-  const workflow = recipe ? state.buildingWorkflows?.[recipe.required_workflow] : null
+  const workflow = recipe ? state.buildingWorkflows?.[recipe.required_workflow ?? recipe.workflow_id] : null
   if (!building || !recipe || !workflow) return { ok: false, reason: 'Building or recipe not found.' }
   if (!building.has_workflows) return { ok: false, reason: 'This building does not support workflows.' }
 
@@ -1260,9 +1303,18 @@ export function tickCrafting(state, dt) {
     for (const job of completed) {
       const recipe = state.recipes[job.recipe_id]
       if (recipe) {
-        giveItem(state, recipe.output_item_id, recipe.output_qty ?? 1)
-        const itemDef = state.itemDefs[recipe.output_item_id]
-        addToEventLog(state, `Crafted: ${itemDef?.label ?? recipe.output_item_id}.`, 'info')
+        const outputId = recipe.output_item_id ?? recipe.output_item
+        const outputQty = recipe.output_qty ?? recipe.output_quantity ?? 1
+        if (state.resources?.[outputId]) {
+          gain(state, { [outputId]: outputQty })
+        } else {
+          giveItem(state, outputId, outputQty)
+        }
+
+        const outputLabel = state.resources?.[outputId]?.label
+          ?? state.itemDefs?.[outputId]?.label
+          ?? outputId
+        addToEventLog(state, `Crafted: ${outputLabel}.`, 'info')
       }
     }
   }
