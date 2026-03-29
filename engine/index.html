@@ -101,6 +101,10 @@
       <div class="section-label">Heroes</div>
       <div id="heroes-list" style="padding:0 8px 8px"></div>
       <div style="border-top:1px solid #2a2a3e;padding:8px">
+        <div class="section-label" style="padding:4px 6px">Available recruits</div>
+        <div id="recruits-list" style="padding:0 2px 2px"></div>
+      </div>
+      <div style="border-top:1px solid #2a2a3e;padding:8px">
         <div class="section-label" style="padding:4px 6px">Event log</div>
         <div id="event-log" style="padding:0 2px"></div>
       </div>
@@ -265,6 +269,7 @@ document.addEventListener('keydown', (e) => {
 
 // ── Master render ─────────────────────────────────────────────────────────────
 const HERO_STATUS_META = {
+  assigned: { label: 'Assigned', icon: '', color: '#EF9F27', bg: '#EF9F2722' },
   ready: { label: 'Ready', icon: '✓', color: '#1D9E75', bg: '#1D9E7522' },
   inspired: { label: 'Inspired', icon: '⚡', color: '#7F77DD', bg: '#7F77DD22' },
   exhausted: { label: 'Exhausted', icon: '😴', color: '#BA7517', bg: '#BA751722' },
@@ -283,7 +288,7 @@ const READINESS_META = {
   DOMINANT: { key: 'DOMINANT', label: 'Dominant', icon: '★', color: '#EF9F27' },
 }
 
-const HERO_STATUS_ORDER = ['dead', 'injured', 'cursed', 'exhausted', 'inspired', 'ready']
+const HERO_STATUS_ORDER = ['dead', 'injured', 'cursed', 'exhausted', 'assigned', 'inspired', 'ready']
 
 function getHeroStatusList(hero) {
   const statuses = new Set(Array.isArray(hero?.statuses) ? hero.statuses.filter(Boolean) : [])
@@ -296,7 +301,8 @@ function renderHeroStatusBadges(hero) {
   const statuses = getHeroStatusList(hero)
   return statuses.map((status) => {
     const meta = HERO_STATUS_META[status] ?? HERO_STATUS_META.ready
-    return `<span class="badge" style="display:inline-flex;align-items:center;gap:4px;background:${meta.bg};color:${meta.color};border:1px solid ${meta.color}33">${meta.icon} ${meta.label}</span>`
+    const iconHtml = meta.icon ? `${meta.icon} ` : ''
+    return `<span class="badge" style="display:inline-flex;align-items:center;gap:4px;background:${meta.bg};color:${meta.color};border:1px solid ${meta.color}33">${iconHtml}${meta.label}</span>`
   }).join('')
 }
 
@@ -510,6 +516,7 @@ function renderExpeditionCard(s, exp, readiness, { boss = false, note = '' } = {
 function render(s) {
   renderResources(s)
   renderHeroesV2(s)
+  renderRecruitPool(s)
   renderEventLog(s)
   renderInventoryPanel(s)
   renderActs(s)
@@ -630,6 +637,144 @@ function renderEquipmentSelection(s, hero, slot) {
   </div>`
 }
 
+function getAssignedBuildingForHero(s, heroId) {
+  return (s.buildings ?? []).find((building) => building.artisan_assigned === heroId) ?? null
+}
+
+function formatPrimaryStatName(stat) {
+  return String(stat ?? 'skill').replaceAll('_', ' ')
+}
+
+function getBuildingWorkflows(s, buildingId) {
+  return (s.buildingWorkflows ?? [])
+    .filter((workflow) => (workflow.host_building ?? workflow.building_id) === buildingId)
+    .sort((left, right) => (left.label ?? left.id).localeCompare(right.label ?? right.id))
+}
+
+function getWorkflowRecipe(s, workflowId, buildingLevel = 0) {
+  return (s.craftingRecipes ?? [])
+    .filter((recipe) => recipe.required_workflow === workflowId && recipe.visible !== false && (recipe.required_building_level ?? 1) <= buildingLevel)
+    .sort((left, right) => (left.label ?? left.id).localeCompare(right.label ?? right.id))[0] ?? null
+}
+
+function getWorkflowQueueLimit(building) {
+  const levelData = building?.levels?.[(building?.level ?? 1) - 1] ?? null
+  const recipeSlots = Number(levelData?.recipe_slots ?? 0)
+  const artisanSlots = Number(building?.artisan_slots?.base_count ?? 0)
+  return Math.max(1, recipeSlots || artisanSlots || 1)
+}
+
+function formatResourceCostLabel(s, cost = []) {
+  return cost.length
+    ? cost.map((entry) => `${s.fmt(entry.amount)} ${s.resources.find((resource) => resource.id === entry.resource_id)?.label ?? entry.resource_id}`).join(', ')
+    : 'Free'
+}
+
+function formatWorkflowInputs(s, workflow, recipe) {
+  const resourceInputs = recipe?.inputs ?? workflow?.inputs ?? []
+  if (resourceInputs.length) {
+    return resourceInputs.map((entry) => {
+      const resourceId = entry.resource ?? entry.resource_id
+      const amount = entry.amount ?? 0
+      return `${amount} ${s.resources.find((resource) => resource.id === resourceId)?.label ?? resourceId}`
+    }).join(', ')
+  }
+  if (workflow?.behavior === 'consume_item' || workflow?.behavior === 'modify_item') {
+    return '1 matching inventory item'
+  }
+  return 'No input cost'
+}
+
+function formatWorkflowOutputs(s, workflow, recipe) {
+  if (recipe?.output_item) {
+    const outputDef = s.itemDefs?.[recipe.output_item]
+    return `${outputDef?.icon ?? 'Item'} ${outputDef?.label ?? recipe.output_item} x${recipe.output_quantity ?? 1}`
+  }
+  const rules = workflow?.output_rules ?? []
+  if (!rules.length) return 'No outputs'
+  return rules.map((rule) => {
+    if (rule.output_type === 'resource') {
+      return `${s.resources.find((resource) => resource.id === rule.target)?.label ?? rule.target}`
+    }
+    if (rule.output_type === 'item' || rule.output_type === 'consumable') {
+      const itemDef = s.itemDefs?.[rule.target]
+      return `${itemDef?.icon ?? 'Item'} ${itemDef?.label ?? rule.target} x${rule.quantity ?? 1}`
+    }
+    if (rule.output_type === 'hero_instance') {
+      const heroClass = s.heroClasses.find((entry) => entry.id === rule.target_class)
+      return `${heroClass?.label ?? rule.target_class ?? 'Hero'} recruit`
+    }
+    return `${rule.effect_type ?? rule.output_type} ${rule.target ?? ''}`.trim()
+  }).join(', ')
+}
+
+function formatBuffDescription(itemDef) {
+  const config = itemDef?.consumable_config
+  if (!config?.effect) return 'No buff configured.'
+  const stat = formatPrimaryStatName(config.effect.stat)
+  const value = config.effect.value
+  const amount = typeof value === 'number' ? value : String(value ?? '')
+  const operation = config.effect.operation === 'multiply'
+    ? 'x'
+    : config.effect.operation === 'set'
+      ? '='
+      : '+'
+  return `${operation}${amount} ${stat} for ${config.duration_value ?? 1} expedition${(config.duration_value ?? 1) === 1 ? '' : 's'}`
+}
+
+function buildingProducesConsumables(s, building) {
+  return getBuildingWorkflows(s, building.id).some((workflow) => {
+    const recipe = getWorkflowRecipe(s, workflow.id, building.level ?? 0)
+    if (recipe?.output_item) {
+      return s.itemDefs?.[recipe.output_item]?.item_type === 'consumable'
+    }
+    return (workflow.output_rules ?? []).some((rule) => rule.output_type === 'consumable')
+  })
+}
+
+function getAvailableArtisans(s, buildingId) {
+  return (s.heroes ?? [])
+    .filter((hero) => {
+      const heroClass = getHeroClassForHero(s, hero)
+      if (heroClass?.hero_type !== 'artisan') return false
+      if (hero.status !== 'ready') return false
+      const assignedBuilding = getAssignedBuildingForHero(s, hero.id)
+      return !assignedBuilding || assignedBuilding.id === buildingId
+    })
+    .sort((left, right) => (left.name ?? left.id).localeCompare(right.name ?? right.id))
+}
+
+function renderRecruitPool(s) {
+  const el = document.getElementById('recruits-list')
+  const recruits = s.recruitPool ?? []
+
+  if (!recruits.length) {
+    el.innerHTML = '<div style="font-size:11px;color:#444460;padding:4px 6px">No recruits waiting.</div>'
+    return
+  }
+
+  el.innerHTML = recruits.map((hero) => {
+    const heroClass = getHeroClassForHero(s, hero)
+    const rarity = hero.rarity ?? 'common'
+    const rarityColor = RARITY_COLORS[rarity] ?? '#c0c0d8'
+    return `<div class="card" style="margin:4px 0 0;padding:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="min-width:0">
+          <div style="font-size:12px;font-weight:600;color:#e0e0f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${hero.name}</div>
+          <div style="font-size:10px;color:#666680">${heroClass?.label ?? '?'} · Lv.${hero.level}</div>
+        </div>
+        <span class="badge rarity-${rarity}" style="background:${rarityColor}22;color:${rarityColor};border:1px solid ${rarityColor}44">${rarity}</span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+        ${Object.entries(hero.stats ?? {}).map(([stat, value]) => `<span style="font-size:10px;color:#8888aa">${formatStatLabel(stat)} <strong style="color:#c0c0d8">${Math.round(value)}</strong></span>`).join('')}
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:10px">
+        <button class="btn btn-primary" data-action="recruit-from-pool" data-hero-id="${hero.id}">Recruit</button>
+      </div>
+    </div>`
+  }).join('')
+}
+
 function renderHeroes(s) {
   const el = document.getElementById('heroes-list')
   if (!s.heroes.length) { el.innerHTML = '<div style="font-size:11px;color:#444460;padding:8px 6px">No heroes yet.</div>'; return }
@@ -694,6 +839,7 @@ function renderHeroesV2(s) {
 
   const heroMarkup = s.heroes.map((hero) => {
     const heroClass = getHeroClassForHero(s, hero)
+    const assignedBuilding = hero.status === 'assigned' ? getAssignedBuildingForHero(s, hero.id) : null
     const heroStatuses = getHeroStatusList(hero)
     const primaryStatus = heroStatuses[0] ?? 'ready'
     const statusMeta = HERO_STATUS_META[primaryStatus] ?? HERO_STATUS_META.ready
@@ -749,9 +895,10 @@ function renderHeroesV2(s) {
         <div style="min-width:0;flex:1">
           <div class="hero-name" style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${hero.name}</div>
           <div style="font-size:10px;color:#666680">${heroClass?.label ?? '?'} &middot; Lv.${hero.level}</div>
+          ${assignedBuilding ? `<div style="font-size:10px;color:#EF9F27;margin-top:2px">Working at ${assignedBuilding.label}</div>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-          <span class="badge" style="background:${statusMeta.bg};color:${statusMeta.color};border:1px solid ${statusMeta.color}33">${statusMeta.icon} ${statusMeta.label}</span>
+          <span class="badge" style="background:${statusMeta.bg};color:${statusMeta.color};border:1px solid ${statusMeta.color}33">${statusMeta.icon ? `${statusMeta.icon} ` : ''}${statusMeta.label}</span>
           <span style="font-size:12px;color:#666680">${expanded ? '▾' : '▸'}</span>
         </div>
       </button>
@@ -933,6 +1080,172 @@ function renderWorldScreen(s) {
   const empty = !buildingsHtml && !recruitHtml && !upgradesHtml
   el.innerHTML = `<h2 style="font-size:15px;font-weight:700;margin-bottom:12px;color:#e0e0f0">World</h2>
     ${empty ? `<div style="color:#444460;font-size:12px;margin-top:24px;text-align:center"><div style="font-size:24px;margin-bottom:8px">🏚️</div>No visible content yet.<br><br>In the editor, make sure your nodes have no unlock_conditions so they appear immediately.</div>` : ''}
+    ${buildingsHtml ? `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#444460;margin-bottom:8px">Buildings</div>${buildingsHtml}` : ''}
+    ${recruitHtml ? `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#444460;margin:12px 0 8px">Recruit</div>${recruitHtml}` : ''}
+    ${upgradesHtml ? `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#444460;margin:12px 0 8px">Upgrades</div>${upgradesHtml}` : ''}`
+}
+
+function renderWorldScreen(s) {
+  const el = document.getElementById('screen-world')
+  ensureWorldActionDelegation()
+  const worldHash = buildWorldRenderHash(s)
+  if (renderCache.worldHash === worldHash) return
+  renderCache.worldHash = worldHash
+
+  const buildingsHtml = s.buildings.filter((building) => building.visible).map((building) => {
+    const hasLevels = Array.isArray(building.levels) && building.levels.length > 0
+    const nextLevelData = hasLevels ? building.levels[building.level] : null
+    const currentLevelData = hasLevels && building.level > 0 ? building.levels[building.level - 1] : null
+    const cost = nextLevelData?.build_cost ?? []
+    const canBuild = hasLevels && building.level < building.max_level && s.canAffordCost(cost)
+    const atMax = building.level >= building.max_level
+    const actionKey = getActionKey('build-building', building.id)
+    const pending = pendingActions.has(actionKey)
+    const selected = s.ui.selectedBuildingId === building.id
+    const workflows = getBuildingWorkflows(s, building.id).filter((workflow) => workflow.visible !== false)
+    const assignedHero = building.artisan_assigned ? s.heroes.find((hero) => hero.id === building.artisan_assigned) : null
+    const assignedHeroClass = assignedHero ? getHeroClassForHero(s, assignedHero) : null
+    const availableArtisans = getAvailableArtisans(s, building.id)
+    const queueLimit = getWorkflowQueueLimit(building)
+    const queuedJobs = (building.workflow_queue ?? []).filter((job) => !job.passive)
+    const queueLabel = `${queuedJobs.length}/${queueLimit}`
+    const producesConsumables = building.has_workflows && buildingProducesConsumables(s, building)
+
+    const detailHtml = selected ? `<div style="margin-top:12px;border-top:1px solid #2a2a3e;padding-top:12px">
+      ${building.has_workflows && Number(building.artisan_slots?.base_count ?? 0) > 0 ? `<div style="margin-bottom:14px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#666680;margin-bottom:8px">Artisan slot</div>
+        <div style="border:1px solid #2a2a3e;border-radius:8px;background:#171724;padding:10px">
+          ${assignedHero ? `<div>
+            <div style="font-size:12px;font-weight:600;color:#e0e0f0">${assignedHero.name}</div>
+            <div style="font-size:10px;color:#666680">${assignedHeroClass?.label ?? '?'} · Lv.${assignedHero.level}</div>
+            <div style="font-size:10px;color:#EF9F27;margin-top:6px">Worker skill: ${Math.round(assignedHero.stats?.[assignedHeroClass?.primary_stat] ?? 0)}</div>
+          </div>` : `<div style="font-size:11px;color:#8888aa">Empty slot</div>`}
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+            <button class="btn btn-ghost" data-action="toggle-artisan-picker" data-building-id="${building.id}">Assign</button>
+            ${assignedHero ? `<button class="btn btn-ghost" data-action="unassign-artisan" data-building-id="${building.id}">Unassign</button>` : ''}
+          </div>
+          ${s.ui.artisanPickerBuildingId === building.id ? `<div style="margin-top:10px;border-top:1px solid #2a2a3e;padding-top:10px">
+            ${availableArtisans.length
+              ? availableArtisans.map((hero) => {
+                  const heroClass = getHeroClassForHero(s, hero)
+                  return `<button class="equipment-option" style="margin-bottom:6px" data-action="assign-artisan" data-building-id="${building.id}" data-hero-id="${hero.id}">
+                    <div style="min-width:0;text-align:left">
+                      <div style="font-size:11px;font-weight:600;color:#e0e0f0">${hero.name}</div>
+                      <div class="item-meta">Lv.${hero.level} · ${formatPrimaryStatName(heroClass?.primary_stat)} ${Math.round(hero.stats?.[heroClass?.primary_stat] ?? 0)}</div>
+                      <div class="item-meta">${(heroClass?.specializations ?? []).join(', ') || 'No specializations'}</div>
+                    </div>
+                  </button>`
+                }).join('')
+              : `<div style="font-size:11px;color:#666680">No artisans available — recruit from workflow outputs.</div>`}
+          </div>` : ''}
+        </div>
+      </div>` : ''}
+      ${building.has_workflows ? `<div style="margin-bottom:14px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#666680;margin-bottom:8px">Workflow queue</div>
+        <div style="font-size:10px;color:#666680;margin-bottom:8px">Queue slots used: ${queueLabel}</div>
+        ${workflows.length ? workflows.map((workflow) => {
+          const recipe = getWorkflowRecipe(s, workflow.id, building.level ?? 0)
+          const durationLabel = recipe?.craft_time_formula ? 'Formula' : `${Math.round(workflow.duration_base_ticks ?? workflow.total_ticks_required ?? 0)}s`
+          const queueBlocked = workflow.workflow_mode === 'passive' || queuedJobs.length >= queueLimit || building.level <= 0
+          return `<div style="border:1px solid #2a2a3e;border-radius:8px;padding:10px;background:#171724;margin-top:8px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+              <div style="min-width:0">
+                <div style="font-size:12px;font-weight:600;color:#e0e0f0">${workflow.label ?? workflow.id}</div>
+                <div style="font-size:10px;color:#666680;margin-top:2px">${workflow.behavior ?? 'workflow'} · ${workflow.workflow_mode ?? 'queued'} · ${durationLabel}</div>
+              </div>
+              <button class="btn ${queueBlocked ? 'btn-ghost' : 'btn-primary'}" ${queueBlocked ? 'disabled' : ''} data-action="queue-workflow-job" data-building-id="${building.id}" data-workflow-id="${workflow.id}">${workflow.workflow_mode === 'passive' ? 'Passive' : 'Queue job'}</button>
+            </div>
+            <div style="font-size:10px;color:#8888aa;margin-top:8px">Input: ${formatWorkflowInputs(s, workflow, recipe)}</div>
+            <div style="font-size:10px;color:#5DCAA5;margin-top:4px">Output: ${formatWorkflowOutputs(s, workflow, recipe)}</div>
+          </div>`
+        }).join('') : `<div style="font-size:11px;color:#444460">No workflows unlocked yet.</div>`}
+        <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#666680;margin:12px 0 8px">Active queue</div>
+        ${(building.workflow_queue ?? []).length ? (building.workflow_queue ?? []).map((job) => {
+          const workflow = (s.buildingWorkflows ?? []).find((entry) => entry.id === job.workflow_id)
+          const recipe = job.recipe_id ? (s.craftingRecipes ?? []).find((entry) => entry.id === job.recipe_id) : null
+          const pct = Math.max(0, Math.min(100, ((job.progress_s ?? 0) / Math.max(0.1, job.total_s ?? 1)) * 100))
+          return `<div style="margin-top:8px;padding:8px;border:1px solid #2a2a3e;border-radius:8px;background:#171724">
+            <div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#e0e0f0;margin-bottom:6px">
+              <span>${workflow?.label ?? job.workflow_id}${recipe ? ` · ${recipe.label ?? recipe.id}` : ''}</span>
+              <span style="color:#666680">${job.passive ? 'Passive' : `${Math.floor(job.progress_s ?? 0)} / ${Math.ceil(job.total_s ?? 0)}s`}</span>
+            </div>
+            <div class="progress-bar-outer"><div class="progress-bar-inner" style="width:${pct}%;background:${job.passive ? '#1D9E75' : '#7F77DD'}"></div></div>
+          </div>`
+        }).join('') : `<div style="font-size:11px;color:#444460">Queue empty.</div>`}
+      </div>` : ''}
+      ${producesConsumables ? `<div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#666680;margin-bottom:8px">Buff stockpile</div>
+        ${(s.buffStockpile ?? []).length ? (s.buffStockpile ?? []).map((entry) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid #1e1e2e">
+          <div style="min-width:0">
+            <div style="font-size:11px;color:#e0e0f0">${entry.def?.icon ?? 'Item'} ${entry.def?.label ?? entry.id}</div>
+            <div style="font-size:10px;color:#666680;margin-top:2px">${formatBuffDescription(entry.def)}</div>
+          </div>
+          <div style="font-size:11px;color:#c0c0d8;flex-shrink:0">x${entry.qty}</div>
+        </div>`).join('') : `<div style="font-size:11px;color:#444460">No consumables stocked yet.</div>`}
+      </div>` : ''}
+    </div>` : ''
+
+    return `<div class="card" style="${selected ? 'border-color:#7F77DD55;background:#212136' : ''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">
+        <button class="hero-card-header" data-action="toggle-building-detail" data-building-id="${building.id}" style="cursor:pointer">
+          <div style="text-align:left">
+            <span style="font-weight:600">${building.icon ?? 'ðŸ°'} ${building.label}</span>
+            <span style="font-size:10px;color:#666680;margin-left:6px">Lv.${building.level}/${building.max_level}</span>
+          </div>
+          <span style="font-size:12px;color:#666680">${selected ? 'â–¾' : 'â–¸'}</span>
+        </button>
+        ${!hasLevels
+          ? `<span style="font-size:10px;color:#444460;font-style:italic">not configured</span>`
+          : atMax
+            ? `<button class="btn btn-ghost" disabled>Max level</button>`
+            : `<button class="btn ${canBuild && !pending ? 'btn-teal' : 'btn-ghost'}" ${canBuild && !pending ? '' : 'disabled'} data-action="build-building" data-building-id="${building.id}" data-action-key="${actionKey}">${pending ? 'Building...' : `Build · ${formatResourceCostLabel(s, cost)}`}</button>`}
+      </div>
+      ${building.level > 0 && currentLevelData ? `<div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${Object.entries(currentLevelData.production ?? {}).map(([resourceId, rate]) => {
+          const resource = s.resources.find((entry) => entry.id === resourceId)
+          return `<span style="font-size:10px;color:#5DCAA5">+${s.fmt(rate)}/s ${resource?.label ?? resourceId}</span>`
+        }).join('')}
+        ${currentLevelData.hero_slots > 0 ? `<span style="font-size:10px;color:#8888aa">Heroes ${currentLevelData.hero_slots}</span>` : ''}
+        ${building.has_workflows ? `<span style="font-size:10px;color:#EF9F27">Workflows ${queueLabel}</span>` : ''}
+        ${building.is_crafting_station ? `<span style="font-size:10px;color:#BA7517">Forge</span>` : ''}
+      </div>` : ''}
+      ${detailHtml}
+    </div>`
+  }).join('')
+
+  const recruitHtml = s.heroClasses.map((heroClass) => {
+    const cost = heroClass.recruit_cost ?? []
+    const canRecruit = s.canAffordCost(cost)
+    const actionKey = getActionKey('recruit-hero', heroClass.id)
+    const pending = pendingActions.has(actionKey)
+    return `<div class="card" style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-weight:600;font-size:12px">${heroClass.icon ?? 'âš”ï¸'} ${heroClass.label}</div>
+        <div style="font-size:10px;color:#666680">${formatResourceCostLabel(s, cost)}</div>
+      </div>
+      <button class="btn ${canRecruit && !pending ? 'btn-primary' : 'btn-ghost'}" ${canRecruit && !pending ? '' : 'disabled'} data-action="recruit-hero" data-class-id="${heroClass.id}" data-action-key="${actionKey}">${pending ? 'Recruiting...' : 'Recruit'}</button>
+    </div>`
+  }).join('')
+
+  const upgradesHtml = s.upgrades.map((upgrade) => {
+    const cost = upgrade.cost ?? []
+    const canBuy = s.canAffordCost(cost) && upgrade.tier < upgrade.max_tier
+    const actionKey = getActionKey('buy-upgrade', upgrade.id)
+    const pending = pendingActions.has(actionKey)
+    return `<div class="card" style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-weight:600;font-size:12px">${upgrade.icon ?? 'â¬†ï¸'} ${upgrade.label} ${upgrade.max_tier > 1 ? `(${upgrade.tier}/${upgrade.max_tier})` : ''}</div>
+        <div style="font-size:10px;color:#666680">${upgrade.description || ''}</div>
+      </div>
+      <button class="btn ${canBuy && !pending ? 'btn-primary' : 'btn-ghost'}" ${canBuy && !pending ? '' : 'disabled'} data-action="buy-upgrade" data-upgrade-id="${upgrade.id}" data-action-key="${actionKey}">
+        ${pending ? 'Buying...' : (upgrade.tier >= upgrade.max_tier ? 'âœ“ Max' : (cost.map((entry) => `${s.fmt(entry.amount)} ${s.resources.find((resource) => resource.id === entry.resource_id)?.label ?? entry.resource_id}`).join(' + ') || 'Buy'))}
+      </button>
+    </div>`
+  }).join('')
+
+  const empty = !buildingsHtml && !recruitHtml && !upgradesHtml
+  el.innerHTML = `<h2 style="font-size:15px;font-weight:700;margin-bottom:12px;color:#e0e0f0">World</h2>
+    ${empty ? `<div style="color:#444460;font-size:12px;margin-top:24px;text-align:center"><div style="font-size:24px;margin-bottom:8px">ðŸšï¸</div>No visible content yet.<br><br>In the editor, make sure your nodes have no unlock_conditions so they appear immediately.</div>` : ''}
     ${buildingsHtml ? `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#444460;margin-bottom:8px">Buildings</div>${buildingsHtml}` : ''}
     ${recruitHtml ? `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#444460;margin:12px 0 8px">Recruit</div>${recruitHtml}` : ''}
     ${upgradesHtml ? `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#444460;margin:12px 0 8px">Upgrades</div>${upgradesHtml}` : ''}`
@@ -1246,6 +1559,109 @@ function handleHeroActionHover(e) {
   }
 }
 
+function handleWorldActionClick(e) {
+  const btn = e.target.closest('button[data-action]')
+  if (!btn || btn.disabled || !e.currentTarget.contains(btn)) return
+
+  const action = btn.dataset.action
+  if (action === 'build-building') {
+    queueAction(btn.dataset.actionKey || getActionKey(action, btn.dataset.buildingId), () => actions.buildBuilding(btn.dataset.buildingId))
+    return
+  }
+  if (action === 'recruit-hero') {
+    queueAction(btn.dataset.actionKey || getActionKey(action, btn.dataset.classId), () => actions.recruitHero(btn.dataset.classId))
+    return
+  }
+  if (action === 'buy-upgrade') {
+    queueAction(btn.dataset.actionKey || getActionKey(action, btn.dataset.upgradeId), () => actions.buyUpgrade(btn.dataset.upgradeId))
+    return
+  }
+  if (action === 'toggle-building-detail') {
+    actions.setSelectedBuilding(btn.dataset.buildingId)
+    return
+  }
+  if (action === 'toggle-artisan-picker') {
+    actions.toggleArtisanPicker(btn.dataset.buildingId)
+    return
+  }
+  if (action === 'assign-artisan') {
+    actions.assignArtisan(btn.dataset.buildingId, btn.dataset.heroId)
+    return
+  }
+  if (action === 'unassign-artisan') {
+    actions.unassignArtisan(btn.dataset.buildingId)
+    return
+  }
+  if (action === 'queue-workflow-job') {
+    actions.queueWorkflowJob(btn.dataset.buildingId, btn.dataset.workflowId)
+  }
+}
+
+function handleHeroActionClick(e) {
+  const btn = e.target.closest('button[data-action]')
+  if (!btn || btn.disabled || !e.currentTarget.contains(btn)) return
+
+  const action = btn.dataset.action
+  if (action === 'toggle-hero') {
+    const heroId = btn.dataset.heroId
+    if (heroUiState.expandedHeroId === heroId) {
+      heroUiState.expandedHeroId = null
+      heroUiState.openSlotKey = null
+      heroUiState.hoveredItemId = null
+    } else {
+      heroUiState.expandedHeroId = heroId
+      heroUiState.openSlotKey = null
+      heroUiState.hoveredItemId = null
+    }
+    if (snapshot) render(snapshot)
+    return
+  }
+
+  if (action === 'toggle-slot') {
+    const heroId = btn.dataset.heroId
+    const slot = btn.dataset.slot
+    heroUiState.expandedHeroId = heroId
+    const slotKey = getSlotKey(heroId, slot)
+    if (heroUiState.openSlotKey === slotKey) {
+      heroUiState.openSlotKey = null
+      heroUiState.hoveredItemId = null
+    } else {
+      heroUiState.openSlotKey = slotKey
+      heroUiState.hoveredItemId = null
+    }
+    if (snapshot) render(snapshot)
+    return
+  }
+
+  if (action === 'equip-item') {
+    const heroId = btn.dataset.heroId
+    const itemId = btn.dataset.itemId
+    const result = actions.equipItem(heroId, itemId)
+    if (result?.ok) {
+      heroUiState.openSlotKey = null
+      heroUiState.hoveredItemId = null
+    }
+    if (snapshot) render(snapshot)
+    return
+  }
+
+  if (action === 'unequip-item') {
+    const heroId = btn.dataset.heroId
+    const slot = btn.dataset.slot
+    const result = actions.unequipItem(heroId, slot)
+    if (result?.ok) {
+      heroUiState.openSlotKey = null
+      heroUiState.hoveredItemId = null
+    }
+    if (snapshot) render(snapshot)
+    return
+  }
+
+  if (action === 'recruit-from-pool') {
+    actions.recruitFromPool(btn.dataset.heroId)
+  }
+}
+
 function queueAction(actionKey, runAction) {
   if (!actionKey || pendingActions.has(actionKey)) return
   pendingActions.add(actionKey)
@@ -1277,6 +1693,18 @@ function buildWorldRenderHash(s) {
       level: b.level,
       max_level: b.max_level,
       is_crafting_station: b.is_crafting_station,
+      has_workflows: b.has_workflows,
+      artisan_assigned: b.artisan_assigned,
+      momentum: Number(b.momentum ?? 0).toFixed(2),
+      streak_count: b.streak_count ?? 0,
+      queue: (b.workflow_queue ?? []).map((job) => ({
+        id: job.id,
+        workflow_id: job.workflow_id,
+        recipe_id: job.recipe_id,
+        progress: Number(job.progress_s ?? 0).toFixed(2),
+        total: Number(job.total_s ?? 0).toFixed(2),
+        passive: !!job.passive,
+      })),
       levels: (b.levels ?? []).map((lvl) => ({
         build_cost: lvl.build_cost ?? [],
         build_time_s: lvl.build_time_s ?? 0,
@@ -1285,8 +1713,37 @@ function buildWorldRenderHash(s) {
         production: lvl.production ?? {},
       })),
     })),
-    heroClasses: s.heroClasses.map((cls) => ({ id: cls.id, icon: cls.icon, recruit_cost: cls.recruit_cost ?? [] })),
+    heroClasses: s.heroClasses.map((cls) => ({ id: cls.id, icon: cls.icon, recruit_cost: cls.recruit_cost ?? [], hero_type: cls.hero_type, primary_stat: cls.primary_stat })),
+    workflows: (s.buildingWorkflows ?? []).map((workflow) => ({
+      id: workflow.id,
+      host_building: workflow.host_building ?? workflow.building_id,
+      visible: workflow.visible,
+      workflow_mode: workflow.workflow_mode,
+      duration_base_ticks: workflow.duration_base_ticks,
+      total_ticks_required: workflow.total_ticks_required,
+      behavior: workflow.behavior,
+    })),
+    recipes: (s.craftingRecipes ?? []).map((recipe) => ({
+      id: recipe.id,
+      required_workflow: recipe.required_workflow,
+      visible: recipe.visible,
+      output_item: recipe.output_item,
+      output_quantity: recipe.output_quantity,
+    })),
+    recruitPool: (s.recruitPool ?? []).map((hero) => ({ id: hero.id, rarity: hero.rarity, level: hero.level })),
+    heroes: (s.heroes ?? []).map((hero) => ({
+      id: hero.id,
+      status: hero.status,
+      level: hero.level,
+      assigned_building_id: hero.assigned_building_id ?? null,
+      stats: hero.stats ?? {},
+    })),
+    buffStockpile: (s.buffStockpile ?? []).map((entry) => ({ id: entry.id, qty: entry.qty })),
     upgrades: s.upgrades.map((u) => ({ id: u.id, icon: u.icon, tier: u.tier, max_tier: u.max_tier, cost: u.cost ?? [] })),
+    ui: {
+      selectedBuildingId: s.ui.selectedBuildingId ?? null,
+      artisanPickerBuildingId: s.ui.artisanPickerBuildingId ?? null,
+    },
     pending: [...pendingActions].filter((key) =>
       key.startsWith('build-building:') || key.startsWith('recruit-hero:') || key.startsWith('buy-upgrade:')
     ),
