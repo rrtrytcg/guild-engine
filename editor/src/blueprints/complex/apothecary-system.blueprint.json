@@ -6,7 +6,41 @@
     "requires_schema_version": "1.2.0",
     "created_at": "2026-03-29T00:00:00.000Z",
     "flavor": "fantasy",
-    "complexity": "complex"
+    "complexity": "complex",
+    "parameters": [
+      {
+        "key": "herb_resource",
+        "label": "Herb Resource",
+        "description": "The raw herb material (e.g. Silverleaf, Dreamfoil, Voidbloom)",
+        "type": "resource",
+        "required": true,
+        "injects_into": ["bp-asys-workflow-brew.input_rules"]
+      },
+      {
+        "key": "extract_resource",
+        "label": "Extract Resource",
+        "description": "The intermediate extract (e.g. Herbal Extract, Pure Essence)",
+        "type": "resource",
+        "required": true,
+        "injects_into": ["bp-asys-workflow-distill.input_rules", "bp-asys-workflow-brew.output_rules"]
+      },
+      {
+        "key": "potion_resource",
+        "label": "Potion Resource",
+        "description": "The distilled potion (e.g. Healing Potion, Mana Elixir)",
+        "type": "resource",
+        "required": true,
+        "injects_into": ["bp-asys-workflow-preserve.input_rules", "bp-asys-workflow-distill.output_rules"]
+      },
+      {
+        "key": "consumable_item",
+        "label": "Consumable Item",
+        "description": "The final preserved consumable (e.g. Greater Healing Potion, Battle Elixir)",
+        "type": "item",
+        "required": true,
+        "injects_into": ["bp-asys-recipe-preserve.output_item_id"]
+      }
+    ]
   },
   "nodes": [
     {

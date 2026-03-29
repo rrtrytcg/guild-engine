@@ -6,7 +6,23 @@
     "requires_schema_version": "1.2.0",
     "created_at": "2026-03-29T00:00:00.000Z",
     "flavor": "fantasy",
-    "complexity": "basic"
+    "complexity": "basic",
+    "parameters": [
+      {
+        "key": "input_resource",
+        "label": "Input Resource",
+        "type": "resource",
+        "required": true,
+        "description": "The raw ore resource to smelt (e.g. Iron Ore, Copper Ore)"
+      },
+      {
+        "key": "output_resource",
+        "label": "Output Resource",
+        "type": "resource",
+        "required": true,
+        "description": "The refined output resource (e.g. Iron Bar, Copper Bar)"
+      }
+    ]
   },
   "nodes": [
     {

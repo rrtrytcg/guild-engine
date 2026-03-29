@@ -426,7 +426,7 @@ const useStore = create((set, get) => ({
   },
 
   // --- Import a blueprint graph onto the canvas ---
-  importBlueprint: (blueprintJson, dropPosition = { x: 320, y: 180 }) => {
+  importBlueprint: (blueprintJson, dropPosition = { x: 320, y: 180 }, parameterMappings = null) => {
     if (!Array.isArray(blueprintJson?.nodes) || blueprintJson.nodes.length === 0) return null
 
     const existingNodes = get().nodes
@@ -437,7 +437,14 @@ const useStore = create((set, get) => ({
     const safeDropX = Math.max(dropPosition?.x ?? 100, maxX + 80)
     const safeDropY = dropPosition?.y ?? 80
 
-    const blueprintPositions = blueprintJson.nodes.map((nodeData, index) => (
+    // Apply parameter mappings if provided (from modal)
+    let blueprintWithMappings = blueprintJson
+    if (parameterMappings && Object.keys(parameterMappings).length > 0) {
+      const result = applyParameterMappingsToBlueprint(blueprintJson, parameterMappings, safeDropX, safeDropY)
+      blueprintWithMappings = result.blueprint
+    }
+
+    const blueprintPositions = blueprintWithMappings.nodes.map((nodeData, index) => (
       nodeData.canvas_pos ?? {
         x: (index % 4) * 220,
         y: Math.floor(index / 4) * 160,
@@ -454,12 +461,12 @@ const useStore = create((set, get) => ({
 
     const timestamp = Date.now()
     const idMap = Object.fromEntries(
-      blueprintJson.nodes
+      blueprintWithMappings.nodes
         .filter((nodeData) => nodeData?.id)
         .map((nodeData) => [nodeData.id, `import-${timestamp}-${nodeData.id}`])
     )
 
-    const remappedBlueprintNodes = blueprintJson.nodes
+    const remappedBlueprintNodes = blueprintWithMappings.nodes
       .map((nodeData) => remapBlueprintNode(nodeData, idMap))
       .map((nodeData) => normalizeImportedBlueprintNode(nodeData, idMap))
       .map((nodeData) => applyImportedBlueprintCrossReferences(nodeData, idMap))
@@ -481,8 +488,8 @@ const useStore = create((set, get) => ({
         },
       }
     })
-    const importedEdges = Array.isArray(blueprintJson?.edges)
-      ? blueprintJson.edges
+    const importedEdges = Array.isArray(blueprintWithMappings?.edges)
+      ? blueprintWithMappings.edges
           .map((edgeData, index) => remapBlueprintEdge(edgeData, idMap, timestamp, index))
           .filter(Boolean)
       : []
@@ -517,7 +524,7 @@ const useStore = create((set, get) => ({
     if (normalizedImportedNodes.length > 0) {
       get().createGroup(
         normalizedImportedNodes.map((node) => node.id),
-        blueprintJson?.blueprint_meta?.label ?? 'Imported Blueprint'
+        blueprintWithMappings?.blueprint_meta?.label ?? 'Imported Blueprint'
       )
     }
 
@@ -1232,6 +1239,284 @@ function serializeProjectGroup(group) {
     position: { ...group.position },
     size: { ...group.size },
   }
+}
+
+// --- Parameter injection system for blueprints ---
+
+/**
+ * Applies parameter mappings to a blueprint, injecting resource/item IDs
+ * into workflow input_rules and output_rules.
+ *
+ * @param {Object} blueprint - The blueprint JSON
+ * @param {Object} mappings - Map of parameter keys to node IDs or creation requests
+ * @param {number} safeDropX - Canvas X position for new nodes
+ * @param {number} safeDropY - Canvas Y position for new nodes
+ * @returns {Object} { blueprint: Modified blueprint, createdNodePositions: position map }
+ */
+function applyParameterMappingsToBlueprint(blueprint, mappings, safeDropX, safeDropY) {
+  const deepClone = (obj) => JSON.parse(JSON.stringify(obj))
+  const result = deepClone(blueprint)
+
+  const parameters = result.blueprint_meta?.parameters || []
+  if (!parameters.length) return { blueprint: result, createdNodePositions: {} }
+
+  // Build a lookup of parameter configs by key
+  const paramConfig = Object.fromEntries(parameters.map((p) => [p.key, p]))
+
+  // Track created node IDs and their positions
+  const createdNodePositions = {}
+  let createdIndex = 0
+
+  // Process each mapping
+  Object.entries(mappings).forEach(([paramKey, value]) => {
+    const config = paramConfig[paramKey]
+    if (!config) return
+
+    let targetNodeId = value
+
+    // Handle "create new" mappings
+    if (value?.create) {
+      const newNodeId = `param-${config.type}-${Date.now()}-${paramKey}`
+      targetNodeId = newNodeId
+
+      // Calculate staggered position for new node (left of main blueprint)
+      const newNodePos = {
+        x: safeDropX - 280 - (createdIndex % 3) * 40,
+        y: safeDropY + (Math.floor(createdIndex / 3)) * 160,
+      }
+      createdNodePositions[newNodeId] = newNodePos
+
+      // Create the new node data with position
+      const newNodeData = createNodeFromParameter(value, newNodeId, newNodePos)
+      if (newNodeData) {
+        result.nodes.push(newNodeData)
+      }
+      createdIndex++
+    }
+
+    // Inject the mapping using explicit injects_into paths if provided
+    if (config.injects_into && Array.isArray(config.injects_into)) {
+      config.injects_into.forEach((path) => {
+        injectByPath(result, path, targetNodeId, config)
+      })
+    } else {
+      // Fallback to heuristic-based injection for old blueprints
+      result.nodes.forEach((node) => {
+        if (node.type === 'building_workflow') {
+          injectParameterIntoWorkflow(node, config, targetNodeId, paramKey)
+        }
+        if (node.type === 'crafting_recipe') {
+          injectParameterIntoRecipe(node, config, targetNodeId, paramKey)
+        }
+      })
+    }
+  })
+
+  return { blueprint: result, createdNodePositions }
+}
+
+/**
+ * Injects a parameter value at a specific path in the blueprint.
+ * Path format: "nodeId.field" or "nodeId.field.subfield"
+ * Examples:
+ *   "bp-fc-workflow-smelt.input_rules" → adds to input_rules array
+ *   "bp-fc-recipe-forge.output_item_id" → sets output_item_id
+ */
+function injectByPath(blueprint, path, targetNodeId, paramConfig) {
+  const [nodeId, ...fieldParts] = path.split('.')
+  const fieldPath = fieldParts.join('.')
+
+  const node = blueprint.nodes.find((n) => n.id === nodeId)
+  if (!node) return
+
+  // Handle specific field injections
+  if (fieldPath === 'input_rules') {
+    const existingRules = node.input_rules || []
+    const alreadyExists = existingRules.some(
+      (r) => r.resource_id === targetNodeId || r.item_id === targetNodeId
+    )
+    if (!alreadyExists) {
+      node.input_rules = [
+        ...existingRules,
+        { resource_id: targetNodeId, amount: 5 },
+      ]
+    }
+  } else if (fieldPath === 'output_rules') {
+    const existingRules = node.output_rules || []
+    const alreadyExists = existingRules.some((r) => r.target === targetNodeId)
+    if (!alreadyExists) {
+      node.output_rules = [
+        ...existingRules,
+        { output_type: paramConfig.type === 'item' ? 'item' : 'resource', target: targetNodeId, quantity: 2, chance: 1 },
+      ]
+    }
+  } else if (fieldPath === 'inputs') {
+    const existingInputs = node.inputs || []
+    const alreadyExists = existingInputs.some(
+      (i) => i.item_id === targetNodeId || i.resource_id === targetNodeId
+    )
+    if (!alreadyExists) {
+      node.inputs = [
+        ...existingInputs,
+        { item_id: targetNodeId, qty: 5 },
+      ]
+    }
+  } else if (fieldPath === 'output_item_id') {
+    if (!node.output_item_id) {
+      node.output_item_id = targetNodeId
+    }
+  } else if (fieldPath.startsWith('inputs[')) {
+    // Handle indexed array access like "inputs[0].item_id"
+    const match = fieldPath.match(/inputs\[(\d+)\]\.(\w+)/)
+    if (match) {
+      const index = parseInt(match[1], 10)
+      const field = match[2]
+      if (!node.inputs[index]) {
+        node.inputs[index] = {}
+      }
+      node.inputs[index][field] = targetNodeId
+    }
+  }
+}
+
+/**
+ * Creates a new node from a parameter mapping request.
+ */
+function createNodeFromParameter(mapping, nodeId, position) {
+  const { type, label, icon } = mapping
+
+  if (type === 'resource') {
+    return {
+      id: nodeId,
+      type: 'resource',
+      label,
+      icon: icon || '💠',
+      description: 'Auto-created from blueprint parameter',
+      base_cap: 1000,
+      base_income: 0,
+      is_material: false,
+      visible: true,
+      position,
+      canvas_pos: position,
+    }
+  }
+
+  if (type === 'item') {
+    return {
+      id: nodeId,
+      type: 'item',
+      label,
+      icon: icon || '📦',
+      description: 'Auto-created from blueprint parameter',
+      subtype: 'material',
+      slot: null,
+      rarity: 'common',
+      stack_limit: 99,
+      item_type: 'material',
+      stack_max: 99,
+      visible: true,
+      position,
+      canvas_pos: position,
+    }
+  }
+
+  return null
+}
+
+/**
+ * Injects a parameter mapping into a building_workflow node.
+ * Determines whether to add as input or output based on parameter key naming.
+ */
+function injectParameterIntoWorkflow(workflowNode, paramConfig, targetNodeId, paramKey) {
+  const isInput = isInputParameter(paramKey)
+
+  if (isInput) {
+    // Add to input_rules
+    const existingRules = workflowNode.input_rules || []
+    const alreadyExists = existingRules.some(
+      (r) => r.resource_id === targetNodeId || r.item_id === targetNodeId
+    )
+    if (!alreadyExists) {
+      workflowNode.input_rules = [
+        ...existingRules,
+        { resource_id: targetNodeId, amount: 5 },
+      ]
+    }
+
+    // Also add to legacy inputs array
+    const existingInputs = workflowNode.inputs || []
+    const inputExists = existingInputs.some(
+      (i) => i.item_id === targetNodeId || i.resource_id === targetNodeId
+    )
+    if (!inputExists) {
+      workflowNode.inputs = [
+        ...existingInputs,
+        { item_id: targetNodeId, qty: 5 },
+      ]
+    }
+  } else {
+    // Add to output_rules
+    const existingRules = workflowNode.output_rules || []
+    const alreadyExists = existingRules.some(
+      (r) => r.target === targetNodeId
+    )
+    if (!alreadyExists) {
+      workflowNode.output_rules = [
+        ...existingRules,
+        { output_type: paramConfig.type === 'item' ? 'item' : 'resource', target: targetNodeId, quantity: 2, chance: 1 },
+      ]
+    }
+  }
+}
+
+/**
+ * Injects a parameter mapping into a crafting_recipe node.
+ */
+function injectParameterIntoRecipe(recipeNode, paramConfig, targetNodeId, paramKey) {
+  const isInput = isInputParameter(paramKey)
+
+  if (isInput) {
+    const existingInputs = recipeNode.inputs || []
+    const alreadyExists = existingInputs.some((i) => i.item_id === targetNodeId)
+    if (!alreadyExists) {
+      recipeNode.inputs = [
+        ...existingInputs,
+        { item_id: targetNodeId, qty: 5 },
+      ]
+    }
+  } else {
+    if (paramConfig.type === 'item') {
+      // Set as output if not already set
+      if (!recipeNode.output_item_id) {
+        recipeNode.output_item_id = targetNodeId
+      }
+    }
+  }
+}
+
+/**
+ * Heuristic to determine if a parameter key represents an input.
+ * Input keys typically contain: input, ingredient, raw, ore, resource (as input)
+ * Output keys typically contain: output, product, refined, ingot, potion
+ */
+function isInputParameter(paramKey) {
+  const inputPatterns = ['input', 'ingredient', 'raw', 'ore', 'herb', 'berry']
+  const outputPatterns = ['output', 'product', 'refined', 'ingot', 'potion', 'brew']
+
+  const keyLower = paramKey.toLowerCase()
+
+  // Check output patterns first (more specific)
+  if (outputPatterns.some((p) => keyLower.includes(p))) {
+    return false
+  }
+
+  // Check input patterns
+  if (inputPatterns.some((p) => keyLower.includes(p))) {
+    return true
+  }
+
+  // Default: first resource is input, second is output
+  return paramKey.includes('resource') && !paramKey.includes('output')
 }
 
 export default useStore

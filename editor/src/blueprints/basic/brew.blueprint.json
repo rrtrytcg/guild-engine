@@ -6,7 +6,23 @@
     "requires_schema_version": "1.2.0",
     "created_at": "2026-03-29T00:00:00.000Z",
     "flavor": "fantasy",
-    "complexity": "basic"
+    "complexity": "basic",
+    "parameters": [
+      {
+        "key": "ingredient_resource",
+        "label": "Ingredient Resource",
+        "type": "resource",
+        "required": true,
+        "description": "The raw ingredient resource (e.g. Herbs, Berries, Mushrooms)"
+      },
+      {
+        "key": "potion_resource",
+        "label": "Potion Resource",
+        "type": "resource",
+        "required": true,
+        "description": "The brewed output resource (e.g. Health Potion, Buff Elixir)"
+      }
+    ]
   },
   "nodes": [
     {

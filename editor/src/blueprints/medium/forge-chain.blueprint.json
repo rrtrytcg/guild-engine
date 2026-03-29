@@ -6,7 +6,33 @@
     "requires_schema_version": "1.2.0",
     "created_at": "2026-03-29T00:00:00.000Z",
     "flavor": "fantasy",
-    "complexity": "medium"
+    "complexity": "medium",
+    "parameters": [
+      {
+        "key": "ore_resource",
+        "label": "Ore Resource",
+        "description": "The raw material fed into the smelter (e.g. Iron Ore, Copper Ore)",
+        "type": "resource",
+        "required": true,
+        "injects_into": ["bp-fc-workflow-smelt.input_rules"]
+      },
+      {
+        "key": "ingot_resource",
+        "label": "Ingot Resource",
+        "description": "The intermediate smelted resource (e.g. Iron Ingot, Copper Bar)",
+        "type": "resource",
+        "required": true,
+        "injects_into": ["bp-fc-workflow-forge.input_rules", "bp-fc-workflow-smelt.output_rules"]
+      },
+      {
+        "key": "weapon_item",
+        "label": "Weapon Item",
+        "description": "The finished weapon this forge produces (e.g. Iron Sword, Steel Axe)",
+        "type": "item",
+        "required": true,
+        "injects_into": ["bp-fc-recipe-forge.output_item_id"]
+      }
+    ]
   },
   "nodes": [
     {

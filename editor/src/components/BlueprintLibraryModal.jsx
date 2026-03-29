@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import useStore from '../store/useStore'
+import ParameterMappingModal from './ParameterMappingModal'
 import smeltBasic from '../blueprints/basic/smelt.blueprint.json'
 import brewBasic from '../blueprints/basic/brew.blueprint.json'
 import researchBasic from '../blueprints/basic/research.blueprint.json'
@@ -48,13 +49,23 @@ export default function BlueprintLibraryModal({ onClose, dropPosition }) {
   const savedBlueprints = useStore((s) => s.blueprints)
   const [notice, setNotice] = useState('')
   const [activeTab, setActiveTab] = useState('basic')
+  const [pendingBlueprint, setPendingBlueprint] = useState(null)
 
   const tabBlueprints = activeTab === 'yours'
     ? savedBlueprints
     : (PRESET_BLUEPRINTS[activeTab] ?? [])
 
-  const handleDrop = (blueprint) => {
-    const summary = importBlueprint(blueprint, dropPosition)
+  const handleDropRequest = (blueprint) => {
+    const parameters = blueprint.blueprint_meta?.parameters
+    if (parameters?.length > 0) {
+      setPendingBlueprint(blueprint)
+    } else {
+      handleDrop(blueprint)
+    }
+  }
+
+  const handleDrop = (blueprint, parameterMappings) => {
+    const summary = importBlueprint(blueprint, dropPosition, parameterMappings)
     if (!summary) return
 
     const autoCreatedResourcesOnly = summary.autoCreated.every((entry) => entry.type === 'resource')
@@ -69,6 +80,19 @@ export default function BlueprintLibraryModal({ onClose, dropPosition }) {
     setNotice(
       `${blueprint.blueprint_meta?.label ?? 'Blueprint'} dropped - ${summary.importedCount} nodes, ${summary.importedEdgeCount ?? 0} edges imported, ${summary.autoCreatedCount} ${autoCreatedLabel} auto-created${autoCreatedList}${remappedList}`
     )
+  }
+
+  const handleParameterConfirm = (result) => {
+    if (result.action === 'import' && pendingBlueprint) {
+      handleDrop(pendingBlueprint, result.mappings)
+    } else if (result.action === 'skip' && pendingBlueprint) {
+      handleDrop(pendingBlueprint, null)
+    }
+    setPendingBlueprint(null)
+  }
+
+  const handleParameterCancel = () => {
+    setPendingBlueprint(null)
   }
 
   return (
@@ -138,7 +162,7 @@ export default function BlueprintLibraryModal({ onClose, dropPosition }) {
                 <BlueprintCard
                   key={blueprint.blueprint_meta?.id ?? blueprint.blueprint_meta?.label}
                   blueprint={blueprint}
-                  onDrop={() => handleDrop(blueprint)}
+                  onDrop={() => handleDropRequest(blueprint)}
                 />
               ))}
             </div>
@@ -150,6 +174,15 @@ export default function BlueprintLibraryModal({ onClose, dropPosition }) {
             </div>
           )}
         </div>
+
+        {pendingBlueprint && (
+          <ParameterMappingModal
+            parameters={pendingBlueprint.blueprint_meta.parameters}
+            onConfirm={handleParameterConfirm}
+            onCancel={handleParameterCancel}
+            dropPosition={dropPosition}
+          />
+        )}
 
         <div style={footerStyle}>
           <button onClick={onClose} style={secondaryBtn}>Close</button>
