@@ -1254,85 +1254,30 @@ function renderWorldScreen(s) {
     const workflows = getBuildingWorkflows(s, building.id).filter((workflow) => workflow.visible !== false)
     const assignedHero = building.artisan_assigned ? s.heroes.find((hero) => hero.id === building.artisan_assigned) : null
     const assignedHeroClass = assignedHero ? getHeroClassForHero(s, assignedHero) : null
-    const availableArtisans = getAvailableArtisans(s, building.id)
-    const recruitPoolArtisans = getRecruitPoolArtisans(s)
     const queueLimit = getWorkflowQueueLimit(building)
     const queuedJobs = (building.workflow_queue ?? []).filter((job) => !job.passive)
     const queueLabel = `${queuedJobs.length}/${queueLimit}`
-    const producesConsumables = building.has_workflows && buildingProducesConsumables(s, building)
+    const workflowCount = workflows.length
 
     const detailHtml = selected ? `<div style="margin-top:12px;border-top:1px solid #2a2a3e;padding-top:12px">
-      ${building.has_workflows ? `<div style="margin-bottom:14px">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#666680;margin-bottom:8px">Artisan slot</div>
-        <div style="border:1px solid #2a2a3e;border-radius:8px;background:#171724;padding:10px">
-          ${assignedHero ? `<div>
-            <div style="font-size:12px;font-weight:600;color:#e0e0f0">${assignedHero.name}</div>
-            <div style="font-size:10px;color:#666680">${assignedHeroClass?.label ?? '?'} · Lv.${assignedHero.level}</div>
-            <div style="font-size:10px;color:#EF9F27;margin-top:6px">Worker skill: ${Math.round(assignedHero.stats?.[assignedHeroClass?.primary_stat] ?? 0)}</div>
-          </div>` : `<div style="font-size:11px;color:#8888aa">Empty slot</div>`}
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-            <button class="btn btn-ghost" data-action="toggle-artisan-picker" data-building-id="${building.id}">Assign</button>
-            ${assignedHero ? `<button class="btn btn-ghost" data-action="unassign-artisan" data-building-id="${building.id}">Unassign</button>` : ''}
-          </div>
-          ${s.ui.artisanPickerBuildingId === building.id ? `<div style="margin-top:10px;border-top:1px solid #2a2a3e;padding-top:10px">
-            ${availableArtisans.length
-              ? availableArtisans.map((hero) => {
-                  const heroClass = getHeroClassForHero(s, hero)
-                  return `<button class="equipment-option" style="margin-bottom:6px" data-action="assign-artisan" data-building-id="${building.id}" data-hero-id="${hero.id}">
-                    <div style="min-width:0;text-align:left">
-                      <div style="font-size:11px;font-weight:600;color:#e0e0f0">${hero.name}</div>
-                      <div class="item-meta">Lv.${hero.level} · ${formatPrimaryStatName(heroClass?.primary_stat)} ${Math.round(hero.stats?.[heroClass?.primary_stat] ?? 0)}</div>
-                      <div class="item-meta">${(heroClass?.specializations ?? []).join(', ') || 'No specializations'}</div>
-                    </div>
-                  </button>`
-                }).join('')
-              : `<div style="font-size:11px;color:#666680">No artisans available — recruit from workflow outputs.</div>`}
-          </div>` : ''}
-        </div>
-      </div>` : ''}
-      ${building.has_workflows ? `<div style="margin-bottom:14px">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#666680;margin-bottom:8px">Workflow queue</div>
-        <div style="font-size:10px;color:#666680;margin-bottom:8px">Queue slots used: ${queueLabel}</div>
-        ${workflows.length ? workflows.map((workflow) => {
-          const recipe = getWorkflowRecipe(s, workflow.id, building.level ?? 0)
-          const durationLabel = recipe?.craft_time_formula ? 'Formula' : `${Math.round(workflow.duration_base_ticks ?? workflow.total_ticks_required ?? 0)}s`
-          const queueBlocked = workflow.workflow_mode === 'passive' || queuedJobs.length >= queueLimit || building.level <= 0
-          return `<div style="border:1px solid #2a2a3e;border-radius:8px;padding:10px;background:#171724;margin-top:8px">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-              <div style="min-width:0">
-                <div style="font-size:12px;font-weight:600;color:#e0e0f0">${workflow.label ?? workflow.id}</div>
-                <div style="font-size:10px;color:#666680;margin-top:2px">${workflow.behavior ?? 'workflow'} · ${workflow.workflow_mode ?? 'queued'} · ${durationLabel}</div>
-              </div>
-              <button class="btn ${queueBlocked ? 'btn-ghost' : 'btn-primary'}" ${queueBlocked ? 'disabled' : ''} data-action="queue-workflow-job" data-building-id="${building.id}" data-workflow-id="${workflow.id}">${workflow.workflow_mode === 'passive' ? 'Passive' : 'Queue job'}</button>
-            </div>
-            <div style="font-size:10px;color:#8888aa;margin-top:8px">Input: ${formatWorkflowInputs(s, workflow, recipe)}</div>
-            <div style="font-size:10px;color:#5DCAA5;margin-top:4px">Output: ${formatWorkflowOutputs(s, workflow, recipe)}</div>
-          </div>`
-        }).join('') : `<div style="font-size:11px;color:#444460">No workflows unlocked yet.</div>`}
-        <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#666680;margin:12px 0 8px">Active queue</div>
-        ${(building.workflow_queue ?? []).length ? (building.workflow_queue ?? []).map((job) => {
-          const workflow = (s.buildingWorkflows ?? []).find((entry) => entry.id === job.workflow_id)
-          const recipe = job.recipe_id ? (s.craftingRecipes ?? []).find((entry) => entry.id === job.recipe_id) : null
-          const pct = Math.max(0, Math.min(100, ((job.progress_s ?? 0) / Math.max(0.1, job.total_s ?? 1)) * 100))
-          return `<div style="margin-top:8px;padding:8px;border:1px solid #2a2a3e;border-radius:8px;background:#171724">
-            <div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#e0e0f0;margin-bottom:6px">
-              <span>${workflow?.label ?? job.workflow_id}${recipe ? ` · ${recipe.label ?? recipe.id}` : ''}</span>
-              <span style="color:#666680">${job.passive ? 'Passive' : `${Math.floor(job.progress_s ?? 0)} / ${Math.ceil(job.total_s ?? 0)}s`}</span>
-            </div>
-            <div class="progress-bar-outer"><div class="progress-bar-inner" style="width:${pct}%;background:${job.passive ? '#1D9E75' : '#7F77DD'}"></div></div>
-          </div>`
-        }).join('') : `<div style="font-size:11px;color:#444460">Queue empty.</div>`}
-      </div>` : ''}
-      ${producesConsumables ? `<div>
-        <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#666680;margin-bottom:8px">Buff stockpile</div>
-        ${(s.buffStockpile ?? []).length ? (s.buffStockpile ?? []).map((entry) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid #1e1e2e">
-          <div style="min-width:0">
-            <div style="font-size:11px;color:#e0e0f0">${entry.def?.icon ?? 'Item'} ${entry.def?.label ?? entry.id}</div>
-            <div style="font-size:10px;color:#666680;margin-top:2px">${formatBuffDescription(entry.def)}</div>
-          </div>
-          <div style="font-size:11px;color:#c0c0d8;flex-shrink:0">x${entry.qty}</div>
-        </div>`).join('') : `<div style="font-size:11px;color:#444460">No consumables stocked yet.</div>`}
-      </div>` : ''}
+      <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#666680;margin-bottom:8px">Artisan slot</div>
+      <div style="border:1px solid #2a2a3e;border-radius:8px;background:#171724;padding:10px">
+        ${assignedHero
+          ? `<div>
+              <div style="font-size:12px;font-weight:600;color:#e0e0f0">${assignedHero.name}</div>
+              <div style="font-size:10px;color:#666680">${assignedHeroClass?.label ?? '?'} · Lv.${assignedHero.level}</div>
+            </div>`
+          : `<div style="font-size:11px;color:#8888aa">Empty - assign in Forge tab</div>`
+        }
+      </div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#666680;margin:12px 0 8px">Quick stats</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span style="font-size:10px;color:#c0c0d8">Level ${building.level}/${building.max_level}</span>
+        <span style="font-size:10px;color:#EF9F27">Workflows ${workflowCount}</span>
+      </div>
+      <div style="margin-top:10px">
+        <button class="btn btn-ghost" data-action="open-building-forge" data-building-id="${building.id}">-> Open in Forge tab</button>
+      </div>
     </div>` : ''
 
     return `<div class="card" style="${selected ? 'border-color:#7F77DD55;background:#212136' : ''}">
@@ -1750,20 +1695,9 @@ function handleWorldActionClick(e) {
     actions.setSelectedBuilding(btn.dataset.buildingId)
     return
   }
-  if (action === 'toggle-artisan-picker') {
-    actions.toggleArtisanPicker(btn.dataset.buildingId)
-    return
-  }
-  if (action === 'assign-artisan') {
-    actions.assignArtisan(btn.dataset.buildingId, btn.dataset.heroId)
-    return
-  }
-  if (action === 'unassign-artisan') {
-    actions.unassignArtisan(btn.dataset.buildingId)
-    return
-  }
-  if (action === 'queue-workflow-job') {
-    actions.queueWorkflowJob(btn.dataset.buildingId, btn.dataset.workflowId)
+  if (action === 'open-building-forge') {
+    detailUiState.activeTab = 'forge'
+    actions.setScreen('forge', { selectedBuildingId: btn.dataset.buildingId })
   }
 }
 

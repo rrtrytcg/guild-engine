@@ -53,13 +53,16 @@
       "type": "building_workflow",
       "label": "Smelt Ore",
       "description": "Melt raw ore into forge-ready ingots.",
+      "building_id": "bp-forge-building",
       "host_building": "bp-forge-building",
       "behavior": "consume_item",
       "workflow_mode": "queued",
       "action_type": "smelt",
       "base_duration_ticks": 80,
       "duration_base_ticks": 80,
-      "input_rules": [],
+      "input_rules": [
+        { "item_id": "item-iron_ore", "qty": 3 }
+      ],
       "inputs": [],
       "output_rules": [
         { "output_type": "resource", "target": "iron_ingot", "quantity": 2, "chance": 1 }
@@ -83,13 +86,17 @@
       "type": "building_workflow",
       "label": "Forge Weapon",
       "description": "Shape balanced blades from ingots and fittings.",
+      "building_id": "bp-forge-building",
       "host_building": "bp-forge-building",
       "behavior": "consume_item",
       "workflow_mode": "queued",
       "action_type": "weaponsmith",
       "base_duration_ticks": 110,
       "duration_base_ticks": 110,
-      "input_rules": [],
+      "input_rules": [
+        { "item_id": "iron_ingot", "qty": 4 },
+        { "item_id": "leather", "qty": 1 }
+      ],
       "inputs": [],
       "output_rules": [
         { "output_type": "item", "target": "bp-forge-item-iron-sword", "quantity": 1, "chance": 1 }
@@ -114,16 +121,20 @@
       "type": "building_workflow",
       "label": "Forge Armor",
       "description": "Hammer protective plates and reinforced fittings.",
+      "building_id": "bp-forge-building",
       "host_building": "bp-forge-building",
       "behavior": "consume_item",
       "workflow_mode": "queued",
       "action_type": "armorsmith",
       "base_duration_ticks": 120,
       "duration_base_ticks": 120,
-      "input_rules": [],
+      "input_rules": [
+        { "item_id": "iron_ingot", "qty": 3 },
+        { "item_id": "cloth", "qty": 1 }
+      ],
       "inputs": [],
       "output_rules": [
-        { "output_type": "item", "target": "bp-forge-item-iron-sword", "quantity": 1, "chance": 1 }
+        { "output_type": "item", "target": "bp-forge-item-iron-plating", "quantity": 1, "chance": 1 }
       ],
       "success_table": {
         "base_failure": 0.1,
@@ -131,7 +142,7 @@
         "failure_behavior": "consume_inputs_no_output",
         "crit_behavior": "quality_upgrade",
         "crit_multiplier": 2,
-        "crit_output_item": "bp-forge-item-iron-sword-masterwork",
+        "crit_output_item": "bp-forge-item-iron-plating",
         "failure_grants_xp": true,
         "failure_xp_multiplier": 0.5,
         "xp_on_complete": 20
@@ -225,12 +236,26 @@
       "canvas_pos": { "x": 480, "y": 400 }
     },
     {
+      "id": "bp-forge-item-iron-plating",
+      "type": "item",
+      "label": "Iron Plating",
+      "icon": "🛡️",
+      "rarity": "common",
+      "subtype": "equipment",
+      "slot": "armor",
+      "stat_focus": "def",
+      "item_type": "equipment",
+      "stack_limit": 1,
+      "visible": true,
+      "canvas_pos": { "x": 480, "y": 500 }
+    },
+    {
       "id": "bp-forge-recipe-smelt-billet",
       "type": "crafting_recipe",
       "label": "Smelt Billet",
-      "inputs": [{ "resource": "iron_ore", "amount": 3 }, { "resource": "coal", "amount": 1 }],
-      "output_item": "bp-forge-item-iron-sword",
-      "required_workflow": "bp-forge-workflow-smelt",
+      "inputs": [{ "item_id": "iron_ore", "qty": 3 }, { "item_id": "coal", "qty": 1 }],
+      "output_item_id": "bp-forge-item-iron-sword",
+      "workflow_id": "bp-forge-workflow-smelt",
       "required_building_level": 1,
       "output_quantity": 1,
       "visible": true,
@@ -240,9 +265,9 @@
       "id": "bp-forge-recipe-sword",
       "type": "crafting_recipe",
       "label": "Forge Iron Sword",
-      "inputs": [{ "resource": "iron_ingot", "amount": 4 }, { "resource": "leather", "amount": 1 }],
-      "output_item": "bp-forge-item-iron-sword",
-      "required_workflow": "bp-forge-workflow-weapon",
+      "inputs": [{ "item_id": "iron_ingot", "qty": 4 }, { "item_id": "leather", "qty": 1 }],
+      "output_item_id": "bp-forge-item-iron-sword",
+      "workflow_id": "bp-forge-workflow-weapon",
       "required_building_level": 2,
       "output_quantity": 1,
       "visible": true,
@@ -252,9 +277,9 @@
       "id": "bp-forge-recipe-masterwork-sword",
       "type": "crafting_recipe",
       "label": "Temper Masterwork Sword",
-      "inputs": [{ "resource": "iron_ingot", "amount": 6 }, { "resource": "coal", "amount": 2 }],
-      "output_item": "bp-forge-item-iron-sword-masterwork",
-      "required_workflow": "bp-forge-workflow-weapon",
+      "inputs": [{ "item_id": "iron_ingot", "qty": 6 }, { "item_id": "coal", "qty": 2 }],
+      "output_item_id": "bp-forge-item-iron-sword-masterwork",
+      "workflow_id": "bp-forge-workflow-weapon",
       "required_building_level": 3,
       "output_quantity": 1,
       "visible": true,
@@ -264,9 +289,9 @@
       "id": "bp-forge-recipe-armor-plating",
       "type": "crafting_recipe",
       "label": "Forge Reinforced Plating",
-      "inputs": [{ "resource": "iron_ingot", "amount": 5 }, { "resource": "cloth", "amount": 2 }],
-      "output_item": "bp-forge-item-iron-sword-masterwork",
-      "required_workflow": "bp-forge-workflow-armor",
+      "inputs": [{ "item_id": "iron_ingot", "qty": 3 }, { "item_id": "cloth", "qty": 1 }],
+      "output_item_id": "bp-forge-item-iron-plating",
+      "workflow_id": "bp-forge-workflow-armor",
       "required_building_level": 3,
       "output_quantity": 1,
       "visible": true,

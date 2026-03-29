@@ -257,6 +257,7 @@ const useStore = create((set, get) => ({
     const remappedBlueprintNodes = blueprintJson.nodes
       .map((nodeData) => remapBlueprintNode(nodeData, idMap))
       .map((nodeData) => normalizeImportedBlueprintNode(nodeData, idMap))
+      .map((nodeData) => applyImportedBlueprintCrossReferences(nodeData, idMap))
 
     const importedNodes = remappedBlueprintNodes.map((remappedData, index) => {
       const relativePos = blueprintPositions[index]
@@ -678,6 +679,44 @@ function normalizeImportedBlueprintNode(nodeData, idMap) {
             unlocks_workflows: (nodeData.effects.unlocks_workflows ?? []).map((workflowId) => idMap[workflowId] ?? workflowId),
           }
         : nodeData.effects,
+    }
+  }
+
+  return nodeData
+}
+
+function applyImportedBlueprintCrossReferences(nodeData, idMap) {
+  if (!nodeData || typeof nodeData !== 'object') return nodeData
+
+  if (nodeData.type === 'building_workflow') {
+    return {
+      ...nodeData,
+      building_id: idMap[nodeData.building_id] ?? nodeData.building_id,
+    }
+  }
+
+  if (nodeData.type === 'building_upgrade') {
+    return {
+      ...nodeData,
+      building_id: idMap[nodeData.building_id] ?? nodeData.building_id,
+      unlocks_workflow_ids: nodeData.unlocks_workflow_ids?.map(
+        (workflowId) => idMap[workflowId] ?? workflowId
+      ),
+    }
+  }
+
+  if (nodeData.type === 'crafting_recipe') {
+    return {
+      ...nodeData,
+      workflow_id: idMap[nodeData.workflow_id] ?? nodeData.workflow_id,
+      output_item_id: idMap[nodeData.output_item_id] ?? nodeData.output_item_id,
+      inputs: nodeData.inputs?.map((input) => {
+        const referenceId = input?.item_id ?? input?.resource
+        return {
+          ...input,
+          item_id: idMap[referenceId] ?? referenceId,
+        }
+      }),
     }
   }
 

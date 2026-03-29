@@ -75,24 +75,42 @@ export function bootstrapState(project) {
   // Day 2 workflows / recipes / upgrades
   const buildingWorkflows = {}
   for (const node of project.nodes.filter((n) => n.type === 'building_workflow')) {
+    const hostBuildingId = node.building_id ?? node.host_building ?? ''
     buildingWorkflows[node.id] = {
       ...node,
+      building_id: hostBuildingId,
+      host_building: hostBuildingId,
       visible: !node.unlocked_by?.building_level && !node.unlocked_by?.building_prerequisites?.length,
     }
   }
 
   const craftingRecipes = {}
   for (const node of project.nodes.filter((n) => n.type === 'crafting_recipe')) {
+    const workflowId = node.required_workflow ?? node.workflow_id ?? ''
+    const outputItemId = node.output_item ?? node.output_item_id ?? ''
     craftingRecipes[node.id] = {
       ...node,
+      required_workflow: workflowId,
+      workflow_id: workflowId,
+      output_item: outputItemId,
+      output_item_id: outputItemId,
+      output_quantity: node.output_quantity ?? node.output_qty ?? 1,
+      inputs: (node.inputs ?? []).map((entry) => ({
+        ...entry,
+        resource: entry.resource ?? entry.resource_id ?? entry.item_id,
+        amount: entry.amount ?? entry.qty ?? 0,
+      })),
       visible: !(node.required_building_level > 1),
     }
   }
 
   const buildingUpgrades = {}
   for (const node of project.nodes.filter((n) => n.type === 'building_upgrade')) {
+    const hostBuildingId = node.host_building ?? node.building_id ?? ''
     buildingUpgrades[node.id] = {
       ...node,
+      host_building: hostBuildingId,
+      building_id: hostBuildingId,
       completed: false,
       visible: true,
     }
@@ -201,6 +219,20 @@ export function bootstrapState(project) {
   const eventLog = [
     { ts: Date.now(), text: `${project.meta.title} — a new adventure begins.`, type: 'system' },
   ]
+  const workflowCountsByBuilding = Object.values(buildingWorkflows).reduce((acc, workflow) => {
+    const buildingId = workflow.building_id ?? workflow.host_building
+    if (!buildingId || !buildings[buildingId]) return acc
+    acc[buildingId] = (acc[buildingId] ?? 0) + 1
+    return acc
+  }, {})
+  for (const building of Object.values(buildings)) {
+    const count = workflowCountsByBuilding[building.id] ?? 0
+    eventLog.push({
+      ts: Date.now(),
+      text: `Loaded ${count} workflow${count === 1 ? '' : 's'} for ${building.label}.`,
+      type: 'system',
+    })
+  }
 
   // UI state
   const ui = {
