@@ -406,6 +406,16 @@ const NODE_DEFAULTS = {
     craft_time_s: 10,
     unlock_conditions: [],
   },
+  crafting_recipe: {
+    label: 'New Craft Recipe',
+    description: '',
+    inputs: [],
+    output_item: '',
+    output_quantity: 1,
+    required_workflow: '',
+    required_building_level: 1,
+    visible: true,
+  },
   ability: {
     label: 'New Ability',
     description: '',

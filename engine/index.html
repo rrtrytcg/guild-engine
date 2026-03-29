@@ -110,12 +110,14 @@
       </div>
       <div id="detail-content">
         <div id="tab-recruits">
-          <div class="section-label" style="padding:8px 6px 4px">Guild roster</div>
-          <div id="heroes-list" style="padding:0 8px 8px"></div>
-          <div style="border-top:1px solid #2a2a3e;margin-top:4px;padding:8px">
+          <div class="section-label" style="padding:8px 6px 4px">Recruit heroes</div>
+          <div id="hero-recruit-list" style="padding:0 8px 8px"></div>
+          <div style="border-bottom:1px solid #2a2a3e;margin-bottom:4px;padding:8px">
             <div class="section-label" style="padding:4px 6px">Available recruits</div>
             <div id="recruits-list" style="padding:0 2px 2px"></div>
           </div>
+          <div class="section-label" style="padding:8px 6px 4px">Guild roster</div>
+          <div id="heroes-list" style="padding:0 8px 8px"></div>
         </div>
         <div id="tab-inventory" style="display:none">
           <div id="inventory-list" style="padding:0 2px 2px"></div>
@@ -578,6 +580,7 @@ function renderExpeditionCard(s, exp, readiness, { boss = false, note = '' } = {
 function render(s) {
   renderResources(s)
   renderHeroesV2(s)
+  renderHeroRecruitOffers(s)
   renderRecruitPool(s)
   renderEventLog(s)
   renderInventoryPanel(s)
@@ -709,7 +712,7 @@ function formatPrimaryStatName(stat) {
 
 function getBuildingWorkflows(s, buildingId) {
   return (s.buildingWorkflows ?? [])
-    .filter((workflow) => (workflow.host_building ?? workflow.building_id) === buildingId)
+    .filter((workflow) => (workflow.building_id ?? workflow.host_building) === buildingId)
     .sort((left, right) => (left.label ?? left.id).localeCompare(right.label ?? right.id))
 }
 
@@ -810,6 +813,30 @@ function getRecruitPoolArtisans(s) {
   return (s.recruitPool ?? [])
     .filter((hero) => getHeroClassForHero(s, hero)?.hero_type === 'artisan')
     .sort((left, right) => (left.name ?? left.id).localeCompare(right.name ?? right.id))
+}
+
+function renderHeroRecruitOffers(s) {
+  const el = document.getElementById('hero-recruit-list')
+  const heroClasses = s.heroClasses ?? []
+
+  if (!heroClasses.length) {
+    el.innerHTML = '<div style="font-size:11px;color:#444460;padding:4px 6px">No recruitable hero classes defined.</div>'
+    return
+  }
+
+  el.innerHTML = heroClasses.map((cls) => {
+    const cost = cls.recruit_cost ?? []
+    const canRecruit = s.canAffordCost(cost)
+    const actionKey = getActionKey('recruit-hero', cls.id)
+    const pending = pendingActions.has(actionKey)
+    return `<div class="card" style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-weight:600;font-size:12px">${cls.icon ?? '⚔️'} ${cls.label}</div>
+        <div style="font-size:10px;color:#666680">${formatResourceCostLabel(s, cost)}</div>
+      </div>
+      <button class="btn ${canRecruit && !pending ? 'btn-primary' : 'btn-ghost'}" ${canRecruit && !pending ? '' : 'disabled'} data-action="recruit-hero" data-class-id="${cls.id}" data-action-key="${actionKey}">${pending ? 'Recruiting...' : 'Recruit'}</button>
+    </div>`
+  }).join('')
 }
 
 function renderRecruitPool(s) {
@@ -1184,20 +1211,6 @@ function renderWorldScreenLegacy(s) {
     </div>`
   }).join('')
 
-  const recruitHtml = s.heroClasses.map((cls) => {
-    const cost = cls.recruit_cost ?? []
-    const canRecruit = s.canAffordCost(cost)
-    const actionKey = getActionKey('recruit-hero', cls.id)
-    const pending = pendingActions.has(actionKey)
-    return `<div class="card" style="display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <div style="font-weight:600;font-size:12px">${cls.icon ?? '⚔️'} ${cls.label}</div>
-        <div style="font-size:10px;color:#666680">${cost.map(c=>s.fmt(c.amount)+' '+(s.resources.find(r=>r.id===c.resource_id)?.label??c.resource_id)).join(', ')||'Free'}</div>
-      </div>
-      <button class="btn ${canRecruit && !pending ? 'btn-primary' : 'btn-ghost'}" ${canRecruit && !pending ? '' : 'disabled'} data-action="recruit-hero" data-class-id="${cls.id}" data-action-key="${actionKey}">${pending ? 'Recruiting...' : 'Recruit'}</button>
-    </div>`
-  }).join('')
-
   const upgradesHtml = s.upgrades.map((u) => {
     const cost = u.cost ?? []
     const canBuy = s.canAffordCost(cost) && u.tier < u.max_tier
@@ -1214,11 +1227,10 @@ function renderWorldScreenLegacy(s) {
     </div>`
   }).join('')
 
-  const empty = !buildingsHtml && !recruitHtml && !upgradesHtml
+  const empty = !buildingsHtml && !upgradesHtml
   el.innerHTML = `<h2 style="font-size:15px;font-weight:700;margin-bottom:12px;color:#e0e0f0">World</h2>
     ${empty ? `<div style="color:#444460;font-size:12px;margin-top:24px;text-align:center"><div style="font-size:24px;margin-bottom:8px">🏚️</div>No visible content yet.<br><br>In the editor, make sure your nodes have no unlock_conditions so they appear immediately.</div>` : ''}
     ${buildingsHtml ? `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#444460;margin-bottom:8px">Buildings</div>${buildingsHtml}` : ''}
-    ${recruitHtml ? `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#444460;margin:12px 0 8px">Recruit</div>${recruitHtml}` : ''}
     ${upgradesHtml ? `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#444460;margin:12px 0 8px">Upgrades</div>${upgradesHtml}` : ''}`
 }
 
@@ -1351,20 +1363,6 @@ function renderWorldScreen(s) {
     </div>`
   }).join('')
 
-  const recruitHtml = s.heroClasses.map((heroClass) => {
-    const cost = heroClass.recruit_cost ?? []
-    const canRecruit = s.canAffordCost(cost)
-    const actionKey = getActionKey('recruit-hero', heroClass.id)
-    const pending = pendingActions.has(actionKey)
-    return `<div class="card" style="display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <div style="font-weight:600;font-size:12px">${heroClass.icon ?? 'âš”ï¸'} ${heroClass.label}</div>
-        <div style="font-size:10px;color:#666680">${formatResourceCostLabel(s, cost)}</div>
-      </div>
-      <button class="btn ${canRecruit && !pending ? 'btn-primary' : 'btn-ghost'}" ${canRecruit && !pending ? '' : 'disabled'} data-action="recruit-hero" data-class-id="${heroClass.id}" data-action-key="${actionKey}">${pending ? 'Recruiting...' : 'Recruit'}</button>
-    </div>`
-  }).join('')
-
   const upgradesHtml = s.upgrades.map((upgrade) => {
     const cost = upgrade.cost ?? []
     const canBuy = s.canAffordCost(cost) && upgrade.tier < upgrade.max_tier
@@ -1381,11 +1379,10 @@ function renderWorldScreen(s) {
     </div>`
   }).join('')
 
-  const empty = !buildingsHtml && !recruitHtml && !upgradesHtml
+  const empty = !buildingsHtml && !upgradesHtml
   el.innerHTML = `<h2 style="font-size:15px;font-weight:700;margin-bottom:12px;color:#e0e0f0">World</h2>
     ${empty ? `<div style="color:#444460;font-size:12px;margin-top:24px;text-align:center"><div style="font-size:24px;margin-bottom:8px">ðŸšï¸</div>No visible content yet.<br><br>In the editor, make sure your nodes have no unlock_conditions so they appear immediately.</div>` : ''}
     ${buildingsHtml ? `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#444460;margin-bottom:8px">Buildings</div>${buildingsHtml}` : ''}
-    ${recruitHtml ? `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#444460;margin:12px 0 8px">Recruit</div>${recruitHtml}` : ''}
     ${upgradesHtml ? `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#444460;margin:12px 0 8px">Upgrades</div>${upgradesHtml}` : ''}`
 }
 
@@ -1672,6 +1669,11 @@ function handleHeroActionClickLegacy(e) {
       heroUiState.hoveredItemId = null
     }
     if (snapshot) render(snapshot)
+    return
+  }
+
+  if (action === 'recruit-hero') {
+    queueAction(btn.dataset.actionKey || getActionKey(action, btn.dataset.classId), () => actions.recruitHero(btn.dataset.classId))
     return
   }
 }
@@ -2026,7 +2028,7 @@ function buildExpeditionRenderHash(s) {
 
 function renderForgeScreen(s) {
   const el = document.getElementById('screen-forge')
-  const stations = s.buildings.filter((b) => b.is_crafting_station && b.level > 0)
+  const stations = s.buildings.filter((b) => (b.is_crafting_station || b.has_workflows) && b.level > 0)
   const invHtml = s.inventory.length
     ? s.inventory.map((i) => `<span class="badge rarity-${i.def?.rarity??'common'}" style="background:#1e1e2e;border:1px solid #2a2a3e;margin:2px">${i.def?.icon??'📦'} ${i.def?.label??i.id} ×${i.qty}</span>`).join('')
     : '<span style="color:#444460;font-size:11px">Empty</span>'
@@ -2049,7 +2051,7 @@ function renderForgeScreen(s) {
 
 function renderForgeScreenV2(s) {
   const el = document.getElementById('screen-forge')
-  const stations = s.buildings.filter((b) => b.is_crafting_station && b.level > 0)
+  const stations = s.buildings.filter((b) => (b.is_crafting_station || b.has_workflows) && b.level > 0)
   const stationsHtml = stations.map((bld) => {
     const levelData = bld.levels[bld.level - 1]
     const slots = levelData?.recipe_slots ?? 1

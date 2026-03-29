@@ -5,6 +5,7 @@ import HeroClassInspector from './HeroClassInspector'
 import ItemInspector from './ItemInspector'
 import LootTableInspector from './LootTableInspector'
 import RecipeInspector from './RecipeInspector'
+import CraftingRecipeInspector from './CraftingRecipeInspector'
 import AbilityInspector from './AbilityInspector'
 import BuildingInspector from './BuildingInspector'
 import UpgradeInspector from './UpgradeInspector'
@@ -24,6 +25,7 @@ const INSPECTOR_MAP = {
   item:             ItemInspector,
   loot_table:       LootTableInspector,
   recipe:           RecipeInspector,
+  crafting_recipe:  CraftingRecipeInspector,
   ability:          AbilityInspector,
   building:         BuildingInspector,
   upgrade:          UpgradeInspector,
