@@ -20,9 +20,12 @@ export default function BlueprintLibraryModal({ onClose, dropPosition }) {
     const autoCreatedList = summary.autoCreated.length > 0
       ? `: ${summary.autoCreated.map((entry) => entry.id).join(', ')}`
       : ''
+    const remappedList = summary.remapped?.length > 0
+      ? ` ${summary.remapped.join('; ')}`
+      : ''
 
     setNotice(
-      `${blueprint.blueprint_meta?.label ?? 'Blueprint'} dropped — ${summary.importedCount} nodes imported, ${summary.autoCreatedCount} ${autoCreatedLabel} auto-created${autoCreatedList}`
+      `${blueprint.blueprint_meta?.label ?? 'Blueprint'} dropped - ${summary.importedCount} nodes imported, ${summary.autoCreatedCount} ${autoCreatedLabel} auto-created${autoCreatedList}${remappedList}`
     )
   }
 
@@ -30,25 +33,46 @@ export default function BlueprintLibraryModal({ onClose, dropPosition }) {
     <div
       onClick={onClose}
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         zIndex: 1000,
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: '#13131f', border: '1px solid #2a2a3e', borderRadius: 14,
-          width: 720, maxHeight: '80vh', display: 'flex', flexDirection: 'column',
-          overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
+          background: '#13131f',
+          border: '1px solid #2a2a3e',
+          borderRadius: 14,
+          width: 720,
+          maxHeight: '80vh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
         }}
       >
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid #2a2a3e', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+        <div
+          style={{
+            padding: '14px 20px',
+            borderBottom: '1px solid #2a2a3e',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexShrink: 0,
+          }}
+        >
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: '#e0e0f0' }}>Blueprint library</div>
-            <div style={{ fontSize: 11, color: '#444460', marginTop: 2 }}>Drop a fully-wired preset or one of your saved blueprints onto the canvas.</div>
+            <div style={{ fontSize: 11, color: '#444460', marginTop: 2 }}>
+              Drop a fully-wired preset or one of your saved blueprints onto the canvas.
+            </div>
           </div>
-          <button onClick={onClose} style={closeBtn}>×</button>
+          <button onClick={onClose} style={closeBtn}>x</button>
         </div>
 
         <div style={{ overflowY: 'auto', flex: 1, padding: '14px 20px' }}>
@@ -89,7 +113,16 @@ export default function BlueprintLibraryModal({ onClose, dropPosition }) {
           </Section>
         </div>
 
-        <div style={{ padding: '12px 20px', borderTop: '1px solid #2a2a3e', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
+        <div
+          style={{
+            padding: '12px 20px',
+            borderTop: '1px solid #2a2a3e',
+            display: 'flex',
+            gap: 10,
+            justifyContent: 'flex-end',
+            flexShrink: 0,
+          }}
+        >
           <button onClick={onClose} style={secondaryBtn}>Close</button>
         </div>
       </div>
@@ -106,7 +139,9 @@ function BlueprintCard({ blueprint, onDrop }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#e0e0f0' }}>{meta.label ?? 'Unnamed blueprint'}</div>
-          <div style={{ fontSize: 11, color: '#666680', marginTop: 4, lineHeight: 1.5 }}>{meta.description ?? 'No description provided.'}</div>
+          <div style={{ fontSize: 11, color: '#666680', marginTop: 4, lineHeight: 1.5 }}>
+            {meta.description ?? 'No description provided.'}
+          </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
           <Badge color="#7F77DD" label={meta.complexity ?? 'custom'} />
@@ -129,7 +164,16 @@ function BlueprintCard({ blueprint, onDrop }) {
 function Section({ title, children }) {
   return (
     <div style={{ marginBottom: 16 }}>
-      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#444460', marginBottom: 10 }}>
+      <div
+        style={{
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase',
+          color: '#444460',
+          marginBottom: 10,
+        }}
+      >
         {title}
       </div>
       {children}
@@ -139,7 +183,19 @@ function Section({ title, children }) {
 
 function Badge({ color, label, textColor }) {
   return (
-    <div style={{ padding: '4px 10px', borderRadius: 6, background: `${color}22`, border: `1px solid ${color}44`, color: textColor ?? color, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+    <div
+      style={{
+        padding: '4px 10px',
+        borderRadius: 6,
+        background: `${color}22`,
+        border: `1px solid ${color}44`,
+        color: textColor ?? color,
+        fontSize: 10,
+        fontWeight: 700,
+        textTransform: 'uppercase',
+        letterSpacing: '0.06em',
+      }}
+    >
       {label}
     </div>
   )
@@ -178,6 +234,35 @@ const noticeStyle = {
   lineHeight: 1.5,
 }
 
-const closeBtn = { background: 'none', border: 'none', color: '#555570', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: '0 4px' }
-const secondaryBtn = { background: 'transparent', border: '1px solid #2a2a3e', borderRadius: 7, color: '#8888aa', fontSize: 12, fontWeight: 600, padding: '7px 16px', cursor: 'pointer' }
-const primaryBtn = (bg) => ({ width: '100%', background: bg, border: 'none', borderRadius: 7, color: '#fff', fontSize: 12, fontWeight: 600, padding: '7px 16px', cursor: 'pointer' })
+const closeBtn = {
+  background: 'none',
+  border: 'none',
+  color: '#555570',
+  cursor: 'pointer',
+  fontSize: 20,
+  lineHeight: 1,
+  padding: '0 4px',
+}
+
+const secondaryBtn = {
+  background: 'transparent',
+  border: '1px solid #2a2a3e',
+  borderRadius: 7,
+  color: '#8888aa',
+  fontSize: 12,
+  fontWeight: 600,
+  padding: '7px 16px',
+  cursor: 'pointer',
+}
+
+const primaryBtn = (bg) => ({
+  width: '100%',
+  background: bg,
+  border: 'none',
+  borderRadius: 7,
+  color: '#fff',
+  fontSize: 12,
+  fontWeight: 600,
+  padding: '7px 16px',
+  cursor: 'pointer',
+})

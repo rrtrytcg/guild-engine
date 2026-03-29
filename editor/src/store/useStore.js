@@ -276,9 +276,21 @@ const useStore = create((set, get) => ({
       }
     })
 
-    const existingGraphIds = new Set(get().nodes.map((node) => node.data?.id ?? node.id))
+    const existingGraphIds = new Set(existingNodes.map((node) => node.data?.id ?? node.id))
     const importedIds = new Set(importedNodes.map((node) => node.data?.id ?? node.id))
-    const autoCreatedNodes = buildAutoCreatedDependencyNodes(importedNodes, {
+    const semanticMatches = findSemanticDependencyMatches(importedNodes, {
+      existingNodes,
+      existingGraphIds,
+      importedIds,
+    })
+    const normalizedImportedNodes = semanticMatches.idMap.size > 0
+      ? importedNodes.map((node) => ({
+          ...node,
+          data: remapDependencyReferences(node.data, '', semanticMatches.lookup),
+        }))
+      : importedNodes
+
+    const autoCreatedNodes = buildAutoCreatedDependencyNodes(normalizedImportedNodes, {
       existingGraphIds,
       importedIds,
       safeDropX,
@@ -286,24 +298,25 @@ const useStore = create((set, get) => ({
     })
 
     set({
-      nodes: [...get().nodes, ...autoCreatedNodes, ...importedNodes],
-      selectedNodeId: importedNodes[0]?.id ?? get().selectedNodeId,
+      nodes: [...get().nodes, ...autoCreatedNodes, ...normalizedImportedNodes],
+      selectedNodeId: normalizedImportedNodes[0]?.id ?? get().selectedNodeId,
     })
 
-    if (importedNodes.length > 0) {
+    if (normalizedImportedNodes.length > 0) {
       get().createGroup(
-        importedNodes.map((node) => node.id),
+        normalizedImportedNodes.map((node) => node.id),
         blueprintJson?.blueprint_meta?.label ?? 'Imported Blueprint'
       )
     }
 
     return {
-      importedCount: importedNodes.length,
+      importedCount: normalizedImportedNodes.length,
       autoCreatedCount: autoCreatedNodes.length,
       autoCreated: autoCreatedNodes.map((node) => ({
         id: node.data.id,
         type: node.data.type,
       })),
+      remapped: semanticMatches.messages,
     }
   },
 
@@ -661,6 +674,63 @@ function normalizeImportedBlueprintNode(nodeData, idMap) {
   return nodeData
 }
 
+function findSemanticDependencyMatches(importedNodes, context) {
+  const missingDependencies = collectMissingDependencies(importedNodes, context)
+  const resourceNodes = context.existingNodes.filter((node) => node.type === 'resource')
+  const idMap = new Map()
+  const messages = []
+
+  for (const [missingId, type] of missingDependencies.entries()) {
+    if (type !== 'resource') continue
+
+    const targetLabel = normalizeText(humanizeId(missingId))
+    const match = resourceNodes.find((node) => (
+      normalizeText(node.data?.label) === targetLabel
+      || normalizeText(stripTypePrefix(node.id)) === normalizeText(missingId)
+    ))
+
+    if (!match) continue
+
+    idMap.set(missingId, match.id)
+    messages.push(`Remapped '${missingId}' -> '${match.id}' (matched by label)`)
+  }
+
+  return {
+    idMap,
+    lookup: Object.fromEntries(idMap),
+    messages,
+  }
+}
+
+function remapDependencyReferences(value, key, idMap) {
+  if (Array.isArray(value)) {
+    const shouldMapArray = ARRAY_REFERENCE_KEYS.has(key) || key.endsWith('_ids')
+    return value.map((item) => {
+      if (shouldMapArray && typeof item === 'string') {
+        return idMap[item] ?? item
+      }
+      return remapDependencyReferences(item, '', idMap)
+    })
+  }
+
+  if (value && typeof value === 'object') {
+    const next = {}
+    for (const [childKey, childValue] of Object.entries(value)) {
+      next[childKey] = remapDependencyReferences(childValue, childKey, idMap)
+    }
+    return next
+  }
+
+  if (typeof value === 'string') {
+    const shouldMapScalar = key !== 'id' && (SCALAR_REFERENCE_KEYS.has(key) || key.endsWith('_id'))
+    if (shouldMapScalar) {
+      return idMap[value] ?? value
+    }
+  }
+
+  return value
+}
+
 function buildAutoCreatedDependencyNodes(importedNodes, context) {
   const missingDependencies = collectMissingDependencies(importedNodes, context)
   return Array.from(missingDependencies.entries()).map(([id, type], index) => {
@@ -758,10 +828,18 @@ function collectMissingDependencies(importedNodes, context) {
 
 function humanizeId(id) {
   return String(id ?? '')
-    .split('_')
+    .split(/[_-]/)
     .filter(Boolean)
     .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
     .join(' ')
+}
+
+function stripTypePrefix(id) {
+  return String(id ?? '').replace(/^[a-z]+-/, '')
+}
+
+function normalizeText(value) {
+  return String(value ?? '').trim().toLowerCase()
 }
 
 function sanitizeGroupNodeIds(nodeIds, nodes) {
