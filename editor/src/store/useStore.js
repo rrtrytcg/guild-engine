@@ -114,7 +114,7 @@ const useStore = create((set, get) => ({
 
   // --- Import a blueprint graph onto the canvas ---
   importBlueprint: (blueprintJson, dropPosition = { x: 320, y: 180 }) => {
-    if (!Array.isArray(blueprintJson?.nodes) || blueprintJson.nodes.length === 0) return
+    if (!Array.isArray(blueprintJson?.nodes) || blueprintJson.nodes.length === 0) return null
 
     const existingNodes = get().nodes
     const maxX = existingNodes.length > 0
@@ -164,10 +164,28 @@ const useStore = create((set, get) => ({
       }
     })
 
+    const existingGraphIds = new Set(get().nodes.map((node) => node.data?.id ?? node.id))
+    const importedIds = new Set(importedNodes.map((node) => node.data?.id ?? node.id))
+    const autoCreatedNodes = buildAutoCreatedDependencyNodes(importedNodes, {
+      existingGraphIds,
+      importedIds,
+      safeDropX,
+      safeDropY,
+    })
+
     set({
-      nodes: [...get().nodes, ...importedNodes],
+      nodes: [...get().nodes, ...autoCreatedNodes, ...importedNodes],
       selectedNodeId: importedNodes[0]?.id ?? get().selectedNodeId,
     })
+
+    return {
+      importedCount: importedNodes.length,
+      autoCreatedCount: autoCreatedNodes.length,
+      autoCreated: autoCreatedNodes.map((node) => ({
+        id: node.data.id,
+        type: node.data.type,
+      })),
+    }
   },
 
   // --- Export .blueprint.json from a blueprint node ---
@@ -480,6 +498,109 @@ function remapBlueprintValue(value, key, idMap) {
   }
 
   return value
+}
+
+function buildAutoCreatedDependencyNodes(importedNodes, context) {
+  const missingDependencies = collectMissingDependencies(importedNodes, context)
+  return Array.from(missingDependencies.entries()).map(([id, type], index) => {
+    const position = {
+      x: Number(context.safeDropX ?? 0) - 240,
+      y: Number(context.safeDropY ?? 0) + (index * 160),
+    }
+    const data = type === 'item'
+      ? {
+          id,
+          type: 'item',
+          label: humanizeId(id),
+          icon: '📦',
+          subtype: 'material',
+          slot: null,
+          rarity: 'common',
+          stack_limit: 99,
+          item_type: 'material',
+          stack_max: 99,
+          visible: true,
+          canvas_pos: position,
+        }
+      : {
+          id,
+          type: 'resource',
+          label: humanizeId(id),
+          icon: '📦',
+          base_income: 0,
+          base_cap: 500,
+          is_material: true,
+          visible: true,
+          canvas_pos: position,
+        }
+
+    return {
+      id,
+      type: data.type,
+      position,
+      data,
+    }
+  })
+}
+
+function collectMissingDependencies(importedNodes, context) {
+  const missing = new Map()
+  const knownIds = new Set([
+    ...context.existingGraphIds,
+    ...context.importedIds,
+  ])
+
+  const addMissing = (id, type) => {
+    if (!id || knownIds.has(id)) return
+    if (!missing.has(id)) {
+      missing.set(id, type)
+    }
+  }
+
+  const scanOutputRules = (rules = []) => {
+    for (const rule of rules) {
+      if (!rule?.target) continue
+      if (rule.output_type === 'resource') {
+        addMissing(rule.target, 'resource')
+      } else if (rule.output_type === 'item' || rule.output_type === 'consumable') {
+        addMissing(rule.target, 'item')
+      }
+    }
+  }
+
+  const scanResourceEntries = (entries = []) => {
+    for (const entry of entries) {
+      const resourceId = entry?.resource_id ?? entry?.resource
+      if (resourceId) addMissing(resourceId, 'resource')
+    }
+  }
+
+  const scanNode = (nodeData) => {
+    scanOutputRules(nodeData?.output_rules)
+    scanResourceEntries(nodeData?.input_rules)
+    scanResourceEntries(nodeData?.inputs)
+    scanResourceEntries(nodeData?.cost)
+    scanResourceEntries(nodeData?.recruit_cost)
+    scanResourceEntries(nodeData?.build_cost)
+
+    for (const level of nodeData?.levels ?? []) {
+      scanResourceEntries(level?.build_cost)
+    }
+  }
+
+  for (const node of importedNodes) {
+    scanNode(node.data ?? node)
+  }
+
+  return missing
+}
+
+function humanizeId(id) {
+  return String(id ?? '')
+    .split('_')
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ')
 }
 
 export default useStore

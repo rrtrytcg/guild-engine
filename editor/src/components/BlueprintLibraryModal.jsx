@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import useStore from '../store/useStore'
 import forgeStandard from '../blueprints/forge-standard.blueprint.json'
 import apothecaryStandard from '../blueprints/apothecary-standard.blueprint.json'
@@ -8,10 +9,21 @@ const PRESET_BLUEPRINTS = [forgeStandard, apothecaryStandard, libraryStandard]
 export default function BlueprintLibraryModal({ onClose, dropPosition }) {
   const importBlueprint = useStore((s) => s.importBlueprint)
   const savedBlueprints = useStore((s) => s.blueprints)
+  const [notice, setNotice] = useState('')
 
   const handleDrop = (blueprint) => {
-    importBlueprint(blueprint, dropPosition)
-    onClose()
+    const summary = importBlueprint(blueprint, dropPosition)
+    if (!summary) return
+
+    const autoCreatedResourcesOnly = summary.autoCreated.every((entry) => entry.type === 'resource')
+    const autoCreatedLabel = autoCreatedResourcesOnly ? 'resources' : 'nodes'
+    const autoCreatedList = summary.autoCreated.length > 0
+      ? `: ${summary.autoCreated.map((entry) => entry.id).join(', ')}`
+      : ''
+
+    setNotice(
+      `${blueprint.blueprint_meta?.label ?? 'Blueprint'} dropped — ${summary.importedCount} nodes imported, ${summary.autoCreatedCount} ${autoCreatedLabel} auto-created${autoCreatedList}`
+    )
   }
 
   return (
@@ -40,6 +52,12 @@ export default function BlueprintLibraryModal({ onClose, dropPosition }) {
         </div>
 
         <div style={{ overflowY: 'auto', flex: 1, padding: '14px 20px' }}>
+          {notice && (
+            <div style={noticeStyle}>
+              {notice}
+            </div>
+          )}
+
           <Section title="Preset blueprints">
             <div style={cardGrid}>
               {PRESET_BLUEPRINTS.map((blueprint) => (
@@ -147,6 +165,17 @@ const emptyState = {
   borderRadius: 10,
   color: '#666680',
   fontSize: 12,
+}
+
+const noticeStyle = {
+  marginBottom: 12,
+  padding: '10px 12px',
+  borderRadius: 8,
+  border: '1px solid #1D9E7544',
+  background: '#1D9E7522',
+  color: '#5DCAA5',
+  fontSize: 12,
+  lineHeight: 1.5,
 }
 
 const closeBtn = { background: 'none', border: 'none', color: '#555570', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: '0 4px' }

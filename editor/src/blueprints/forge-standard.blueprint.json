@@ -252,7 +252,7 @@
       "id": "bp-forge-recipe-masterwork-sword",
       "type": "crafting_recipe",
       "label": "Temper Masterwork Sword",
-      "inputs": [{ "resource": "iron_ingot", "amount": 6 }, { "resource": "charcoal", "amount": 2 }],
+      "inputs": [{ "resource": "iron_ingot", "amount": 6 }, { "resource": "coal", "amount": 2 }],
       "output_item": "bp-forge-item-iron-sword-masterwork",
       "required_workflow": "bp-forge-workflow-weapon",
       "required_building_level": 3,
