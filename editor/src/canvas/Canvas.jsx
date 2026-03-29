@@ -11,6 +11,7 @@ import 'reactflow/dist/style.css'
 import useStore from '../store/useStore'
 import GuildNode from '../nodes/GuildNode'
 import { NODE_CONFIG } from '../nodes/nodeConfig'
+import { inferRelation, relationColor } from './inferRelation'
 
 const nodeTypes = Object.fromEntries(
   Object.keys(NODE_CONFIG).map((type) => [type, GuildNode])
@@ -25,7 +26,7 @@ export default function Canvas({ focusGroupId = null }) {
   const groups = useStore((s) => s.groups)
   const onNodesChange = useStore((s) => s.onNodesChange)
   const onEdgesChange = useStore((s) => s.onEdgesChange)
-  const onConnect = useStore((s) => s.onConnect)
+  const storeOnConnect = useStore((s) => s.onConnect)
   const clearSelection = useStore((s) => s.clearSelection)
   const selectNode = useStore((s) => s.selectNode)
   const addNode = useStore((s) => s.addNode)
@@ -34,14 +35,19 @@ export default function Canvas({ focusGroupId = null }) {
   const removeNodesFromGroup = useStore((s) => s.removeNodesFromGroup)
   const deleteNodes = useStore((s) => s.deleteNodes)
   const setActiveGroup = useStore((s) => s.setActiveGroup)
+  const setSelectedNodeIds = useStore((s) => s.setSelectedNodeIds)
+  const rigSelectedNodes = useStore((s) => s.rigSelectedNodes)
+  const storeNodes = useStore((s) => s.nodes)
 
   const reactFlowWrapper = useRef(null)
   const reactFlowInstance = useRef(null)
   const [reactFlowReady, setReactFlowReady] = useState(false)
-  const [selectedNodeIds, setSelectedNodeIds] = useState([])
+  const [selectedNodeIds, setSelectedNodeIds_local] = useState([])
   const [isCreatingSelectionGroup, setIsCreatingSelectionGroup] = useState(false)
   const [selectionGroupLabel, setSelectionGroupLabel] = useState('')
   const [contextMenu, setContextMenu] = useState(null)
+  const [legendOpen, setLegendOpen] = useState(false)
+  const [rigNotification, setRigNotification] = useState(null)
 
   const onDrop = useCallback(
     (e) => {
@@ -103,6 +109,28 @@ export default function Canvas({ focusGroupId = null }) {
     return () => window.cancelAnimationFrame(frame)
   }, [focusGroupId, groups, nodes, reactFlowReady, setActiveGroup])
 
+  const onConnect = useCallback((connection) => {
+    const nodeMap = new Map(storeNodes.map((n) => [n.id, n]))
+    const sourceNode = nodeMap.get(connection.source)
+    const targetNode = nodeMap.get(connection.target)
+    if (sourceNode && targetNode) {
+      const relation = inferRelation(sourceNode.data.type, targetNode.data.type)
+      const edge = {
+        ...connection,
+        id: `e-${Date.now()}`,
+        data: { relation },
+        label: relation,
+        labelStyle: { fontSize: 10, fill: '#666680' },
+        labelBgStyle: { fill: '#13131f', fillOpacity: 0.8 },
+        style: { stroke: relationColor(relation), strokeWidth: 1.5 },
+        animated: false,
+      }
+      storeOnConnect(edge)
+    } else {
+      storeOnConnect({ ...connection, id: `e-${Date.now()}` })
+    }
+  }, [storeNodes, storeOnConnect])
+
   const handleSelectionChange = useCallback((selection) => {
     const nextIds = (selection?.nodes ?? []).map((node) => node.id)
 
@@ -111,7 +139,9 @@ export default function Canvas({ focusGroupId = null }) {
       setSelectionGroupLabel('')
     }
 
-    setSelectedNodeIds((currentIds) => {
+    setSelectedNodeIds(nextIds)
+
+    setSelectedNodeIds_local((currentIds) => {
       if (
         currentIds.length === nextIds.length &&
         currentIds.every((id, index) => id === nextIds[index])
@@ -120,22 +150,24 @@ export default function Canvas({ focusGroupId = null }) {
       }
       return nextIds
     })
-  }, [])
+  }, [setSelectedNodeIds])
 
   const resetCanvasSelection = useCallback(() => {
     setSelectedNodeIds([])
+    setSelectedNodeIds_local([])
     setIsCreatingSelectionGroup(false)
     setSelectionGroupLabel('')
     clearSelection()
     closeContextMenu()
-  }, [clearSelection, closeContextMenu])
+  }, [clearSelection, closeContextMenu, setSelectedNodeIds])
 
   const handleDeleteSelected = useCallback(() => {
     deleteNodes(selectedNodeIds)
     setSelectedNodeIds([])
+    setSelectedNodeIds_local([])
     setIsCreatingSelectionGroup(false)
     setSelectionGroupLabel('')
-  }, [deleteNodes, selectedNodeIds])
+  }, [deleteNodes, selectedNodeIds, setSelectedNodeIds])
 
   const submitSelectionGroup = useCallback(() => {
     const trimmedLabel = selectionGroupLabel.trim()
@@ -153,6 +185,7 @@ export default function Canvas({ focusGroupId = null }) {
     event.preventDefault()
     selectNode(node.id)
     setSelectedNodeIds([node.id])
+    setSelectedNodeIds_local([node.id])
     setIsCreatingSelectionGroup(false)
     setSelectionGroupLabel('')
 
@@ -246,6 +279,24 @@ export default function Canvas({ focusGroupId = null }) {
               style={toolbarInput}
             />
           )}
+
+          <button
+            type="button"
+            onClick={() => {
+              const result = rigSelectedNodes()
+              if (result && result.rigged > 0) {
+                setRigNotification(`Rigged ${result.rigged} node${result.rigged !== 1 ? 's' : ''} — ${result.relations.join(', ')}`)
+                setTimeout(() => setRigNotification(null), 4000)
+              } else {
+                setRigNotification('No fields to rig in this selection')
+                setTimeout(() => setRigNotification(null), 2500)
+              }
+            }}
+            style={rigBtn}
+            title="Fill ID references from drawn connections"
+          >
+            ⚡ Rig selected
+          </button>
 
           <button type="button" onClick={handleDeleteSelected} style={deleteBtn}>
             Delete selected
@@ -407,6 +458,83 @@ export default function Canvas({ focusGroupId = null }) {
           maskColor="rgba(0,0,0,0.6)"
         />
       </ReactFlow>
+
+      {/* Edge relation legend */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 120,
+          left: 10,
+          zIndex: 10,
+          background: '#13131f',
+          border: '1px solid #2a2a3e',
+          borderRadius: 8,
+          overflow: 'hidden',
+          minWidth: 140,
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setLegendOpen((v) => !v)}
+          style={{
+            width: '100%',
+            background: 'transparent',
+            border: 'none',
+            color: '#a0a0bc',
+            fontSize: 11,
+            fontWeight: 700,
+            padding: '6px 10px',
+            cursor: 'pointer',
+            textAlign: 'left',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          <span>{legendOpen ? '▾' : '▸'}</span> Legend
+        </button>
+        {legendOpen && (
+          <div style={{ padding: '4px 10px 8px' }}>
+            {[
+              { label: 'produces / drops_from', color: '#1D9E75' },
+              { label: 'consumes / used_by', color: '#BA7517' },
+              { label: 'unlocks / gates', color: '#7F77DD' },
+              { label: 'modifies', color: '#378ADD' },
+              { label: 'trains / assigned_to', color: '#D4537E' },
+              { label: 'triggers / affects_rep', color: '#639922' },
+              { label: 'other', color: '#444466' },
+            ].map(({ label, color }) => (
+              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <span style={{ width: 12, height: 3, background: color, borderRadius: 2, flexShrink: 0 }} />
+                <span style={{ fontSize: 10, color: '#a0a0bc' }}>{label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Rig notification */}
+      {rigNotification && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 30,
+            background: '#1a1208',
+            border: '1px solid #BA7517',
+            borderRadius: 8,
+            color: '#e8c06a',
+            fontSize: 12,
+            fontWeight: 600,
+            padding: '8px 16px',
+            pointerEvents: 'none',
+          }}
+        >
+          ⚡ {rigNotification}
+        </div>
+      )}
     </div>
   )
 }
@@ -438,6 +566,17 @@ const ghostBtn = {
 
 const deleteBtn = {
   background: '#E24B4A',
+  border: 'none',
+  borderRadius: 7,
+  color: '#fff',
+  fontSize: 11,
+  fontWeight: 600,
+  padding: '6px 10px',
+  cursor: 'pointer',
+}
+
+const rigBtn = {
+  background: '#BA7517',
   border: 'none',
   borderRadius: 7,
   color: '#fff',

@@ -11,11 +11,24 @@ export default function Toolbar() {
   const setCanvasView = useStore((s) => s.setCanvasView)
   const nodeCount = useStore((s) => s.nodes.length)
   const edgeCount = useStore((s) => s.edges.length)
+  const selectedNodeIds = useStore((s) => s.selectedNodeIds)
+  const rigSelectedNodes = useStore((s) => s.rigSelectedNodes)
   const fileInputRef = useRef(null)
   const [showCompile, setShowCompile] = useState(false)
   const [showBlueprints, setShowBlueprints] = useState(false)
   const [showTuning, setShowTuning] = useState(false)
+  const [rigMessage, setRigMessage] = useState(null)
   const openDocs = () => window.open('/docs/WIKI.md', '_blank', 'noopener,noreferrer')
+
+  const handleRig = () => {
+    const result = rigSelectedNodes()
+    if (result && result.rigged > 0) {
+      setRigMessage(`Rigged ${result.rigged} node${result.rigged !== 1 ? 's' : ''} — ${result.relations.join(', ')}`)
+    } else {
+      setRigMessage('No fields to rig in this selection')
+    }
+    setTimeout(() => setRigMessage(null), 3500)
+  }
 
   const onFileChange = (e) => {
     const file = e.target.files?.[0]
@@ -140,6 +153,19 @@ export default function Toolbar() {
         </button>
 
         <button
+          onClick={handleRig}
+          disabled={selectedNodeIds.length < 2}
+          title="Fill ID references from drawn connections"
+          style={{
+            ...rigToolbarBtn,
+            opacity: selectedNodeIds.length < 2 ? 0.4 : 1,
+            cursor: selectedNodeIds.length < 2 ? 'not-allowed' : 'pointer',
+          }}
+        >
+          ⚡ Rig
+        </button>
+
+        <button
           onClick={() => setShowTuning(true)}
           style={ghostBtn}
           onMouseEnter={(e) => {
@@ -187,6 +213,28 @@ export default function Toolbar() {
       )}
       {showTuning && <TuningModal onClose={() => setShowTuning(false)} />}
       {showCompile && <CompileModal onClose={() => setShowCompile(false)} />}
+
+      {rigMessage && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 60,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 9999,
+            background: '#1a1208',
+            border: '1px solid #BA7517',
+            borderRadius: 8,
+            color: '#e8c06a',
+            fontSize: 12,
+            fontWeight: 600,
+            padding: '8px 16px',
+            pointerEvents: 'none',
+          }}
+        >
+          ⚡ {rigMessage}
+        </div>
+      )}
     </>
   )
 }
@@ -211,6 +259,16 @@ const solidBtn = {
   fontWeight: 600,
   padding: '6px 14px',
   cursor: 'pointer',
+}
+
+const rigToolbarBtn = {
+  background: '#BA7517',
+  border: 'none',
+  borderRadius: 7,
+  color: '#fff',
+  fontSize: 12,
+  fontWeight: 600,
+  padding: '6px 14px',
 }
 
 const viewToggleWrap = {

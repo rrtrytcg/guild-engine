@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { addEdge, applyNodeChanges, applyEdgeChanges } from 'reactflow'
+import { inferRelation, relationColor } from '../canvas/inferRelation'
 
 export const GROUP_COLOR_PALETTE = [
   '#185FA5',
@@ -17,6 +18,7 @@ const useStore = create((set, get) => ({
   nodes: [],
   edges: [],
   selectedNodeId: null,
+  selectedNodeIds: [],
   blueprints: [],
   groups: [],
   canvasView: 'nodes',
@@ -42,12 +44,193 @@ const useStore = create((set, get) => ({
   onEdgesChange: (changes) =>
     set({ edges: applyEdgeChanges(changes, get().edges) }),
 
-  onConnect: (connection) =>
-    set({ edges: addEdge({ ...connection, id: `e-${Date.now()}` }, get().edges) }),
+  onConnect: (edgeOrConnection) => {
+    // If Canvas already built a full edge object (has data.relation), append directly
+    if (edgeOrConnection?.data?.relation !== undefined) {
+      set({ edges: [...get().edges, edgeOrConnection] })
+    } else {
+      set({ edges: addEdge({ ...edgeOrConnection, id: `e-${Date.now()}` }, get().edges) })
+    }
+  },
 
   // --- Node selection ---
   selectNode: (id) => set({ selectedNodeId: id }),
-  clearSelection: () => set({ selectedNodeId: null }),
+  clearSelection: () => set({ selectedNodeId: null, selectedNodeIds: [] }),
+  setSelectedNodeIds: (ids) => set({ selectedNodeIds: ids ?? [] }),
+
+  rigSelectedNodes: () => {
+    const { nodes, edges, selectedNodeIds } = get()
+
+    // Get only edges where BOTH source and target are in the selection
+    const selectedIds = new Set(selectedNodeIds?.length > 0
+      ? selectedNodeIds
+      : nodes.filter(n => n.selected).map(n => n.id))
+
+    const internalEdges = edges.filter(e =>
+      selectedIds.has(e.source) && selectedIds.has(e.target))
+
+    const nodeMap = new Map(nodes.map(n => [n.id, n]))
+    const patches = new Map() // nodeId → data patch
+
+    const patch = (nodeId, update) => {
+      const existing = patches.get(nodeId) ?? {}
+      patches.set(nodeId, { ...existing, ...update })
+    }
+
+    for (const edge of internalEdges) {
+      const source = nodeMap.get(edge.source)
+      const target = nodeMap.get(edge.target)
+      if (!source || !target) continue
+      const relation = edge.data?.relation ??
+        inferRelation(source.data.type, target.data.type)
+
+      switch (relation) {
+        case 'available_at':
+          if (source.data.type === 'building_workflow')
+            patch(source.id, { building_id: target.id })
+          break
+
+        case 'produces':
+          if (source.data.type === 'building_workflow') {
+            const existing = (patches.get(source.id)?.output_rules) ?? source.data.output_rules ?? []
+            const alreadyWired = existing.some(r => r.target === target.id)
+            if (!alreadyWired)
+              patch(source.id, { output_rules: [
+                ...existing,
+                { output_type: 'resource', target: target.id,
+                  yield_formula: '1', chance: 1 }
+              ]})
+          }
+          if (source.data.type === 'building') {
+            const levels = source.data.levels ?? []
+            const updated = levels.map(lvl => ({
+              ...lvl,
+              production: { ...(lvl.production ?? {}), [target.id]: 1 }
+            }))
+            patch(source.id, { produces_resource: target.id, levels: updated })
+          }
+          if (source.data.type === 'crafting_recipe')
+            patch(source.id, { output_item_id: target.id })
+          break
+
+        case 'consumes':
+          if (target.data.type === 'crafting_recipe' ||
+              target.data.type === 'recipe') {
+            const existing = (patches.get(target.id)?.inputs) ?? target.data.inputs ?? []
+            const alreadyWired = existing.some(i => i.item_id === source.id)
+            if (!alreadyWired)
+              patch(target.id, { inputs: [
+                ...existing, { item_id: source.id, qty: 1 }
+              ]})
+          }
+          if (target.data.type === 'building_workflow') {
+            const existing = (patches.get(target.id)?.input_rules) ?? target.data.input_rules ?? []
+            const alreadyWired = existing.some(i => i.item_id === source.id)
+            if (!alreadyWired)
+              patch(target.id, { input_rules: [
+                ...existing, { item_id: source.id, qty: 1 }
+              ]})
+          }
+          break
+
+        case 'used_by':
+          if (source.data.type === 'crafting_recipe')
+            patch(source.id, { workflow_id: target.id })
+          break
+
+        case 'drops_from':
+          if (source.data.type === 'loot_table')
+            patch(target.id, { loot_table_id: source.id })
+          if (source.data.type === 'item') {
+            const existing = (patches.get(target.id)?.entries) ?? target.data.entries ?? []
+            const alreadyWired = existing.some(e => e.item_id === source.id)
+            if (!alreadyWired)
+              patch(target.id, { entries: [
+                ...existing,
+                { item_id: source.id, weight: 10,
+                  min_qty: 1, max_qty: 1, guaranteed: false }
+              ]})
+          }
+          break
+
+        case 'unlocks':
+          if (source.data.type === 'act') {
+            const existing = (patches.get(source.id)?.unlocks_node_ids) ?? source.data.unlocks_node_ids ?? []
+            if (!existing.includes(target.id))
+              patch(source.id, { unlocks_node_ids: [...existing, target.id] })
+          }
+          if (source.data.type === 'boss_expedition') {
+            const existing = (patches.get(source.id)?.on_success_unlock) ?? source.data.on_success_unlock ?? []
+            if (!existing.includes(target.id))
+              patch(source.id, { on_success_unlock: [...existing, target.id] })
+          }
+          if (source.data.type === 'building_upgrade') {
+            const existing = (patches.get(source.id)?.unlocks_workflow_ids) ?? source.data.unlocks_workflow_ids ?? []
+            if (!existing.includes(target.id))
+              patch(source.id, { unlocks_workflow_ids: [...existing, target.id] })
+          }
+          break
+
+        case 'hosts':
+          if (source.data.type === 'building_upgrade')
+            patch(source.id, { building_id: target.id })
+          break
+
+        case 'trains':
+          if (source.data.type === 'hero_class')
+            patch(source.id, { building_affinity: target.id })
+          break
+
+        case 'assigned_to':
+          if (source.data.type === 'hero_class')
+            patch(source.id, { building_affinity: target.id })
+          break
+
+        case 'triggers':
+          if (source.data.type === 'act') {
+            const existing = (patches.get(source.id)?.on_complete_events) ?? source.data.on_complete_events ?? []
+            if (!existing.includes(target.id))
+              patch(source.id, { on_complete_events: [...existing, target.id] })
+          }
+          break
+
+        default:
+          break
+      }
+    }
+
+    // Additional pass: building_workflow → item produces
+    for (const edge of internalEdges) {
+      const source = nodeMap.get(edge.source)
+      const target = nodeMap.get(edge.target)
+      if (!source || !target) continue
+      if (source.data.type === 'building_workflow' && target.data.type === 'item') {
+        const existing = (patches.get(source.id)?.output_rules) ?? source.data.output_rules ?? []
+        const alreadyWired = existing.some(r => r.target === target.id)
+        if (!alreadyWired) {
+          const existingPatch = patches.get(source.id) ?? {}
+          patches.set(source.id, { ...existingPatch, output_rules: [
+            ...existing,
+            { output_type: 'item', target: target.id, quantity: 1, chance: 1 }
+          ]})
+        }
+      }
+    }
+
+    // Apply all patches
+    const updatedNodes = nodes.map(n => {
+      const p = patches.get(n.id)
+      return p ? { ...n, data: { ...n.data, ...p } } : n
+    })
+
+    set({ nodes: updatedNodes })
+
+    return {
+      rigged: patches.size,
+      relations: [...new Set(internalEdges.map(e =>
+        e.data?.relation ?? 'unlocks'))]
+    }
+  },
 
   // --- Group metadata ---
   createGroup: (nodeIds, label) => {
@@ -195,13 +378,34 @@ const useStore = create((set, get) => ({
       }
     })
 
-    const rfEdges = project.edges.map((e) => ({
+    const rawEdges = project.edges.map((e) => ({
       id: e.id ?? `e-${e.source}-${e.target}`,
       source: e.source,
       target: e.target,
       data: { relation: e.relation },
       style: { stroke: '#444466', strokeWidth: 1.5 },
     }))
+
+    // Migrate edges: re-infer relations from node types
+    const nodeMap = new Map(rfNodes.map(n => [n.id, n]))
+    const rfEdges = rawEdges.map(edge => {
+      if (edge.data?.relation === 'unlocks' || !edge.data?.relation) {
+        const source = nodeMap.get(edge.source)
+        const target = nodeMap.get(edge.target)
+        if (source && target) {
+          const relation = inferRelation(source.data.type, target.data.type)
+          return {
+            ...edge,
+            data: { ...edge.data, relation },
+            label: relation,
+            labelStyle: { fontSize: 10, fill: '#666680' },
+            labelBgStyle: { fill: '#13131f', fillOpacity: 0.8 },
+            style: { stroke: relationColor(relation), strokeWidth: 1.5 },
+          }
+        }
+      }
+      return edge
+    })
 
     set({
       nodes: rfNodes,
