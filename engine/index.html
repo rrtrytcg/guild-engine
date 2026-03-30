@@ -951,52 +951,6 @@ function renderRecruitPool(s) {
   }).join('')
 }
 
-function renderHeroes(s) {
-  const el = document.getElementById('heroes-list')
-  if (!s.heroes.length) { el.innerHTML = '<div style="font-size:11px;color:#444460;padding:8px 6px">No heroes yet.</div>'; return }
-  const heroMarkup = s.heroes.map((hero) => {
-    const heroClass = s.heroClasses.find((entry) => entry.id === hero.class_id)
-    const heroStatuses = getHeroStatusList(hero)
-    const primaryStatus = heroStatuses[0] ?? 'ready'
-    const statusMeta = HERO_STATUS_META[primaryStatus] ?? HERO_STATUS_META.ready
-    const xpNext = Math.max(1, hero.xp_next ?? 1)
-    const xpPct = Math.max(0, Math.min(100, ((hero.xp ?? 0) / xpNext) * 100))
-    return `<div class="card" style="margin:4px 6px 0">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-        <div style="min-width:0">
-          <span style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${hero.name}</span>
-          <div style="font-size:10px;color:#666680">${heroClass?.label ?? '?'} &middot; Lv.${hero.level}</div>
-        </div>
-        <span class="badge" style="background:${statusMeta.bg};color:${statusMeta.color};border:1px solid ${statusMeta.color}33;flex-shrink:0">${statusMeta.icon} ${statusMeta.label}</span>
-      </div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${renderHeroStatusBadges(hero)}</div>
-      <div style="margin-top:8px">
-        <div class="progress-bar-outer" style="height:8px;margin-bottom:4px"><div class="progress-bar-inner" style="width:${xpPct}%;background:#7F77DD"></div></div>
-        <div style="font-size:10px;color:#666680">XP ${s.fmt(hero.xp ?? 0)} / ${s.fmt(xpNext)}</div>
-      </div>
-      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-        ${Object.entries(hero.stats ?? {}).map(([k, v]) => `<span style="font-size:10px;color:#8888aa">${k.slice(0, 3).toUpperCase()} <strong style="color:#c0c0d8">${Math.round(v)}</strong></span>`).join('')}
-      </div>
-    </div>`
-  }).join('')
-  el.innerHTML = heroMarkup
-  return
-  el.innerHTML = s.heroes.map((h) => {
-    const cls = s.heroClasses.find((c) => c.id === h.class_id)
-    const statusColor = { ready:'#1D9E75', injured:'#E24B4A', cursed:'#666680', exhausted:'#BA7517', inspired:'#7F77DD' }[h.status] ?? '#888'
-    return `<div class="card" style="margin:4px 6px 0">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:12px;font-weight:600">${h.name}</span>
-        <span style="font-size:10px;color:${statusColor}">${h.status}</span>
-      </div>
-      <div style="font-size:10px;color:#666680">${cls?.label ?? '?'} · Lv.${h.level}</div>
-      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-        ${Object.entries(h.stats ?? {}).map(([k,v])=>`<span style="font-size:10px;color:#8888aa">${k.slice(0,3).toUpperCase()} <strong style="color:#c0c0d8">${Math.round(v)}</strong></span>`).join('')}
-      </div>
-    </div>`
-  }).join('')
-}
-
 // ── Event log ─────────────────────────────────────────────────────────────────
 function renderHeroesV2(s) {
   const el = document.getElementById('heroes-list')

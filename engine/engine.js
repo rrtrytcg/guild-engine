@@ -1,5 +1,6 @@
 import { bootstrapState } from './systems/bootstrap.js'
 import { tickResources, formatNumber, spendItems } from './systems/resources.js'
+import { generateId } from './systems/helpers.js'
 import {
   tickExpeditions,
   startExpedition,
@@ -315,7 +316,7 @@ function queueWorkflowJobForBuilding(buildingId, workflowId) {
   const batchSize = Number(recipe?.output_quantity ?? workflow?.batch_config?.max_size ?? 1)
   building.workflow_queue = building.workflow_queue ?? []
   building.workflow_queue.push({
-    id: `job-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    id: generateId('job'),
     workflow_id: workflowId,
     recipe_id: recipe?.id ?? null,
     source_item_id: sourceItemId,

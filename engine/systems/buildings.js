@@ -1,27 +1,16 @@
 import { canAfford, spend, gain, giveItem, spendItems } from './resources.js'
 import { addToEventLog, checkActProgress, unlockNode, evaluateCondition } from './expeditions.js'
+import { generateId } from './helpers.js'
+import {
+  STATUS_MULTIPLIERS,
+  STATUS_PRIORITY,
+  HERO_STAT_ALIASES,
+  HERO_RARITIES,
+  HERO_NAMES,
+} from './constants.js'
 
 export const MIN_ACTION_DELAY_MS = 275
 
-const STATUS_MULTIPLIERS = {
-  ready: 1,
-  inspired: 1.15,
-  exhausted: 0.9,
-  cursed: 0.8,
-  injured: 0.6,
-  dead: 0,
-}
-
-const STATUS_PRIORITY = ['dead', 'injured', 'cursed', 'exhausted', 'inspired', 'ready']
-const HERO_STAT_ALIASES = {
-  atk: 'attack',
-  def: 'defense',
-  spd: 'speed',
-  hp: 'hp',
-  lck: 'luck',
-}
-const HERO_RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary']
-const HERO_NAMES = ['Aldric', 'Brienna', 'Corvin', 'Dasha', 'Emrick', 'Fyra', 'Gareth', 'Hilde', 'Iven', 'Jora']
 const FORMULA_HELPERS = {
   abs: Math.abs,
   ceil: Math.ceil,
@@ -33,9 +22,6 @@ const FORMULA_HELPERS = {
   sqrt: Math.sqrt,
   clamp: (value, min, max) => Math.min(max, Math.max(min, value)),
 }
-const FORMULA_IDENTIFIER_RE = /\b[A-Za-z_][A-Za-z0-9_]*\b/g
-const SAFE_FORMULA_CHARS_RE = /^[0-9A-Za-z_+\-*/%().,?:<>=!&| \t\r\n]+$/
-const BANNED_FORMULA_TOKENS_RE = /(?:__proto__|prototype|constructor|globalThis|window|document|Function|eval|import|new|this|;|\[|\]|\{|\}|`|'|"|\\)/i
 const EXACT_FORMULA_VARIABLES = new Set([
   'item_level',
   'item_rarity_tier',
@@ -398,13 +384,157 @@ function isAllowedFormulaVariable(name) {
   return EXACT_FORMULA_VARIABLES.has(name) || DYNAMIC_FORMULA_VARIABLE_PATTERNS.some((pattern) => pattern.test(name))
 }
 
+// --- Tokenizer ---
+function tokenizeFormula(source) {
+  const tokens = []
+  let pos = 0
+  while (pos < source.length) {
+    if (source[pos] === ' ' || source[pos] === '\t' || source[pos] === '\r' || source[pos] === '\n') { pos++; continue }
+    if (source[pos] === '>' && source[pos + 1] === '=') { tokens.push({ type: 'op', value: '>=' }); pos += 2; continue }
+    if (source[pos] === '<' && source[pos + 1] === '=') { tokens.push({ type: 'op', value: '<=' }); pos += 2; continue }
+    if (source[pos] === '=' && source[pos + 1] === '=') { tokens.push({ type: 'op', value: '==' }); pos += 2; continue }
+    if (source[pos] === '!' && source[pos + 1] === '=') { tokens.push({ type: 'op', value: '!=' }); pos += 2; continue }
+    if (source[pos] === '&' && source[pos + 1] === '&') { tokens.push({ type: 'op', value: '&&' }); pos += 2; continue }
+    if (source[pos] === '|' && source[pos + 1] === '|') { tokens.push({ type: 'op', value: '||' }); pos += 2; continue }
+    if ('+-*/%(),?:<>=!'.includes(source[pos])) { tokens.push({ type: 'op', value: source[pos] }); pos++; continue }
+    if (/[A-Za-z_]/.test(source[pos])) {
+      let id = ''
+      while (pos < source.length && /[A-Za-z0-9_]/.test(source[pos])) { id += source[pos++] }
+      tokens.push({ type: 'ident', value: id })
+      continue
+    }
+    if (/[0-9.]/.test(source[pos])) {
+      let num = ''
+      while (pos < source.length && /[0-9.]/.test(source[pos])) { num += source[pos++] }
+      tokens.push({ type: 'number', value: parseFloat(num) })
+      continue
+    }
+    throw new Error(`Unexpected character in formula: '${source[pos]}'`)
+  }
+  return tokens
+}
+
+// --- Recursive descent parser ---
+class FormulaParser {
+  constructor(tokens, context) {
+    this.tokens = tokens
+    this.pos = 0
+    this.ctx = context
+  }
+  peek() { return this.pos < this.tokens.length ? this.tokens[this.pos] : null }
+  consume(expected) {
+    const t = this.tokens[this.pos]
+    if (!t) throw new Error('Unexpected end of formula')
+    if (expected && t.value !== expected) throw new Error(`Expected '${expected}', got '${t.value}'`)
+    this.pos++
+    return t
+  }
+  parse() {
+    const result = this.parseTernary()
+    if (this.pos < this.tokens.length) throw new Error(`Unexpected token after expression: '${this.tokens[this.pos].value}'`)
+    return result
+  }
+  parseTernary() {
+    let cond = this.parseOr()
+    while (this.peek()?.value === '?') {
+      this.consume('?')
+      const trueVal = this.parseOr()
+      this.consume(':')
+      const falseVal = this.parseOr()
+      cond = cond ? trueVal : falseVal
+    }
+    return cond
+  }
+  parseOr() {
+    let left = this.parseAnd()
+    while (this.peek()?.value === '||') {
+      this.consume('||')
+      const right = this.parseAnd()
+      left = (left || right) ? 1 : 0
+    }
+    return left
+  }
+  parseAnd() {
+    let left = this.parseComparison()
+    while (this.peek()?.value === '&&') {
+      this.consume('&&')
+      const right = this.parseComparison()
+      left = (left && right) ? 1 : 0
+    }
+    return left
+  }
+  parseComparison() {
+    let left = this.parseAddSub()
+    while (this.peek() && ['>', '<', '>=', '<=', '==', '!='].includes(this.peek().value)) {
+      const op = this.consume().value
+      const right = this.parseAddSub()
+      if (op === '>') left = left > right ? 1 : 0
+      else if (op === '<') left = left < right ? 1 : 0
+      else if (op === '>=') left = left >= right ? 1 : 0
+      else if (op === '<=') left = left <= right ? 1 : 0
+      else if (op === '==') left = left === right ? 1 : 0
+      else if (op === '!=') left = left !== right ? 1 : 0
+    }
+    return left
+  }
+  parseAddSub() {
+    let left = this.parseMulDiv()
+    while (this.peek() && (this.peek().value === '+' || this.peek().value === '-')) {
+      const op = this.consume().value
+      const right = this.parseMulDiv()
+      left = op === '+' ? left + right : left - right
+    }
+    return left
+  }
+  parseMulDiv() {
+    let left = this.parseUnary()
+    while (this.peek() && (this.peek().value === '*' || this.peek().value === '/' || this.peek().value === '%')) {
+      const op = this.consume().value
+      const right = this.parseUnary()
+      if (op === '*') left = left * right
+      else if (op === '/') { if (right === 0) throw new Error('Division by zero'); left = left / right }
+      else left = left % right
+    }
+    return left
+  }
+  parseUnary() {
+    if (this.peek()?.value === '-') { this.consume('-'); return -this.parsePrimary() }
+    if (this.peek()?.value === '!') { this.consume('!'); return this.parsePrimary() ? 0 : 1 }
+    if (this.peek()?.value === '+') { this.consume('+'); return this.parsePrimary() }
+    return this.parsePrimary()
+  }
+  parsePrimary() {
+    const t = this.peek()
+    if (!t) throw new Error('Unexpected end of formula')
+    if (t.type === 'number') { this.consume(); return t.value }
+    if (t.type === 'ident') {
+      this.consume()
+      if (this.peek()?.value === '(') {
+        const fn = this.ctx.helpers[t.value]
+        if (typeof fn !== 'function') throw new Error(`Unknown function: ${t.value}`)
+        this.consume('(')
+        const args = []
+        if (this.peek()?.value !== ')') {
+          args.push(this.parseTernary())
+          while (this.peek()?.value === ',') { this.consume(','); args.push(this.parseTernary()) }
+        }
+        this.consume(')')
+        return fn(...args)
+      }
+      if (t.value === 'true') return 1
+      if (t.value === 'false') return 0
+      if (t.value in this.ctx.variables) return this.ctx.variables[t.value]
+      throw new Error(`Unknown variable: ${t.value}`)
+    }
+    if (t.value === '(') { this.consume('('); const v = this.parseTernary(); this.consume(')'); return v }
+    throw new Error(`Unexpected token: '${t.value}'`)
+  }
+}
+
 export function evaluateFormula(formulaString, variables = {}) {
   if (typeof formulaString !== 'string') return 0
   const formula = formulaString.trim()
   if (!formula) return 0
-  if (!SAFE_FORMULA_CHARS_RE.test(formula) || BANNED_FORMULA_TOKENS_RE.test(formula)) {
-    throw new Error('Unsafe formula')
-  }
 
   const safeVariables = {}
   for (const [key, value] of Object.entries(variables)) {
@@ -413,23 +543,12 @@ export function evaluateFormula(formulaString, variables = {}) {
     }
   }
 
-  const identifiers = new Set(formula.match(FORMULA_IDENTIFIER_RE) ?? [])
-  for (const identifier of identifiers) {
-    if (identifier === 'true' || identifier === 'false' || identifier === 'null') continue
-    if (identifier in FORMULA_HELPERS) continue
-    if (identifier in safeVariables) continue
-    throw new Error(`Unknown formula identifier: ${identifier}`)
-  }
-
-  const argNames = [...Object.keys(FORMULA_HELPERS), ...Object.keys(safeVariables)]
-  const argValues = [...Object.values(FORMULA_HELPERS), ...Object.values(safeVariables)]
-  const fn = Function(...argNames, '"use strict"; return (' + formula + ');')
-  const result = fn(...argValues)
+  const tokens = tokenizeFormula(formula)
+  const parser = new FormulaParser(tokens, { helpers: FORMULA_HELPERS, variables: safeVariables })
+  const result = parser.parse()
   if (typeof result === 'boolean') return result ? 1 : 0
   const numericResult = Number(result)
-  if (!Number.isFinite(numericResult)) {
-    throw new Error('Formula did not resolve to a finite number')
-  }
+  if (!Number.isFinite(numericResult)) throw new Error('Formula did not resolve to a finite number')
   return numericResult
 }
 
@@ -455,7 +574,7 @@ function createHeroInstance(state, classId, options = {}) {
       : null)
 
   const hero = {
-    id: options.id ?? `hero-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    id: options.id ?? generateId('hero'),
     class_id: classId,
     name: options.name ?? pickRandomName(),
     level: options.level ?? 1,
@@ -617,7 +736,7 @@ function refundWorkflowInputs(state, inputs, rate = 1) {
 
 function createWorkflowJob(state, building, workflow, options = {}) {
   const job = {
-    id: options.id ?? `job-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    id: options.id ?? generateId('job'),
     workflow_id: workflow.id,
     recipe_id: options.recipe_id ?? null,
     source_item_id: options.source_item_id ?? null,
@@ -1466,6 +1585,30 @@ export function advanceHeroBuffDurations(state, heroIds, wasSuccessful) {
   }
 }
 
+const CURRENT_SAVE_VERSION = 2
+
+const SAVE_MIGRATIONS = {
+  1: (save) => {
+    save.buildingWorkflows = save.buildingWorkflows ?? {}
+    save.buildingUpgrades = save.buildingUpgrades ?? {}
+    save.buff_stockpile = save.buff_stockpile ?? {}
+    save.version = 2
+    return save
+  },
+}
+
+function migrateSave(save) {
+  const version = save.version ?? 1
+  if (version >= CURRENT_SAVE_VERSION) return save
+  let current = save
+  while (current.version < CURRENT_SAVE_VERSION) {
+    const migrate = SAVE_MIGRATIONS[current.version]
+    if (!migrate) break
+    current = migrate(current)
+  }
+  return current
+}
+
 export function saveGame(state) {
   const saveData = {
     version: 2,
@@ -1538,7 +1681,8 @@ export function loadSave(state) {
   try {
     const raw = localStorage.getItem('guild-engine-save')
     if (!raw) return false
-    const save = JSON.parse(raw)
+    let save = JSON.parse(raw)
+    save = migrateSave(save)
 
     // Restore amounts
     for (const [id, amount] of Object.entries(save.resources ?? {})) {

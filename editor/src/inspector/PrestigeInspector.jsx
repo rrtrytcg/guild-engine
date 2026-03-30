@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Field, TextArea, Select, Section, SearchableDropdown, useNodeUpdater } from './FormPrimitives'
+import { generateId } from '../utils/ids'
 
 const RESET_OPTIONS = ['resources', 'buildings', 'heroes', 'upgrades', 'expeditions', 'factions']
 const CONDITION_TYPES = ['resource_gte', 'building_level', 'act_reached', 'faction_rep_gte', 'upgrade_owned', 'hero_count_gte', 'prestige_count_gte']
@@ -33,7 +34,7 @@ export default function PrestigeInspector({ node }) {
     update({ trigger_conditions: conditions.filter((_, idx) => idx !== i) })
 
   const addBonus = () =>
-    update({ bonuses: [...bonuses, { id: `bonus-${Date.now()}`, label: 'New bonus', cost: 1, max_tier: 5, effect: {} }] })
+    update({ bonuses: [...bonuses, { id: generateId('bonus'), label: 'New bonus', cost: 1, max_tier: 5, effect: {} }] })
 
   const updateBonus = (i, patch) =>
     update({ bonuses: bonuses.map((b, idx) => (idx === i ? { ...b, ...patch } : b)) })

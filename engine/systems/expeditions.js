@@ -1,5 +1,6 @@
 import { canAfford, spend, gain } from './resources.js'
 import { rollLootTable, formatDrops } from './loot.js'
+import { STATUS_MULTIPLIERS, OUTCOME_TIERS, TIER_RANK, READINESS_META } from './constants.js'
 import {
   addHeroStatus,
   advanceHeroBuffDurations,
@@ -14,27 +15,6 @@ import {
   isCombatEligibleHero,
   startPartyRun,
 } from './buildings.js'
-
-const STATUS_MULTIPLIERS = {
-  ready: 1,
-  inspired: 1.15,
-  exhausted: 0.9,
-  cursed: 0.8,
-  injured: 0.6,
-}
-
-const OUTCOME_TIERS = ['WIPE', 'FAIL', 'NARROW_SUCCESS', 'CLEAN_SUCCESS', 'DOMINANT']
-const TIER_RANK = Object.fromEntries(OUTCOME_TIERS.map((tier, index) => [tier, index]))
-
-const READINESS_META = {
-  locked: { key: 'locked', label: 'Locked', icon: '🔒', color: '#666680' },
-  empty: { key: 'empty', label: 'No heroes', icon: '•', color: '#444460' },
-  WIPE: { key: 'WIPE', label: 'Wipe risk', icon: '💀', color: '#444444' },
-  FAIL: { key: 'FAIL', label: 'Likely fail', icon: '✕', color: '#E24B4A' },
-  NARROW_SUCCESS: { key: 'NARROW_SUCCESS', label: 'Risky', icon: '⚠', color: '#BA7517' },
-  CLEAN_SUCCESS: { key: 'CLEAN_SUCCESS', label: 'Ready', icon: '✓', color: '#1D9E75' },
-  DOMINANT: { key: 'DOMINANT', label: 'Dominant', icon: '★', color: '#EF9F27' },
-}
 
 export function addToEventLog(state, text, type = 'info') {
   state.eventLog.unshift({ ts: Date.now(), text, type })

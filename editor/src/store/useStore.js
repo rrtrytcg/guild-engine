@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { addEdge, applyNodeChanges, applyEdgeChanges } from 'reactflow'
 import { inferRelation, relationColor } from '../canvas/inferRelation'
+import { generateId } from '../utils/ids'
 
 export const GROUP_COLOR_PALETTE = [
   '#185FA5',
@@ -49,7 +50,7 @@ const useStore = create((set, get) => ({
     if (edgeOrConnection?.data?.relation !== undefined) {
       set({ edges: [...get().edges, edgeOrConnection] })
     } else {
-      set({ edges: addEdge({ ...edgeOrConnection, id: `e-${Date.now()}` }, get().edges) })
+      set({ edges: addEdge({ ...edgeOrConnection, id: generateId('e') }, get().edges) })
     }
   },
 
@@ -239,7 +240,7 @@ const useStore = create((set, get) => ({
     if (validNodeIds.length === 0) return null
 
     const groups = get().groups
-    const groupId = `group-${Date.now()}`
+    const groupId = generateId('group')
     const trimmedLabel = String(label ?? '').trim()
     const group = {
       id: groupId,
@@ -315,7 +316,7 @@ const useStore = create((set, get) => ({
 
   // --- Add a new node from the palette ---
   addNode: (type, position) => {
-    const id = `${type}-${Date.now()}`
+    const id = generateId(type)
     const defaults = NODE_DEFAULTS[type] ?? { label: type }
     set({
       nodes: [
@@ -1214,7 +1215,7 @@ function normalizeImportedGroups(groups, nodes) {
     const color = GROUP_COLOR_PALETTE.includes(group?.color) ? group.color : pickNextGroupColor(safeGroups.slice(0, index))
 
     return {
-      id: group?.id || `group-${Date.now()}-${index}`,
+      id: group?.id || generateId('group'),
       label: String(group?.label ?? '').trim() || `Group ${index + 1}`,
       color,
       nodeIds,
@@ -1276,7 +1277,7 @@ function applyParameterMappingsToBlueprint(blueprint, mappings, safeDropX, safeD
 
     // Handle "create new" mappings
     if (value?.create) {
-      const newNodeId = `param-${config.type}-${Date.now()}-${paramKey}`
+      const newNodeId = generateId(`param-${config.type}`)
       targetNodeId = newNodeId
 
       // Calculate staggered position for new node (left of main blueprint)

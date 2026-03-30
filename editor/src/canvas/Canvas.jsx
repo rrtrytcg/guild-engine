@@ -7,6 +7,7 @@ import ReactFlow, {
   SelectionMode,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
+import { generateId } from '../utils/ids'
 
 import useStore from '../store/useStore'
 import GuildNode from '../nodes/GuildNode'
@@ -117,7 +118,7 @@ export default function Canvas({ focusGroupId = null }) {
       const relation = inferRelation(sourceNode.data.type, targetNode.data.type)
       const edge = {
         ...connection,
-        id: `e-${Date.now()}`,
+        id: generateId('e'),
         data: { relation },
         label: relation,
         labelStyle: { fontSize: 10, fill: '#666680' },
@@ -127,7 +128,7 @@ export default function Canvas({ focusGroupId = null }) {
       }
       storeOnConnect(edge)
     } else {
-      storeOnConnect({ ...connection, id: `e-${Date.now()}` })
+      storeOnConnect({ ...connection, id: generateId('e') })
     }
   }, [storeNodes, storeOnConnect])
 

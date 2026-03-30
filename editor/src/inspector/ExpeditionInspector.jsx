@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { generateId } from '../utils/ids'
 import {
   Field,
   TextArea,
@@ -24,7 +25,7 @@ export default function ExpeditionInspector({ node }) {
       events: [
         ...events,
         {
-          id: `evt-${Date.now()}`,
+          id: generateId('evt'),
           label: 'New event',
           trigger_chance: 0.3,
           choices: [{ label: 'Continue', outcome: { log_message: 'The party presses on.' } }],
