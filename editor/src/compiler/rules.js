@@ -132,7 +132,7 @@ export const REQUIRED_FIELDS = {
   item:            ['label', 'rarity', 'subtype'],
   loot_table:      ['label', 'rolls'],
   recipe:          ['label', 'output_item_id', 'craft_time_s'],
-  crafting_recipe: ['label', 'output_item_id', 'workflow_id'],
+  crafting_recipe: ['label', 'output_item', 'required_workflow'],
   hero_class:      ['label', 'base_stats'],
   ability:         ['label', 'trigger'],
   building:        ['label', 'max_level'],

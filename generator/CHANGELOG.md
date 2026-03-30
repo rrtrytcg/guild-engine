@@ -191,3 +191,28 @@ Do not skip step 5. The changelog is how the designer knows what the generator c
 - SUMMARY: Sixth forge in the Forge Suite. Progression architect, not an upgrade stamper. Reads all five upstream forge outputs: WORLDFORGE (world-economy.json) for resource IDs, income curves, and cost anchors; HEROFORGE (hero-roster.json) for stat growth baselines; BUILDFORGE (building-system.json) for building IDs and workflow durations; ACTFORGE (act-*.blueprint.json) for act structure and expedition IDs; ITEMFORGE (item-ecosystem.json) for equipment stat baselines and rarity ceiling. Generates three node types: upgrade nodes (with cost $ref cost array, max_tier, and effect object supporting resource_cap_multiplier/resource_income_multiplier/hero_stat_modifier as $ref stat_block, plus expedition_success_bonus/craft_speed_multiplier/loot_bonus_pct as numbers, plus unlock_node_ids as string array), prestige nodes (with trigger_conditions $ref unlock_condition array, currency_id referencing a resource, optional currency_formula JS expression with vars gold/act/hero_count, optional resets enum array of resources/buildings/heroes/upgrades/expeditions/factions, and bonuses array with id/label/cost as number/effect as $ref stat_block/optional max_tier), and faction nodes (with rep_tiers array of threshold/label/optional unlock_node_ids/optional discount_pct, plus optional starting_rep and connections to event/building/upgrade). Applies five-step narrative analysis (upgrade theme discovery, prestige loop design, faction landscape mapping, effect sizing audit, translation flags), runs mandatory calibration across eight tables (upgrade count by density, cost curve with tier-anchored math, effect sizing vs all upstream baselines, prestige currency formula validation, prestige reset soft-lock analysis, prestige bonus design, faction rep tier pacing, faction relation annotations as design-only). Schema-correct: faction nodes have NO relations[] field (cross-faction dynamics documented in calibration only); prestige currency_formula and resets are OPTIONAL; prestige bonus cost is a simple number not a cost array; prestige bonus effect is $ref stat_block (flat key-value map); upgrade effect allows multiple properties but design rule enforces one per node. Outputs upgrade-ecosystem.json with all upgrade/prestige/faction nodes plus upgrade_calibration (cost curve, effect sizing, stacking analysis), prestige_calibration (formula validation, reset impact, bonus audit), faction_calibration (pacing, intended relations as design annotations), flags, and downstream_contracts for ASSEMBLER (all upgrade IDs, all faction IDs, prestige ID + currency ID, all cost resource IDs, all faction/upgrade unlock_node_ids for cross-reference validation). Flags design tensions to upgrade-flags.md.
 - GENERATOR IMPACT: New UPGRADEFORGE.md prompt. Outputs guild-engine/generated/upgrade-ecosystem.json. ASSEMBLER reads all_upgrade_ids for upgrade_owned unlock condition validation, all_faction_ids for faction_rep_gte validation, prestige_currency_id to verify resource exists, all cost resource_ids to verify WORLDFORGE resources exist, all faction/upgrade unlock_node_ids to verify targets exist in upstream forges. Last domain forge before ASSEMBLER.
 - WIKI SECTION: To be added under "Forge Suite — UPGRADEFORGE"
+
+### v1.9.5 — ASSEMBLER Implementation
+- DATE: 2026-03-30
+- TYPE: SYSTEM
+- SCOPE: ASSEMBLER (new forge — final stage)
+- STATUS: IMPLEMENTED
+- SUMMARY: Seventh and final forge in the Forge Suite. Integration specialist, not a content
+  generator. Merges all 6 upstream forge outputs, runs 23 cross-reference checks (with
+  type-branched logic for prestige trigger_conditions and artisan specialization matching),
+  performs 7-category cross-system calibration audit (income timing, material flow with surplus
+  detection, hero power curve, equipment vs upgrade power, prestige soft-lock, faction pacing,
+  workflow duration bounds), merges node sets with type-conflict detection, documents intended
+  edges for auto-rig, invokes CANVASDOCTOR as black-box validator on merged output, writes
+  project.json + assembler-report.md. Includes pre-run schema verification to catch field name
+  drift between forge versions. Known discrepancies documented: rules.js crafting_recipe
+  REQUIRED_FIELDS uses legacy field names (output_item_id, workflow_id) while schema uses
+  output_item and required_workflow; CANVASDOCTOR uses building_id and input_rules[].resource_id
+  where schema uses host_building and inputs[].resource. ASSEMBLER resolves all discrepancies at
+  runtime via pre-run schema verification.
+- GENERATOR IMPACT: New ASSEMBLER.md prompt. Outputs guild-engine/generated/project.json (merged
+  nodes + editor_metadata.intended_edges) and guild-engine/generator/assembler-report.md
+  (cross-reference errors, calibration warnings, CANVASDOCTOR summary, intended edges for auto-rig,
+  upstream forge flags). The Forge Suite pipeline is now complete: WORLDFORGE → HEROFORGE →
+  BUILDFORGE → ACTFORGE → ITEMFORGE → UPGRADEFORGE → ASSEMBLER → project.json → editor.
+- WIKI SECTION: To be added under "Forge Suite — ASSEMBLER"

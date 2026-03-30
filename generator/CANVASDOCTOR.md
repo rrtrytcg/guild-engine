@@ -63,7 +63,7 @@ resource:        ['label', 'base_cap', 'base_income']
 item:            ['label', 'rarity', 'subtype']
 loot_table:      ['label', 'rolls']
 recipe:          ['label', 'output_item_id', 'craft_time_s']
-crafting_recipe: ['label', 'output_item_id', 'workflow_id']
+crafting_recipe: ['label', 'output_item', 'required_workflow']
 hero_class:      ['label', 'base_stats']
 ability:         ['label', 'trigger']
 building:        ['label', 'max_level']
@@ -80,19 +80,19 @@ prestige:        ['label', 'currency_id']
 
 **2. Dangling ID references**
 For each node type, check these fields reference existing nodes:
-- `building_workflow.building_id` → must be a `building` node
-- `crafting_recipe.workflow_id` → must be a `building_workflow` node
-- `crafting_recipe.output_item_id` → must be an `item` node
+- `building_workflow.host_building` → must be a `building` node
+- `crafting_recipe.required_workflow` → must be a `building_workflow` node
+- `crafting_recipe.output_item` → must be an `item` node
 - `expedition.loot_table_id` → must be a `loot_table` node
 - `boss_expedition.loot_table_id` → must be a `loot_table` node
 - `act.expedition_ids[]` → each must be an `expedition` node
 - `act.boss_expedition_id` → must be a `boss_expedition` node
 - `hero_class.recruit_cost[].resource_id` → must be a `resource` node
 - `building.levels[].build_cost[].resource_id` → must be a `resource` node
-- `building_upgrade.cost[].resource_id` → must be a `resource` node
+- `building_upgrade.cost[].resource` → must be a `resource` node
 - `building_workflow.output_rules[].target` → must be `resource` or `item` node
-- `building_workflow.input_rules[].resource_id` → must be a `resource` node
-- `building_upgrade.unlocks_workflow_ids[]` → each must be `building_workflow` node
+- `building_workflow.inputs[].resource` → must be a `resource` node
+- `building_upgrade.effects.unlocks_workflows[]` → each must be `building_workflow` node
 - `hero_class.building_affinity` → must be a `building` node
 
 **3. Artisan combat eligibility**
