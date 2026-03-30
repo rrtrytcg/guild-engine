@@ -68,6 +68,31 @@ const Canvas = forwardRef(function Canvas({ focusGroupId = null }, ref) {
     },
   }), [nodes])
 
+  // Listen for panToNode events from SearchPalette
+  useEffect(() => {
+    const handlePanToNode = (e) => {
+      const { nodeId } = e.detail || {}
+      if (nodeId && reactFlowInstance.current) {
+        const node = nodes.find((n) => n.id === nodeId)
+        if (node) {
+          const nodeWidth = 220
+          const nodeHeight = 150
+          reactFlowInstance.current.setCenter(
+            node.position.x + nodeWidth / 2,
+            node.position.y + nodeHeight / 2,
+            {
+              zoom: 1,
+              duration: 300,
+            }
+          )
+        }
+      }
+    }
+
+    window.addEventListener('panToNode', handlePanToNode)
+    return () => window.removeEventListener('panToNode', handlePanToNode)
+  }, [nodes])
+
   const [reactFlowReady, setReactFlowReady] = useState(false)
   const [selectedNodeIds, setSelectedNodeIds_local] = useState([])
   const [isCreatingSelectionGroup, setIsCreatingSelectionGroup] = useState(false)

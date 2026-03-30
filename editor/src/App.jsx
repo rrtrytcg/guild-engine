@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import Toolbar from './components/Toolbar'
 import Palette from './canvas/Palette'
 import Canvas from './canvas/Canvas'
@@ -44,10 +44,27 @@ const GroupCanvas = lazy(() => import('./canvas/GroupCanvas').catch(() => ({
   default: GroupCanvasError,
 })))
 
+const SearchPalette = lazy(() => import('./components/SearchPalette'))
+
 export default function App() {
   const canvasView = useStore((s) => s.canvasView)
   const activeGroupId = useStore((s) => s.activeGroupId)
   const focusGroupId = canvasView === 'nodes' ? activeGroupId : null
+  const openSearch = useStore((s) => s.openSearch)
+  const closeSearch = useStore((s) => s.closeSearch)
+
+  // Ctrl+K to open search palette
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        openSearch()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [openSearch])
 
   return (
     <div
@@ -72,6 +89,9 @@ export default function App() {
           </Suspense>
         )}
         <Inspector />
+        <Suspense fallback={null}>
+          <SearchPalette />
+        </Suspense>
       </div>
     </div>
   )

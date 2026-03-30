@@ -6,7 +6,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   test: {
-    include: ['tests/**/*.test.js'],
+    include: ['tests/**/*.test.{js,jsx}'],
     environment: 'jsdom',
   },
   resolve: {
