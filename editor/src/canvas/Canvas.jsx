@@ -14,15 +14,9 @@ import GuildNode from '../nodes/GuildNode'
 import { NODE_CONFIG } from '../nodes/nodeConfig'
 import { inferRelation, relationColor } from './inferRelation'
 
-let _nodeTypes = null
-function getNodeTypes() {
-  if (!_nodeTypes) {
-    _nodeTypes = Object.fromEntries(
-      Object.keys(NODE_CONFIG).map((type) => [type, GuildNode])
-    )
-  }
-  return _nodeTypes
-}
+const nodeTypes = Object.fromEntries(
+  Object.keys(NODE_CONFIG).map((type) => [type, GuildNode])
+)
 
 const NODE_WIDTH = 220
 const NODE_HEIGHT = 150
@@ -429,7 +423,7 @@ export default function Canvas({ focusGroupId = null }) {
           reactFlowInstance.current = instance
           setReactFlowReady(true)
         }}
-        nodeTypes={getNodeTypes()}
+        nodeTypes={nodeTypes}
         nodesDraggable
         fitView={!focusGroupId}
         deleteKeyCode="Delete"
