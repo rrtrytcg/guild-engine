@@ -61,6 +61,34 @@
   #notification{position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:999;padding:8px 18px;border-radius:8px;font-size:12px;font-weight:600;pointer-events:none;opacity:0;transition:opacity .2s}
   #notification.show{opacity:1}
   #restart-modal{position:fixed;inset:0;z-index:1200;background:rgba(5,5,12,.78);display:none;align-items:center;justify-content:center;padding:16px}
+
+  /* ── Declarative Screen Widgets ── */
+  .widget-screen { display: flex; flex-direction: column; height: 100%; }
+  .widget-vbox { display: flex; flex-direction: column; }
+  .widget-hbox { display: flex; flex-direction: row; }
+  .widget-stack { display: flex; flex-direction: column; position: relative; }
+  .widget-grid { display: grid; }
+  .widget-label { color: #e0e0f0; font-size: 12px; }
+  .widget-textbutton {
+    border: none; border-radius: 7px; font-size: 11px; font-weight: 600;
+    padding: 5px 12px; cursor: pointer; background: #7F77DD; color: #fff;
+    transition: opacity .1s;
+  }
+  .widget-textbutton:hover { background: #534AB7; opacity: 0.9; }
+  .widget-textbutton:disabled { opacity: 0.35; cursor: not-allowed; }
+  .widget-iconbutton {
+    border: none; border-radius: 6px; width: 28px; height: 28px;
+    cursor: pointer; background: #2a2a3e; color: #c0c0d8; font-size: 14px;
+  }
+  .widget-iconbutton:hover { background: #444460; color: #fff; }
+  .widget-textinput {
+    border: 1px solid #2a2a3e; border-radius: 6px; background: #1a1a2e;
+    color: #e0e0f0; padding: 6px 10px; font-size: 12px;
+  }
+  .widget-textinput:focus { outline: none; border-color: #7F77DD; }
+  .widget-progressbar { width: 100%; }
+  .widget-image { max-width: 100%; height: auto; }
+  .widget-spacer { flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -128,6 +156,7 @@
         <div id="tab-forge" style="display:none">
           <div id="screen-forge"></div>
         </div>
+        <div id="screen-content" style="display:none"></div>
       </div>
       <div id="event-log-panel">
         <div class="section-label" style="padding:6px 8px 2px">Event log</div>
@@ -192,8 +221,33 @@
 <script type="module">
 import { initEngine, stopEngine, actions as engineActions } from './engine.js'
 import { MIN_ACTION_DELAY_MS } from './systems/buildings.js'
+import { renderScreenToHTML, screenRegistry } from './layoutEngine.js'
 window.actions = engineActions
 const actions = engineActions
+
+// Map action names to engine action handlers
+// snake_case action names from widgets → camelCase engine actions
+window.ACTION_HANDLERS = {}
+for (const [key, fn] of Object.entries(engineActions)) {
+  // Convert snake_case to camelCase for widget compatibility
+  const camelKey = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase())
+  if (camelKey !== key) {
+    window.ACTION_HANDLERS[camelKey] = fn
+  }
+  // Also keep original snake_case
+  window.ACTION_HANDLERS[key] = fn
+}
+
+// Event delegation for declarative screen widgets
+document.addEventListener('click', (e) => {
+  const actionEl = e.target.closest('[data-action]')
+  if (!actionEl) return
+  const action = actionEl.dataset.action
+  if (action && window.ACTION_HANDLERS && window.ACTION_HANDLERS[action]) {
+    window.ACTION_HANDLERS[action](e)
+  }
+})
+
 let snapshot = null
 let currentProject = null
 let restartConfirmOpen = false
@@ -591,6 +645,23 @@ function render(s) {
   renderWorldScreen(s)
   if (detailUiState.activeTab === 'expedition') renderExpeditionScreen(s)
   if (detailUiState.activeTab === 'forge') renderForgeScreenV2(s)
+
+  // Render declarative screens (backward compat: only if no legacy screen active)
+  const el = document.getElementById('screen-content')
+  if (!el) return
+
+  // Only render declarative screen if the current screen is registered
+  const screenName = s.ui.screen
+  if (screenName && screenRegistry.has(screenName)) {
+    el.style.display = 'flex'
+    el.innerHTML = renderScreenToHTML(screenName, s, (action) => {
+      if (window.ACTION_HANDLERS && window.ACTION_HANDLERS[action]) {
+        window.ACTION_HANDLERS[action]()
+      }
+    })
+  } else {
+    el.style.display = 'none'
+  }
 }
 
 // ── Resources (left panel) ────────────────────────────────────────────────────
