@@ -22,21 +22,21 @@
       "max_level": 3,
       "levels": [
         {
-          "build_cost": [{ "resource_id": "resource-gold", "amount": 4000 }],
+          "build_cost": [{ "resource_id": "resource-gold", "amount": 8000 }],
           "build_time_s": 0,
           "production": {},
           "hero_slots": 0,
           "recipe_slots": 0
         },
         {
-          "build_cost": [{ "resource_id": "resource-gold", "amount": 8000 }],
+          "build_cost": [{ "resource_id": "resource-gold", "amount": 16000 }],
           "build_time_s": 45,
           "production": {},
           "hero_slots": 0,
           "recipe_slots": 0
         },
         {
-          "build_cost": [{ "resource_id": "resource-gold", "amount": 16000 }],
+          "build_cost": [{ "resource_id": "resource-gold", "amount": 32000 }],
           "build_time_s": 90,
           "production": {},
           "hero_slots": 0,
@@ -63,21 +63,21 @@
       "max_level": 3,
       "levels": [
         {
-          "build_cost": [{ "resource_id": "resource-gold", "amount": 5000 }],
+          "build_cost": [{ "resource_id": "resource-gold", "amount": 10000 }],
           "build_time_s": 0,
           "production": {},
           "hero_slots": 0,
           "recipe_slots": 2
         },
         {
-          "build_cost": [{ "resource_id": "resource-gold", "amount": 10000 }],
+          "build_cost": [{ "resource_id": "resource-gold", "amount": 20000 }],
           "build_time_s": 60,
           "production": {},
           "hero_slots": 0,
           "recipe_slots": 3
         },
         {
-          "build_cost": [{ "resource_id": "resource-gold", "amount": 20000 }],
+          "build_cost": [{ "resource_id": "resource-gold", "amount": 40000 }],
           "build_time_s": 120,
           "production": {},
           "hero_slots": 0,
@@ -104,21 +104,21 @@
       "max_level": 3,
       "levels": [
         {
-          "build_cost": [{ "resource_id": "resource-gold", "amount": 12000 }],
+          "build_cost": [{ "resource_id": "resource-gold", "amount": 24000 }],
           "build_time_s": 0,
           "production": {},
           "hero_slots": 0,
           "recipe_slots": 2
         },
         {
-          "build_cost": [{ "resource_id": "resource-gold", "amount": 24000 }],
+          "build_cost": [{ "resource_id": "resource-gold", "amount": 48000 }],
           "build_time_s": 60,
           "production": {},
           "hero_slots": 0,
           "recipe_slots": 3
         },
         {
-          "build_cost": [{ "resource_id": "resource-gold", "amount": 48000 }],
+          "build_cost": [{ "resource_id": "resource-gold", "amount": 96000 }],
           "build_time_s": 120,
           "production": {},
           "hero_slots": 0,

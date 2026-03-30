@@ -840,6 +840,7 @@ If CANVASDOCTOR finds issues that appear to contradict ASSEMBLER's cross-referen
   "schema_version": "1.2.0",
   "assembler_version": "1.0.0",
   "assembled_at": "{ISO 8601 timestamp — e.g. 2026-03-30T14:22:00Z}",
+  "title": "{from WORLDFORGE meta.project_name — REQUIRED for engine display}",
   "meta": {
     "project_name": "{from WORLDFORGE meta.project_name or source material title}",
     "pacing_target": "{from WORLDFORGE downstream_contracts.pacing_target}",
@@ -860,6 +861,11 @@ If CANVASDOCTOR finds issues that appear to contradict ASSEMBLER's cross-referen
     // ITEMFORGE, UPGRADEFORGE. Order within each forge group is preserved from
     // the upstream output.
   ],
+  "edges": [
+    // All edges derived from cross-reference audit (XR-03 through XR-20).
+    // Format: { "source": "node_id", "target": "node_id", "relation": "relation_type" }
+    // Required by editor validator — do not omit even if nodes have connections[].
+  ],
   "editor_metadata": {
     "groups": [],
     "intended_edges": [
@@ -879,6 +885,7 @@ If CANVASDOCTOR finds issues that appear to contradict ASSEMBLER's cross-referen
     "canvas_doctor_errors": 0,
     "canvas_doctor_warnings": 0,
     "canvas_doctor_hints": 0,
+    "edges_applied": 0,
     "status": "PASS | FAIL | PASS_WITH_WARNINGS",
     "blocking_issues": [
       // Only populated if status is FAIL. One entry per blocking error.
@@ -887,6 +894,12 @@ If CANVASDOCTOR finds issues that appear to contradict ASSEMBLER's cross-referen
   }
 }
 ```
+
+**CRITICAL FIELDS:**
+- `title` (REQUIRED) — Engine displays this in event log. Without it, shows "undefined".
+  Copy from `WORLDFORGE.meta.project_name` exactly.
+- `edges` (REQUIRED) — Editor validator requires top-level edges array.
+  Generate from resolved cross-references (XR-03 through XR-20).
 
 **project.json is only written when:**
 - STRICT_MODE: yes AND cross-reference errors == 0 AND calibration errors == 0 AND merge type conflicts == 0

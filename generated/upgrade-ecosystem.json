@@ -23,7 +23,7 @@
       "description": "Expanded contract negotiations bring in more gold from each expedition.",
       "icon": "📜",
       "cost": [
-        { "resource_id": "resource-gold", "amount": 6000 }
+        { "resource_id": "resource-gold", "amount": 12000 }
       ],
       "max_tier": 1,
       "effect": {
@@ -42,7 +42,7 @@
       "description": "Reinforced vaults allow the guild to store more gold before hitting capacity.",
       "icon": "💰",
       "cost": [
-        { "resource_id": "resource-gold", "amount": 7500 }
+        { "resource_id": "resource-gold", "amount": 15000 }
       ],
       "max_tier": 1,
       "effect": {
@@ -61,7 +61,7 @@
       "description": "Formal trade agreements with northern merchants increase gold income significantly.",
       "icon": "🤝",
       "cost": [
-        { "resource_id": "resource-gold", "amount": 18000 }
+        { "resource_id": "resource-gold", "amount": 36000 }
       ],
       "max_tier": 1,
       "effect": {
@@ -86,7 +86,7 @@
       "description": "Seasoned veterans teach combat techniques to new recruits.",
       "icon": "⚔️",
       "cost": [
-        { "resource_id": "resource-gold", "amount": 8000 }
+        { "resource_id": "resource-gold", "amount": 16000 }
       ],
       "max_tier": 2,
       "effect": {
@@ -105,7 +105,7 @@
       "description": "Mental conditioning helps heroes resist the corrupting influence of the shadow.",
       "icon": "🛡️",
       "cost": [
-        { "resource_id": "resource-gold", "amount": 8000 }
+        { "resource_id": "resource-gold", "amount": 16000 }
       ],
       "max_tier": 2,
       "effect": {
@@ -125,7 +125,7 @@
       "description": "Agility training helps heroes dodge shadow beast attacks.",
       "icon": "💨",
       "cost": [
-        { "resource_id": "resource-gold", "amount": 8000 }
+        { "resource_id": "resource-gold", "amount": 16000 }
       ],
       "max_tier": 1,
       "effect": {
@@ -144,7 +144,7 @@
       "description": "Improved forge techniques reduce the time needed to smelt ore and craft weapons.",
       "icon": "🔥",
       "cost": [
-        { "resource_id": "resource-gold", "amount": 10000 }
+        { "resource_id": "resource-gold", "amount": 20000 }
       ],
       "max_tier": 1,
       "effect": {
@@ -167,7 +167,7 @@
       "description": "Master smiths share advanced techniques for working with shadow-touched materials.",
       "icon": "⚒️",
       "cost": [
-        { "resource_id": "resource-gold", "amount": 25000 }
+        { "resource_id": "resource-gold", "amount": 50000 }
       ],
       "max_tier": 1,
       "effect": {
@@ -195,7 +195,7 @@
       "description": "Veteran scouts share knowledge of shadow beast tactics and weak points.",
       "icon": "👁️",
       "cost": [
-        { "resource_id": "resource-gold", "amount": 9000 }
+        { "resource_id": "resource-gold", "amount": 18000 }
       ],
       "max_tier": 1,
       "effect": {
@@ -212,7 +212,7 @@
       "description": "Training in looting techniques helps heroes recover more from defeated enemies.",
       "icon": "🎒",
       "cost": [
-        { "resource_id": "resource-gold", "amount": 12000 }
+        { "resource_id": "resource-gold", "amount": 24000 }
       ],
       "max_tier": 1,
       "effect": {

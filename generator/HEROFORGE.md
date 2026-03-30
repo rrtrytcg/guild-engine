@@ -262,33 +262,54 @@ CLASS: Berserker (ATK-focused)
 
 ### Table C — Recruitment Cost Calibration (Reads WORLDFORGE)
 
-HEROFORGE must read `downstream_contracts.heroforge.recruit_cost_range` from `world-economy.json`.
-All hero recruitment costs must fall within this range (±20% tolerance).
+HEROFORGE must read `world-economy.json` for `base_income` and `base_cap` of the primary resource.
+Recruit costs must be calibrated to TIME-TO-AFFORD, not arbitrary numbers.
 
-| Class Tier | Cost Multiplier | Example (if WORLDFORGE range: 4000–5000) |
-|---|---|---|
-| Starter class | ×0.8–1.0 | 3,200–5,000 |
-| Standard class | ×1.0–1.2 | 4,000–6,000 |
-| Elite class | ×1.5–2.0 | 6,000–10,000 |
-| Artisan class | ×0.5–0.8 (or workflow-produced) | 2,000–4,000 |
+**CRITICAL: base_income is per-SECOND.** Calculate recruit costs based on target time:
+- `recruit_cost = base_income × target_seconds`
+- Target: 8-12 minutes (480-720 seconds) for first recruit
+
+| Class Tier | Target Time | Cost Formula | Example (base_income=4/s) |
+|---|---|---|---|
+| Starter class | 8–9 min (480–540s) | `base_income × 480–540` | 4 × 500 = 2,000 |
+| Standard class | 9–11 min (540–660s) | `base_income × 540–660` | 4 × 600 = 2,400 |
+| Elite class | 11–13 min (660–780s) | `base_income × 660–780` | 4 × 700 = 2,800 |
+| Artisan class | 5–7 min (300–420s) | `base_income × 300–420` | 4 × 350 = 1,400 |
 
 **Verification (mandatory):**
 ```
-WORLDFORGE CONTRACT: recruit_cost_range = {min}–{max} {resource_id}
-  Starter classes:  [cost] — multiplier ×{N} — {PASS/FAIL vs contract}
-  Standard classes: [cost] — multiplier ×{N} — {PASS/FAIL vs contract}
-  Elite classes:    [cost] — multiplier ×{N} — {PASS/FAIL vs contract}
-  Artisan classes:  [cost or "workflow-produced"] — {PASS/FAIL vs contract}
-  
-  TOLERANCE CHECK: All costs within ±20% of WORLDFORGE range? {YES / NO}
+WORLDFORGE CONTRACT:
+  Primary resource: resource-gold
+  base_income: 4/s
+  base_cap: 4800 (20 minutes of income)
+
+  Starter class (Shieldbearer): 2000 gold
+    Time to afford: 2000 / 4 = 500 seconds = 8.3 min ✓ (target: 8-9 min)
+    Cap check: 2000 < 4800 cap ✓ (can save without spending)
+
+  Standard class (Warden): 2400 gold
+    Time to afford: 2400 / 4 = 600 seconds = 10.0 min ✓ (target: 9-11 min)
+    Cap check: 2400 < 4800 cap ✓
+
+  Elite class (Shadow Hunter): 2800 gold
+    Time to afford: 2800 / 4 = 700 seconds = 11.7 min ✓ (target: 11-13 min)
+    Cap check: 2800 < 4800 cap ✓
+
+  Artisan class (Contract Broker): 1400 gold
+    Time to afford: 1400 / 4 = 350 seconds = 5.8 min ✓ (target: 5-7 min)
+    Cap check: 1400 < 4800 cap ✓
+
+  SOFT-LOCK CHECK: Can player afford cheapest hero before hitting cap?
+    Cheapest hero: 2000 gold
+    base_cap: 4800 gold
+    4800 >= 2000 ✓ PASS (player can save and recruit)
 ```
 
-If any cost falls outside the ±20% tolerance, write a flag:
-```
-//TRANSLATE_FLAG [SEVERITY: HIGH]
-TENSION: "{Class} recruit cost {cost} exceeds WORLDFORGE contract {range} by {%}"
-ACTION: Adjust cost to {corrected value} or request WORLDFORGE re-run with wider range
-```
+**Rule: base_cap must be at least 1.5× the cheapest recruit cost.** If this fails, either:
+1. Increase base_cap in WORLDFORGE, or
+2. Decrease cheapest recruit cost
+
+If any cost results in time-to-afford outside target range, adjust and re-verify.
 
 ### Table D — Unique Passive Design Space
 

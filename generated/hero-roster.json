@@ -38,7 +38,7 @@
       },
       "slots": ["weapon", "armor", "relic"],
       "recruit_cost": [
-        { "resource_id": "resource-gold", "amount": 3500 }
+        { "resource_id": "resource-gold", "amount": 2000 }
       ],
       "unique_passive": {
         "id": "passive-last-stand",
@@ -84,7 +84,7 @@
       },
       "slots": ["weapon", "armor", "accessory"],
       "recruit_cost": [
-        { "resource_id": "resource-gold", "amount": 5200 }
+        { "resource_id": "resource-gold", "amount": 2800 }
       ],
       "unique_passive": {
         "id": "passive-death-strike",
@@ -130,7 +130,7 @@
       },
       "slots": ["weapon", "armor", "accessory"],
       "recruit_cost": [
-        { "resource_id": "resource-gold", "amount": 4500 }
+        { "resource_id": "resource-gold", "amount": 2400 }
       ],
       "unique_passive": {
         "id": "passive-fortunes-favor",
@@ -176,7 +176,7 @@
       },
       "slots": ["weapon", "armor", "relic"],
       "recruit_cost": [
-        { "resource_id": "resource-gold", "amount": 4800 }
+        { "resource_id": "resource-gold", "amount": 2600 }
       ],
       "unique_passive": {
         "id": "passive-scarred-survivor",
@@ -222,7 +222,7 @@
       },
       "slots": ["weapon", "accessory", "accessory"],
       "recruit_cost": [
-        { "resource_id": "resource-gold", "amount": 3200 }
+        { "resource_id": "resource-gold", "amount": 2000 }
       ],
       "unique_passive": {
         "id": "passive-swift-escape",
@@ -365,7 +365,7 @@
       "specializations": ["contract_negotiation", "resource_management"],
       "building_affinity": ["building-guildhall"],
       "recruit_cost": [
-        { "resource_id": "resource-gold", "amount": 2800 }
+        { "resource_id": "resource-gold", "amount": 1400 }
       ],
       "unique_passive": {
         "id": "passive-golden-tongue",

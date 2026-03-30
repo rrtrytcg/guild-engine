@@ -268,14 +268,33 @@ BOTTLENECK PROGRESSION:
 ### Table E — Base Cap Calculation
 
 `base_cap` is the maximum amount of a resource the player can hold without upgrades. It must be
-large enough to allow meaningful banking but small enough to create cap pressure.
+large enough to allow saving for major purchases (heroes, buildings) but small enough to create
+meaningful cap management decisions.
 
-| Pacing | Base cap formula | Example |
-|---|---|---|
-| `short` | `base_income × 120` (30 minutes of income) | base_income=3 → cap=360 |
-| `medium` | `base_income × 240` (60 minutes of income) | base_income=3 → cap=720 |
-| `long` | `base_income × 480` (120 minutes of income) | base_income=3 → cap=1440 |
-| `endless` | `base_income × 600` (150 minutes of income) | base_income=3 → cap=1800 |
+**CRITICAL: base_income is per-SECOND in the engine.** Cap should allow 10-20 minutes of saving
+for a meaningful purchase window.
+
+| Pacing | Base cap formula | Rationale | Example |
+|---|---|---|---|
+| `short` | `base_income × 600` (10 minutes of income) | Fast games, quick purchases | base_income=4 → cap=2400 |
+| `medium` | `base_income × 1200` (20 minutes of income) | Standard games, save for heroes | base_income=4 → cap=4800 |
+| `long` | `base_income × 1800` (30 minutes of income) | Slow games, multiple purchases | base_income=4 → cap=7200 |
+| `endless` | `base_income × 2400` (40 minutes of income) | Sandbox, large savings | base_income=4 → cap=9600 |
+
+**Verification (mandatory):**
+```
+PRIMARY RESOURCE: Gold
+  base_income: 4/s
+  base_cap: 4800 (medium pacing: 4 × 1200 = 4800)
+  Time to fill cap: 4800 / 4 = 1200 seconds = 20 minutes ✓
+  Cheapest hero recruit: 2000 gold
+  Time to afford: 2000 / 4 = 500 seconds = 8.3 minutes ✓ (target: 8-12 min)
+  EXPENSIVE hero recruit: 2800 gold
+  Time to afford: 2800 / 4 = 700 seconds = 11.7 minutes ✓ (target: 8-12 min)
+```
+
+**Rule: base_cap must be at least 1.5× the cheapest hero recruit cost.** If cap is 480 and cheapest
+hero costs 2000, the player can NEVER recruit without spending first — this is a soft-lock.
 
 **For materials** (`is_material: true`): cap = `first_crafting_cost × 5`. The player should be able
 to stock enough for several craft runs without hitting the wall constantly.

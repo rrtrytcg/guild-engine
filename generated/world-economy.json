@@ -17,8 +17,8 @@
       "label": "Gold",
       "description": "Guild coin — earned from contracts and expeditions, spent on every building, recruit, and upgrade in this tight economy.",
       "icon": "💰",
-      "base_cap": 480,
-      "base_income": 2,
+      "base_cap": 4800,
+      "base_income": 4,
       "is_material": false,
       "visible": true,
       "canvas_pos": {"x": 50, "y": 50}
@@ -51,7 +51,7 @@
   "economy_calibration": {
     "income_curves": {
       "primary_resource_id": "resource-gold",
-      "base_income_per_tick": 2,
+      "base_income_per_tick": 4,
       "target_multipliers": {
         "hour_1": 1.0,
         "hour_5": 2.5,
