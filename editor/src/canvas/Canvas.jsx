@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import ReactFlow, {
   Background,
   Controls,
@@ -13,6 +13,16 @@ import useStore from '../store/useStore'
 import GuildNode from '../nodes/GuildNode'
 import { NODE_CONFIG } from '../nodes/nodeConfig'
 import { inferRelation, relationColor } from './inferRelation'
+
+let _nodeTypes = null
+function getNodeTypes() {
+  if (!_nodeTypes) {
+    _nodeTypes = Object.fromEntries(
+      Object.keys(NODE_CONFIG).map((type) => [type, GuildNode])
+    )
+  }
+  return _nodeTypes
+}
 
 const NODE_WIDTH = 220
 const NODE_HEIGHT = 150
@@ -48,10 +58,6 @@ export default function Canvas({ focusGroupId = null }) {
   const [contextMenu, setContextMenu] = useState(null)
   const [legendOpen, setLegendOpen] = useState(false)
   const [rigNotification, setRigNotification] = useState(null)
-
-  const nodeTypes = useMemo(() => Object.fromEntries(
-    Object.keys(NODE_CONFIG).map((type) => [type, GuildNode])
-  ), [])
 
   const onDrop = useCallback(
     (e) => {
@@ -423,7 +429,7 @@ export default function Canvas({ focusGroupId = null }) {
           reactFlowInstance.current = instance
           setReactFlowReady(true)
         }}
-        nodeTypes={nodeTypes}
+        nodeTypes={getNodeTypes()}
         nodesDraggable
         fitView={!focusGroupId}
         deleteKeyCode="Delete"
