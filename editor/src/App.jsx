@@ -5,6 +5,41 @@ import Canvas from './canvas/Canvas'
 import Inspector from './inspector/Inspector'
 import useStore from './store/useStore'
 
+function GroupCanvasLoading() {
+  return (
+    <div style={{
+      flex: 1,
+      padding: 24,
+      background: 'radial-gradient(circle at top left, #151528 0%, #0d0d1a 55%, #090912 100%)',
+      color: '#666680',
+      fontSize: 12,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}>
+      Loading group view…
+    </div>
+  )
+}
+
+function GroupCanvasError() {
+  return (
+    <div style={{
+      flex: 1,
+      padding: 24,
+      background: 'radial-gradient(circle at top left, #151528 0%, #0d0d1a 55%, #090912 100%)',
+      color: '#E24B4A',
+      fontSize: 12,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      textAlign: 'center',
+    }}>
+      Group view failed to load. Reload the editor to try again.
+    </div>
+  )
+}
+
 const GroupCanvas = lazy(() => import('./canvas/GroupCanvas').catch(() => ({
   default: GroupCanvasError,
 })))
@@ -38,41 +73,6 @@ export default function App() {
         )}
         <Inspector />
       </div>
-    </div>
-  )
-}
-
-function GroupCanvasLoading() {
-  return (
-    <div style={{
-      flex: 1,
-      padding: 24,
-      background: 'radial-gradient(circle at top left, #151528 0%, #0d0d1a 55%, #090912 100%)',
-      color: '#666680',
-      fontSize: 12,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-    }}>
-      Loading group view…
-    </div>
-  )
-}
-
-function GroupCanvasError() {
-  return (
-    <div style={{
-      flex: 1,
-      padding: 24,
-      background: 'radial-gradient(circle at top left, #151528 0%, #0d0d1a 55%, #090912 100%)',
-      color: '#E24B4A',
-      fontSize: 12,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      textAlign: 'center',
-    }}>
-      Group view failed to load. Reload the editor to try again.
     </div>
   )
 }
