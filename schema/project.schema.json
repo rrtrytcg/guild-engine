@@ -783,6 +783,69 @@
           }
         }
       }
+    },
+    "screen_widget": {
+      "description": "A widget that can be placed in a screen layout.",
+      "oneOf": [
+        { "$ref": "#/definitions/container_widget" },
+        { "$ref": "#/definitions/display_widget" },
+        { "$ref": "#/definitions/interactive_widget" }
+      ]
+    },
+    "container_widget": {
+      "type": "object",
+      "required": ["type", "children"],
+      "properties": {
+        "type": { "type": "string", "enum": ["vbox", "hbox", "grid", "stack"] },
+        "children": { "type": "array", "items": { "$ref": "#/definitions/screen_widget" } },
+        "gap": { "type": "number", "default": 8, "description": "Pixel spacing between children" },
+        "align": { "type": "string", "enum": ["start", "center", "end"], "default": "start" },
+        "style": { "$ref": "#/definitions/css_properties" }
+      }
+    },
+    "display_widget": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["label", "progressbar", "image", "spacer"] },
+        "style": { "$ref": "#/definitions/css_properties" }
+      },
+      "oneOf": [
+        { "required": ["type", "text"], "properties": { "type": { "const": "label" }, "text": { "type": "string" }, "style": { "$ref": "#/definitions/css_properties" } } },
+        { "required": ["type", "value"], "properties": { "type": { "const": "progressbar" }, "value": { "type": ["number", "string"] }, "max": { "type": "number", "default": 100 }, "color": { "type": "string" }, "height": { "type": "number" }, "style": { "$ref": "#/definitions/css_properties" } } },
+        { "required": ["type", "src"], "properties": { "type": { "const": "image" }, "src": { "type": "string" }, "width": { "type": "number" }, "height": { "type": "number" }, "style": { "$ref": "#/definitions/css_properties" } } },
+        { "required": ["type"], "properties": { "type": { "const": "spacer" }, "width": { "type": "number" }, "height": { "type": "number" }, "style": { "$ref": "#/definitions/css_properties" } } }
+      ]
+    },
+    "interactive_widget": {
+      "type": "object",
+      "required": ["type", "action"],
+      "properties": {
+        "type": { "type": "string", "enum": ["textbutton", "iconbutton", "textinput"] },
+        "action": { "type": "string", "description": "Action identifier triggered on click" },
+        "style": { "$ref": "#/definitions/css_properties" }
+      },
+      "oneOf": [
+        { "required": ["type", "label", "action"], "properties": { "type": { "const": "textbutton" }, "label": { "type": "string" }, "icon": { "type": "string" }, "action": { "type": "string" }, "style": { "$ref": "#/definitions/css_properties" } } },
+        { "required": ["type", "icon", "action"], "properties": { "type": { "const": "iconbutton" }, "icon": { "type": "string" }, "action": { "type": "string" }, "style": { "$ref": "#/definitions/css_properties" } } },
+        { "required": ["type"], "properties": { "type": { "const": "textinput" }, "placeholder": { "type": "string" }, "binding": { "type": "string", "description": "Snapshot path for two-way binding" }, "style": { "$ref": "#/definitions/css_properties" } } }
+      ]
+    },
+    "css_properties": {
+      "type": "object",
+      "description": "CSS property overrides as key-value pairs.",
+      "additionalProperties": { "type": "string" },
+      "examples": [{ "color": "#ff0000", "background": "#1a1a2e" }]
+    },
+    "screen_config": {
+      "type": "object",
+      "required": ["id", "name", "layout"],
+      "properties": {
+        "id": { "type": "string", "description": "Unique screen identifier used in navigation" },
+        "name": { "type": "string", "description": "Display name shown in navigation" },
+        "layout": { "$ref": "#/definitions/container_widget", "description": "Root widget of the screen layout" },
+        "style": { "$ref": "#/definitions/css_properties", "description": "CSS overrides for the screen container" }
+      }
     }
   },
   "properties": {
@@ -2698,6 +2761,13 @@
             "title": "Blueprint"
           }
         ]
+      }
+    },
+    "screens": {
+      "type": "array",
+      "description": "Declarative screen definitions for the data-driven layout system.",
+      "items": {
+        "$ref": "#/definitions/screen_config"
       }
     },
     "edges": {
