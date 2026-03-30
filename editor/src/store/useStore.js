@@ -32,6 +32,12 @@ const useStore = create((set, get) => ({
   blueprints: [],
   groups: [],
   canvasView: 'nodes',
+
+  // --- Search palette ---
+  searchOpen: false,
+  openSearch: () => set({ searchOpen: true }),
+  closeSearch: () => set({ searchOpen: false }),
+
   activeGroupId: null,
 
   // --- ReactFlow handlers (wired directly to <ReactFlow> props) ---

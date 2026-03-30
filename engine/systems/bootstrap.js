@@ -242,6 +242,17 @@ export function bootstrapState(project) {
     notification: null,
   }
 
+  // Register declarative screens from project config
+  if (project.screens && Array.isArray(project.screens)) {
+    for (const screen of project.screens) {
+      if (screen.id && screen.layout) {
+        engine.defineScreen(screen.id, screen.layout)
+      }
+    }
+    // Populate ui.screens array for navigation
+    state.ui.screens = project.screens.map(s => ({ id: s.id, name: s.name }))
+  }
+
   return {
     meta: project.meta,
     tick: 0,

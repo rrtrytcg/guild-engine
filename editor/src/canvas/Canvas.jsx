@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react'
 import ReactFlow, {
   Background,
   Controls,
@@ -24,7 +24,7 @@ const DEFAULT_EDGE_OPTIONS = { style: { stroke: '#444466', strokeWidth: 1.5 }, a
 const CONNECTION_LINE_STYLE = { stroke: '#7F77DD', strokeWidth: 1.5 }
 const SNAP_GRID = [16, 16]
 
-export default function Canvas({ focusGroupId = null }) {
+const Canvas = forwardRef(function Canvas({ focusGroupId = null }, ref) {
   const nodes = useStore((s) => s.nodes)
   const edges = useStore((s) => s.edges)
   const groups = useStore((s) => s.groups)
@@ -45,6 +45,29 @@ export default function Canvas({ focusGroupId = null }) {
 
   const reactFlowWrapper = useRef(null)
   const reactFlowInstance = useRef(null)
+
+  // Expose panToNode via ref
+  useImperativeHandle(ref, () => ({
+    panToNode: (nodeId) => {
+      if (!reactFlowInstance.current || !nodes) return
+
+      const node = nodes.find((n) => n.id === nodeId)
+      if (!node) return
+
+      const nodeWidth = 220
+      const nodeHeight = 150
+
+      reactFlowInstance.current.setCenter(
+        node.position.x + nodeWidth / 2,
+        node.position.y + nodeHeight / 2,
+        {
+          zoom: 1,
+          duration: 300,
+        }
+      )
+    },
+  }), [nodes])
+
   const [reactFlowReady, setReactFlowReady] = useState(false)
   const [selectedNodeIds, setSelectedNodeIds_local] = useState([])
   const [isCreatingSelectionGroup, setIsCreatingSelectionGroup] = useState(false)
@@ -538,7 +561,9 @@ export default function Canvas({ focusGroupId = null }) {
       )}
     </div>
   )
-}
+})
+
+export default Canvas
 
 function calculateNodesBounds(nodes) {
   const minX = Math.min(...nodes.map((node) => Number(node.position?.x ?? 0)))
