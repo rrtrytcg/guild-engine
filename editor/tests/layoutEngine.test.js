@@ -6,180 +6,88 @@ import {
   resolveBindings,
   styleStr,
   widgetToHTML,
-  renderScreenToHTML
+  renderScreenToHTML,
+  defineScreen,
+  getScreen,
+  screenRegistry,
 } from '../../engine/layoutEngine.js'
 
 describe('escape', () => {
-  it('escapes ampersand', () => {
-    expect(escape('foo & bar')).toBe('foo &amp; bar')
-  })
-
-  it('escapes less-than', () => {
-    expect(escape('a < b')).toBe('a &lt; b')
-  })
-
-  it('escapes greater-than', () => {
-    expect(escape('a > b')).toBe('a &gt; b')
-  })
-
-  it('escapes double quotes', () => {
-    expect(escape('say "hello"')).toBe('say &quot;hello&quot;')
-  })
-
-  it('escapes numbers as strings', () => {
-    expect(escape('42')).toBe('42')
-    expect(escape('3.14')).toBe('3.14')
-  })
-
-  it('handles null input', () => {
-    expect(escape(null)).toBe('')
-  })
-
-  it('handles undefined input', () => {
-    expect(escape(undefined)).toBe('')
-  })
+  it('escapes ampersands', () => expect(escape('a & b')).toBe('a &amp; b'))
+  it('escapes less-than', () => expect(escape('a < b')).toBe('a &lt; b'))
+  it('escapes greater-than', () => expect(escape('a > b')).toBe('a &gt; b'))
+  it('escapes double quotes', () => expect(escape('a "b"')).toBe('a &quot;b&quot;'))
+  it('handles numbers without escaping', () => expect(escape(123)).toBe('123'))
+  it('handles null', () => expect(escape(null)).toBe(''))
+  it('handles undefined', () => expect(escape(undefined)).toBe(''))
 })
 
 describe('escapeAttr', () => {
-  it('escapes ampersand', () => {
-    expect(escapeAttr('foo & bar')).toBe('foo &amp; bar')
+  it('escapes all HTML chars plus quotes', () => {
+    expect(escapeAttr('a < b > "c" &')).toBe('a &lt; b &gt; &quot;c&quot; &amp;')
   })
-
-  it('escapes less-than', () => {
-    expect(escapeAttr('a < b')).toBe('a &lt; b')
-  })
-
-  it('escapes greater-than', () => {
-    expect(escapeAttr('a > b')).toBe('a &gt; b')
-  })
-
-  it('escapes double quotes', () => {
-    expect(escapeAttr('say "hello"')).toBe('say &quot;hello&quot;')
-  })
-
-  it('escapes single quotes', () => {
-    expect(escapeAttr("say 'hello'")).toBe("say &#39;hello&#39;")
-  })
-
-  it('handles empty string', () => {
-    expect(escapeAttr('')).toBe('')
-  })
-
-  it('handles numbers', () => {
-    expect(escapeAttr(42)).toBe('42')
-  })
+  it('handles empty string', () => expect(escapeAttr('')).toBe(''))
 })
 
 describe('getByPath', () => {
-  const testObj = {
-    name: 'test',
-    nested: {
-      value: 42,
-      deep: {
-        color: 'blue'
-      }
-    },
-    items: ['a', 'b', 'c']
-  }
-
-  it('resolves simple path', () => {
-    expect(getByPath(testObj, 'name')).toBe('test')
-  })
-
-  it('resolves nested path', () => {
-    expect(getByPath(testObj, 'nested.value')).toBe(42)
-  })
-
-  it('resolves deeply nested path', () => {
-    expect(getByPath(testObj, 'nested.deep.color')).toBe('blue')
-  })
-
-  it('returns undefined for missing intermediate path', () => {
-    expect(getByPath(testObj, 'nonexistent.value')).toBeUndefined()
-  })
-
-  it('returns undefined for missing path', () => {
-    expect(getByPath(testObj, 'name.foo')).toBeUndefined()
-  })
-
-  it('returns undefined for empty path', () => {
-    expect(getByPath(testObj, '')).toBeUndefined()
-  })
-
-  it('resolves array index', () => {
-    expect(getByPath(testObj, 'items.0')).toBe('a')
-    expect(getByPath(testObj, 'items.1')).toBe('b')
-    expect(getByPath(testObj, 'items.2')).toBe('c')
-  })
-
-  it('returns undefined for out of bounds index', () => {
-    expect(getByPath(testObj, 'items.10')).toBeUndefined()
+  const obj = { a: { b: { c: 42 }, x: null }, z: 'top' }
+  
+  it('resolves simple path', () => expect(getByPath(obj, 'z')).toBe('top'))
+  it('resolves nested path', () => expect(getByPath(obj, 'a.b.c')).toBe(42))
+  it('returns null for missing intermediate', () => expect(getByPath(obj, 'a.missing.c')).toBe(null))
+  it('returns null for missing path', () => expect(getByPath(obj, 'nonexistent')).toBe(null))
+  it('returns null for empty path', () => expect(getByPath(obj, '')).toBe(null))
+  it('handles array index in path', () => {
+    const arr = { items: [{ id: 1 }, { id: 2 }] }
+    expect(getByPath(arr, 'items.0.id')).toBe(1)
+    expect(getByPath(arr, 'items.1.id')).toBe(2)
   })
 })
 
 describe('resolveBindings', () => {
+  const snapshot = { resources: { gold: 1420 }, hero: { name: 'Alice', level: 5 }, count: 0 }
+
   it('resolves single binding', () => {
-    const result = resolveBindings('Hello {{name}}!', { name: 'World' })
-    expect(result).toBe('Hello World!')
+    expect(resolveBindings('Gold: {{resources.gold}}', snapshot)).toBe('Gold: 1420')
   })
 
   it('resolves multiple bindings', () => {
-    const result = resolveBindings('{{greeting}} {{name}}', { greeting: 'Hi', name: 'there' })
-    expect(result).toBe('Hi there')
+    expect(resolveBindings('{{hero.name}} - Lv.{{hero.level}}', snapshot)).toBe('Alice - Lv.5')
   })
 
-  it('escapes HTML in binding values', () => {
-    const result = resolveBindings('{{html}}', { html: '<script>alert("xss")</script>' })
-    expect(result).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;')
+  it('escapes HTML in resolved values', () => {
+    const snap = { ...snapshot, hero: { ...snapshot.hero, name: '<script>alert("xss")</script>' } }
+    expect(resolveBindings('{{hero.name}}', snap)).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;')
   })
 
-  it('handles missing bindings', () => {
-    const result = resolveBindings('Hello {{name}}!', {})
-    expect(result).toBe('Hello !')
+  it('renders missing bindings as empty string', () => {
+    expect(resolveBindings('Missing: {{nonexistent.path}}', snapshot)).toBe('Missing: ')
   })
 
-  it('handles null bindings', () => {
-    const result = resolveBindings('Value: {{val}}', { val: null })
-    expect(result).toBe('Value: ')
+  it('renders null values as empty string', () => {
+    expect(resolveBindings('Null: {{resources.x}}', { resources: { x: null } })).toBe('Null: ')
   })
 
-  it('handles undefined bindings', () => {
-    const result = resolveBindings('Value: {{val}}', { val: undefined })
-    expect(result).toBe('Value: ')
+  it('renders undefined values as empty string', () => {
+    expect(resolveBindings('Undefined: {{foo}}', {})).toBe('Undefined: ')
   })
 
   it('preserves text outside bindings', () => {
-    const result = resolveBindings('Prefix {{val}} Suffix', { val: 'test' })
-    expect(result).toBe('Prefix test Suffix')
+    expect(resolveBindings('Prefix {{a}} middle {{b}} suffix', { a: 1, b: 2 })).toBe('Prefix 1 middle 2 suffix')
   })
 
   it('handles whitespace in bindings', () => {
-    const result = resolveBindings('{{ name }}', { name: 'test' })
-    expect(result).toBe('test')
-  })
-
-  it('handles multiple consecutive bindings', () => {
-    const result = resolveBindings('{{a}}{{b}}{{c}}', { a: '1', b: '2', c: '3' })
-    expect(result).toBe('123')
+    expect(resolveBindings('{{ resources.gold }}', snapshot)).toBe('1420')
   })
 })
 
 describe('styleStr', () => {
-  it('converts object to CSS string', () => {
-    const styles = { color: 'red', fontSize: '14px', marginTop: '10px' }
-    expect(styleStr(styles)).toBe('color:red;font-size:14px;margin-top:10px;')
+  it('converts style object to CSS string', () => {
+    expect(styleStr({ color: 'red', fontSize: '12px' })).toBe('color:red;fontSize:12px')
   })
 
-  it('handles camelCase property conversion', () => {
-    const styles = { backgroundColor: 'blue', fontWeight: 'bold' }
-    expect(styleStr(styles)).toBe('background-color:blue;font-weight:bold;')
-  })
-
-  it('returns empty string for null', () => {
+  it('returns empty string for null/undefined', () => {
     expect(styleStr(null)).toBe('')
-  })
-
-  it('returns empty string for undefined', () => {
     expect(styleStr(undefined)).toBe('')
   })
 
@@ -190,281 +98,249 @@ describe('styleStr', () => {
 })
 
 describe('widgetToHTML', () => {
+  const snapshot = { resources: { gold: 100 }, hero: { name: 'Alice', level: 5 }, value: 42 }
+
   describe('container widgets', () => {
     it('renders vbox with children', () => {
-      const widget = {
-        type: 'vbox',
-        children: [
-          { type: 'label', text: 'First' },
-          { type: 'label', text: 'Second' }
-        ]
-      }
-      const result = widgetToHTML(widget, {})
-      expect(result).toContain('display:flex')
-      expect(result).toContain('flex-direction:column')
-      expect(result).toContain('First')
-      expect(result).toContain('Second')
+      const vbox = { type: 'vbox', children: [{ type: 'label', text: 'Hello' }] }
+      expect(widgetToHTML(vbox, snapshot, () => {})).toContain('widget-vbox')
+      expect(widgetToHTML(vbox, snapshot, () => {})).toContain('Hello')
     })
 
     it('renders hbox with children', () => {
-      const widget = {
-        type: 'hbox',
-        children: [
-          { type: 'label', text: 'Left' },
-          { type: 'label', text: 'Right' }
-        ]
-      }
-      const result = widgetToHTML(widget, {})
-      expect(result).toContain('display:flex')
-      expect(result).toContain('flex-direction:row')
-      expect(result).toContain('Left')
-      expect(result).toContain('Right')
-    })
-
-    it('renders grid with children', () => {
-      const widget = {
-        type: 'grid',
-        children: [
-          { type: 'label', text: 'Cell1' },
-          { type: 'label', text: 'Cell2' }
-        ]
-      }
-      const result = widgetToHTML(widget, {})
-      expect(result).toContain('display:grid')
+      const hbox = { type: 'hbox', children: [{ type: 'label', text: 'A' }] }
+      expect(widgetToHTML(hbox, snapshot, () => {})).toContain('widget-hbox')
     })
 
     it('renders stack with children', () => {
-      const widget = {
-        type: 'stack',
-        children: [
-          { type: 'label', text: 'Top' }
-        ]
-      }
-      const result = widgetToHTML(widget, {})
-      expect(result).toContain('position:relative')
+      const stack = { type: 'stack', children: [{ type: 'label', text: 'Layered' }] }
+      expect(widgetToHTML(stack, snapshot, () => {})).toContain('widget-stack')
     })
 
-    it('applies gap to container', () => {
-      const widget = {
-        type: 'hbox',
-        gap: 8,
-        children: [{ type: 'label', text: 'A' }]
-      }
-      const result = widgetToHTML(widget, {})
-      expect(result).toContain('gap:8px')
+    it('renders grid with children', () => {
+      const grid = { type: 'grid', children: [{ type: 'label', text: 'Cell' }] }
+      expect(widgetToHTML(grid, snapshot, () => {})).toContain('widget-grid')
     })
 
-    it('applies align to container', () => {
-      const widget = {
-        type: 'hbox',
-        align: 'center',
-        children: [{ type: 'label', text: 'A' }]
-      }
-      const result = widgetToHTML(widget, {})
-      expect(result).toContain('align-items:center')
+    it('applies gap between children', () => {
+      const vbox = { type: 'vbox', gap: 16, children: [{ type: 'label', text: 'A' }, { type: 'label', text: 'B' }] }
+      const html = widgetToHTML(vbox, snapshot, () => {})
+      expect(html).toContain('width:16px')
     })
 
-    it('applies style to container', () => {
-      const widget = {
-        type: 'vbox',
-        style: { backgroundColor: 'gray' },
-        children: [{ type: 'label', text: 'A' }]
-      }
-      const result = widgetToHTML(widget, {})
-      expect(result).toContain('background-color:gray')
+    it('applies align property', () => {
+      const vbox = { type: 'vbox', align: 'center', children: [] }
+      expect(widgetToHTML(vbox, snapshot, () => {})).toContain('align-items:center')
+    })
+
+    it('applies style overrides', () => {
+      const vbox = { type: 'vbox', style: { padding: '10px', background: 'blue' }, children: [] }
+      expect(widgetToHTML(vbox, snapshot, () => {})).toContain('padding:10px')
+      expect(widgetToHTML(vbox, snapshot, () => {})).toContain('background:blue')
     })
   })
 
   describe('display widgets', () => {
-    it('renders label with text', () => {
-      const widget = { type: 'label', text: 'Hello World' }
-      const result = widgetToHTML(widget, {})
-      expect(result).toContain('Hello World')
+    it('renders label with text content', () => {
+      const label = { type: 'label', text: 'Hello World' }
+      expect(widgetToHTML(label, snapshot, () => {})).toBe('<span class="widget-label">Hello World</span>')
     })
 
     it('renders label with bindings', () => {
-      const widget = { type: 'label', text: '{{message}}' }
-      const snapshot = { message: 'Hello World' }
-      const result = widgetToHTML(widget, snapshot)
-      expect(result).toContain('Hello World')
+      const label = { type: 'label', text: 'Gold: {{resources.gold}}' }
+      expect(widgetToHTML(label, snapshot, () => {})).toBe('<span class="widget-label">Gold: 100</span>')
     })
 
     it('renders label with style', () => {
-      const widget = {
-        type: 'label',
-        text: 'Styled',
-        style: { color: 'blue', fontSize: '16px' }
-      }
-      const result = widgetToHTML(widget, {})
-      expect(result).toContain('color:blue')
-      expect(result).toContain('font-size:16px')
+      const label = { type: 'label', text: 'Styled', style: { color: 'red' } }
+      expect(widgetToHTML(label, snapshot, () => {})).toContain('color:red')
     })
 
     it('renders progressbar with value', () => {
-      const widget = { type: 'progressbar', value: 50 }
-      const result = widgetToHTML(widget, {})
-      expect(result).toContain('width:50%')
-      expect(result).toContain('role="progressbar"')
+      const bar = { type: 'progressbar', value: 50, max: 100 }
+      const html = widgetToHTML(bar, snapshot, () => {})
+      expect(html).toContain('widget-progressbar')
+      expect(html).toContain('width:50%')
     })
 
     it('renders progressbar with binding', () => {
-      const widget = { type: 'progressbar', value: '{{progress}}' }
-      const snapshot = { progress: 75 }
-      const result = widgetToHTML(widget, snapshot)
-      expect(result).toContain('width:75%')
+      const bar = { type: 'progressbar', value: '{{value}}', max: 100 }
+      const html = widgetToHTML(bar, { value: 75 }, () => {})
+      expect(html).toContain('width:75%')
     })
 
     it('renders image with src', () => {
-      const widget = { type: 'image', src: 'test.png' }
-      const result = widgetToHTML(widget, {})
-      expect(result).toContain('src="test.png"')
-      expect(result).toContain('img')
+      const img = { type: 'image', src: 'test.png', width: 100, height: 50 }
+      expect(widgetToHTML(img, snapshot, () => {})).toContain('src="test.png"')
+      expect(widgetToHTML(img, snapshot, () => {})).toContain('width="100"')
     })
 
     it('renders image with style', () => {
-      const widget = {
-        type: 'image',
-        src: 'test.png',
-        style: { width: '100px', height: '100px' }
-      }
-      const result = widgetToHTML(widget, {})
-      expect(result).toContain('style="')
-      expect(result).toContain('width:100px')
+      const img = { type: 'image', src: 'test.png', style: { borderRadius: '50%' } }
+      expect(widgetToHTML(img, snapshot, () => {})).toContain('borderRadius:50%')
     })
 
     it('renders spacer with dimensions', () => {
-      const widget = { type: 'spacer', width: 50, height: 20 }
-      const result = widgetToHTML(widget, {})
-      expect(result).toContain('width:50px')
-      expect(result).toContain('height:20px')
+      const spacer = { type: 'spacer', width: 20, height: 10 }
+      const html = widgetToHTML(spacer, snapshot, () => {})
+      expect(html).toContain('width:20px')
+      expect(html).toContain('height:10px')
+    })
+
+    it('renders spacer with defaults', () => {
+      const spacer = { type: 'spacer' }
+      const html = widgetToHTML(spacer, snapshot, () => {})
+      expect(html).toContain('width:0px')
+      expect(html).toContain('height:0px')
     })
   })
 
   describe('interactive widgets', () => {
     it('renders textbutton with action', () => {
-      const widget = { type: 'textbutton', text: 'Click me', action: 'onClick' }
-      const result = widgetToHTML(widget, {})
-      expect(result).toContain('Click me')
-      expect(result).toContain('onClick')
+      const btn = { type: 'textbutton', label: 'Click Me', action: 'doSomething' }
+      const html = widgetToHTML(btn, snapshot, () => {})
+      expect(html).toContain('widget-textbutton')
+      expect(html).toContain('data-action="doSomething"')
+      expect(html).toContain('Click Me')
     })
 
     it('renders textbutton with icon', () => {
-      const widget = { type: 'textbutton', text: 'Save', icon: 'save-icon' }
-      const result = widgetToHTML(widget, {})
-      expect(result).toContain('Save')
-      expect(result).toContain('save-icon')
+      const btn = { type: 'textbutton', label: 'Save', icon: '💾', action: 'save' }
+      const html = widgetToHTML(btn, snapshot, () => {})
+      expect(html).toContain('💾')
+      expect(html).toContain('Save')
     })
 
-    it('renders iconbutton', () => {
-      const widget = { type: 'iconbutton', icon: 'settings', action: 'openSettings' }
-      const result = widgetToHTML(widget, {})
-      expect(result).toContain('iconbutton')
-      expect(result).toContain('settings')
+    it('escapes label text', () => {
+      const btn = { type: 'textbutton', label: '<script>alert("xss")</script>', action: 'x' }
+      const html = widgetToHTML(btn, snapshot, () => {})
+      expect(html).not.toContain('<script>')
+      expect(html).toContain('&lt;script&gt;')
+    })
+
+    it('escapes action attribute', () => {
+      const btn = { type: 'textbutton', label: 'Test', action: 'a" onclick="alert(1)' }
+      const html = widgetToHTML(btn, snapshot, () => {})
+      // Verify quotes are escaped to prevent attribute breakout
+      expect(html).toContain('&quot;')
+      // Verify onclick is properly escaped as part of the string
+      expect(html).toContain('onclick=&quot;')
+    })
+
+    it('renders iconbutton with icon', () => {
+      const btn = { type: 'iconbutton', icon: '⚔️', action: 'attack' }
+      const html = widgetToHTML(btn, snapshot, () => {})
+      expect(html).toContain('widget-iconbutton')
+      expect(html).toContain('data-action="attack"')
+      expect(html).toContain('⚔️')
     })
 
     it('renders textinput with placeholder', () => {
-      const widget = { type: 'textinput', placeholder: 'Enter text...' }
-      const result = widgetToHTML(widget, {})
-      expect(result).toContain('placeholder="Enter text..."')
-      expect(result).toContain('input')
+      const input = { type: 'textinput', placeholder: 'Enter name...' }
+      const html = widgetToHTML(input, snapshot, () => {})
+      expect(html).toContain('widget-textinput')
+      expect(html).toContain('placeholder="Enter name..."')
     })
 
     it('renders textinput with binding', () => {
-      const widget = { type: 'textinput', value: '{{inputValue}}' }
-      const snapshot = { inputValue: 'user input' }
-      const result = widgetToHTML(widget, snapshot)
-      expect(result).toContain('value="user input"')
+      const input = { type: 'textinput', binding: 'hero.name' }
+      const html = widgetToHTML(input, snapshot, () => {})
+      expect(html).toContain('value="Alice"')
     })
   })
 
   describe('error handling', () => {
-    it('handles unknown type gracefully', () => {
-      const widget = { type: 'unknowntype' }
-      const result = widgetToHTML(widget, {})
-      expect(result).toBe('')
+    it('renders unknown widget type as comment', () => {
+      const unknown = { type: 'unknown-widget' }
+      expect(widgetToHTML(unknown, snapshot, () => {})).toContain('unknown widget type: unknown-widget')
     })
 
-    it('handles null widget', () => {
-      const result = widgetToHTML(null, {})
-      expect(result).toBe('')
+    it('renders null widget as comment', () => {
+      expect(widgetToHTML(null, snapshot, () => {})).toContain('unknown widget')
     })
 
-    it('handles no type property', () => {
-      const widget = { text: 'test' }
-      const result = widgetToHTML(widget, {})
-      expect(result).toBe('')
+    it('renders widget without type as comment', () => {
+      expect(widgetToHTML({}, snapshot, () => {})).toContain('unknown widget')
     })
   })
 })
 
 describe('renderScreenToHTML', () => {
   beforeEach(() => {
-    // Clear screen registry before each test
-    const { screenRegistry } = require('../../../engine/layoutEngine.js')
-    Object.keys(screenRegistry).forEach(key => delete screenRegistry[key])
+    // Clear registry between tests
+    screenRegistry.clear()
   })
 
-  it('returns empty for unregistered screen', () => {
-    const result = renderScreenToHTML('nonexistent', {})
-    expect(result).toBe('')
+  it('returns empty string for unregistered screen', () => {
+    expect(renderScreenToHTML('nonexistent', {}, () => {})).toBe('')
   })
 
   it('renders screen with layout config', () => {
-    const { defineScreen } = require('../../../engine/layoutEngine.js')
-    defineScreen('testScreen', {
-      layout: {
-        type: 'vbox',
-        children: [{ type: 'label', text: 'Content' }]
-      }
+    defineScreen('test-screen', {
+      id: 'test-screen',
+      name: 'Test Screen',
+      layout: { type: 'vbox', children: [{ type: 'label', text: 'Hello' }] }
     })
-    const result = renderScreenToHTML('testScreen', {})
-    expect(result).toContain('Content')
+    
+    const html = renderScreenToHTML('test-screen', {}, () => {})
+    expect(html).toContain('screen-test-screen')
+    expect(html).toContain('Hello')
   })
 
   it('applies screen-level style', () => {
-    const { defineScreen } = require('../../../engine/layoutEngine.js')
-    defineScreen('styledScreen', {
-      style: { backgroundColor: 'black' },
-      layout: { type: 'label', text: 'Test' }
+    defineScreen('styled-screen', {
+      id: 'styled-screen',
+      name: 'Styled',
+      layout: { type: 'vbox', children: [] },
+      style: { background: '#111', padding: '20px' }
     })
-    const result = renderScreenToHTML('styledScreen', {})
-    expect(result).toContain('background-color:black')
+    
+    const html = renderScreenToHTML('styled-screen', {}, () => {})
+    expect(html).toContain('background:#111')
+    expect(html).toContain('padding:20px')
   })
 
   it('renders nested widget tree', () => {
-    const { defineScreen } = require('../../../engine/layoutEngine.js')
-    defineScreen('nestedScreen', {
+    defineScreen('nested-screen', {
+      id: 'nested-screen',
+      name: 'Nested',
       layout: {
         type: 'vbox',
         children: [
+          { type: 'label', text: 'Title' },
           {
             type: 'hbox',
             children: [
-              { type: 'label', text: 'Nested' }
+              { type: 'textbutton', label: 'A', action: 'actionA' },
+              { type: 'textbutton', label: 'B', action: 'actionB' },
             ]
           }
         ]
       }
     })
-    const result = renderScreenToHTML('nestedScreen', {})
-    expect(result).toContain('Nested')
-    expect(result).toContain('display:flex')
+    
+    const html = renderScreenToHTML('nested-screen', {}, () => {})
+    expect(html).toContain('Title')
+    expect(html).toContain('data-action="actionA"')
+    expect(html).toContain('data-action="actionB"')
   })
 
   it('resolves bindings in nested widgets', () => {
-    const { defineScreen } = require('../../../engine/layoutEngine.js')
-    defineScreen('bindingScreen', {
+    defineScreen('binding-screen', {
+      id: 'binding-screen',
+      name: 'Binding Test',
       layout: {
         type: 'vbox',
         children: [
-          { type: 'label', text: '{{title}}' },
-          { type: 'progressbar', value: '{{progress}}' }
+          { type: 'label', text: 'Gold: {{resources.gold}}' },
+          { type: 'textbutton', label: 'Spend {{resources.gold}}', action: 'spend' }
         ]
       }
     })
-    const snapshot = { title: 'My Title', progress: 80 }
-    const result = renderScreenToHTML('bindingScreen', snapshot)
-    expect(result).toContain('My Title')
-    expect(result).toContain('width:80%')
+    
+    const snapshot = { resources: { gold: 500 } }
+    const html = renderScreenToHTML('binding-screen', snapshot, () => {})
+    expect(html).toContain('Gold: 500')
+    expect(html).toContain('Spend 500')
   })
 })

@@ -28,6 +28,7 @@ export function getScreen(name) {
  * @returns {string}
  */
 export function escape(str) {
+  if (str == null) return ''
   return String(str)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -63,7 +64,8 @@ export function styleStr(style) {
  * @returns {*}
  */
 export function getByPath(obj, path) {
-  return path.split('.').reduce((o, k) => (o ?? {})[k], obj)
+  const result = path.split('.').reduce((o, k) => (o ?? {})[k], obj)
+  return result === undefined ? null : result
 }
 
 /**
@@ -97,7 +99,11 @@ function renderContainer(widget, snapshot, actionHandler, depth) {
     .map((child) => widgetToHTML(child, snapshot, actionHandler, depth + 1))
     .join(`<div style="width:${gap}px;height:0;flex-shrink:0"></div>`)
   
-  return `<div class="widget-${type}" style="display:${displayType};flex-direction:${flexDirection};align-items:${alignItems};${styleStr(style)}">${childHtml}</div>`
+  const baseStyle = `display:${displayType};flex-direction:${flexDirection};align-items:${alignItems}`
+  const customStyle = style ? styleStr(style) : ''
+  const fullStyle = customStyle ? `${baseStyle};${customStyle}` : baseStyle
+  
+  return `<div class="widget-${type}" style="${fullStyle}">${childHtml}</div>`
 }
 
 /**
@@ -111,8 +117,9 @@ function renderProgressbar(widget, snapshot) {
   const max = widget.max ?? 100
   const pct = Math.max(0, Math.min(100, (Number(value) / Number(max)) * 100))
   const color = widget.color ?? '#7F77DD'
+  const styleAttr = widget.style ? ` style="${styleStr(widget.style)}"` : ''
   
-  return `<div class="widget-progressbar" style="${styleStr(widget.style)}">
+  return `<div class="widget-progressbar"${styleAttr}>
     <div class="progress-bar-outer" style="height:${widget.height ?? 6}px">
       <div class="progress-bar-inner" style="width:${pct}%;background:${color}"></div>
     </div>
@@ -140,22 +147,22 @@ export function widgetToHTML(widget, snapshot, actionHandler, depth = 0) {
       return renderContainer(widget, snapshot, actionHandler, depth)
 
     case 'label':
-      return `<span class="widget-label" style="${styleStr(widget.style)}">${resolveBindings(widget.text ?? '', snapshot)}</span>`
+      return `<span class="widget-label"${widget.style ? ` style="${styleStr(widget.style)}"` : ''}>${resolveBindings(widget.text ?? '', snapshot)}</span>`
 
     case 'textbutton':
-      return `<button class="widget-textbutton" data-action="${escapeAttr(widget.action ?? '')}" style="${styleStr(widget.style)}">${widget.icon ? widget.icon + ' ' : ''}${escape(widget.label ?? '')}</button>`
+      return `<button class="widget-textbutton" data-action="${escapeAttr(widget.action ?? '')}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''}>${widget.icon ? widget.icon + ' ' : ''}${escape(resolveBindings(widget.label ?? '', snapshot))}</button>`
 
     case 'iconbutton':
-      return `<button class="widget-iconbutton" data-action="${escapeAttr(widget.action ?? '')}" style="${styleStr(widget.style)}">${escape(widget.icon ?? '')}</button>`
+      return `<button class="widget-iconbutton" data-action="${escapeAttr(widget.action ?? '')}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''}>${escape(widget.icon ?? '')}</button>`
 
     case 'textinput':
-      return `<input class="widget-textinput" type="text" placeholder="${escapeAttr(widget.placeholder ?? '')}" value="${escapeAttr(widget.binding ? String(getByPath(snapshot, widget.binding) ?? '') : '')}" style="${styleStr(widget.style)}" />`
+      return `<input class="widget-textinput" type="text" placeholder="${escapeAttr(widget.placeholder ?? '')}" value="${escapeAttr(widget.binding ? String(getByPath(snapshot, widget.binding) ?? '') : '')}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''} />`
 
     case 'progressbar':
       return renderProgressbar(widget, snapshot)
 
     case 'image':
-      return `<img class="widget-image" src="${escapeAttr(widget.src ?? '')}" width="${widget.width ?? ''}" height="${widget.height ?? ''}" style="${styleStr(widget.style)}" loading="lazy" />`
+      return `<img class="widget-image" src="${escapeAttr(widget.src ?? '')}" width="${widget.width ?? ''}" height="${widget.height ?? ''}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''} loading="lazy" />`
 
     case 'spacer':
       return `<div class="widget-spacer" style="width:${widget.width ?? 0}px;height:${widget.height ?? 0}px"></div>`
@@ -185,8 +192,9 @@ export function renderScreenToHTML(screenName, snapshot, actionHandler) {
     return ''
   }
 
-  const containerStyle = styleStr(config.style ?? {})
+  const containerStyle = config.style ? styleStr(config.style) : ''
   const screenId = `screen-${screenName}`
+  const styleAttr = containerStyle ? ` style="${containerStyle}"` : ''
   
-  return `<div id="${screenId}" class="widget-screen" style="${containerStyle}">${widgetToHTML(layout, snapshot, actionHandler, 0)}</div>`
+  return `<div id="${screenId}" class="widget-screen"${styleAttr}>${widgetToHTML(layout, snapshot, actionHandler, 0)}</div>`
 }

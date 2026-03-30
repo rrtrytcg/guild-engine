@@ -250,7 +250,7 @@ export function bootstrapState(project) {
       }
     }
     // Populate ui.screens array for navigation
-    state.ui.screens = project.screens.map(s => ({ id: s.id, name: s.name }))
+    ui.screens = project.screens.map(s => ({ id: s.id, name: s.name }))
   }
 
   return {
