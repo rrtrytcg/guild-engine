@@ -855,6 +855,11 @@
         "layout": { "$ref": "#/definitions/container_widget", "description": "Root widget of the screen layout" },
         "style": { "$ref": "#/definitions/css_properties", "description": "CSS overrides for the screen container" }
       }
+    },
+    "screens": {
+      "type": "array",
+      "description": "Inline screen definitions. Screens may also live in separate *.screen.json files referenced by the editor.",
+      "items": { "$ref": "#/definitions/screen_config" }
     }
   },
   "properties": {

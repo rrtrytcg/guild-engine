@@ -440,6 +440,11 @@ const useStore = create((set, get) => ({
       canvasView: 'nodes',
       activeGroupId: null,
     })
+
+    // Auto-load inline screens from the project file
+    if (Array.isArray(project.screens) && project.screens.length > 0) {
+      get().loadScreens(project.screens)
+    }
   },
 
   // --- Save a .blueprint.json into the local preset library ---
