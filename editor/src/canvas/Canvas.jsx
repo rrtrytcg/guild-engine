@@ -20,6 +20,9 @@ const nodeTypes = Object.fromEntries(
 
 const NODE_WIDTH = 220
 const NODE_HEIGHT = 150
+const DEFAULT_EDGE_OPTIONS = { style: { stroke: '#444466', strokeWidth: 1.5 }, animated: false }
+const CONNECTION_LINE_STYLE = { stroke: '#7F77DD', strokeWidth: 1.5 }
+const SNAP_GRID = [16, 16]
 
 export default function Canvas({ focusGroupId = null }) {
   const nodes = useStore((s) => s.nodes)
@@ -429,12 +432,9 @@ export default function Canvas({ focusGroupId = null }) {
         selectionKeyCode="Meta"
         selectNodesOnDrag={false}
         snapToGrid
-        snapGrid={[16, 16]}
-        defaultEdgeOptions={{
-          style: { stroke: '#444466', strokeWidth: 1.5 },
-          animated: false,
-        }}
-        connectionLineStyle={{ stroke: '#7F77DD', strokeWidth: 1.5 }}
+        snapGrid={SNAP_GRID}
+        defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
+        connectionLineStyle={CONNECTION_LINE_STYLE}
       >
         <Background
           variant={BackgroundVariant.Dots}
