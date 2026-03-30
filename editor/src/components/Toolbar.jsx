@@ -14,8 +14,8 @@ const TuningModal = lazy(() => import('./TuningModal').catch(() => ({
 export default function Toolbar() {
   const importProject = useStore((s) => s.importProject)
   const registerBlueprint = useStore((s) => s.registerBlueprint)
-  const canvasView = useStore((s) => s.canvasView)
-  const setCanvasView = useStore((s) => s.setCanvasView)
+  const viewMode = useStore((s) => s.viewMode)
+  const setViewMode = useStore((s) => s.setViewMode)
   const openSearch = useStore((s) => s.openSearch)
   const nodeCount = useStore((s) => s.nodes.length)
   const edgeCount = useStore((s) => s.edges.length)
@@ -102,28 +102,37 @@ export default function Toolbar() {
         <div style={viewToggleWrap}>
           <button
             type="button"
-            onClick={() => setCanvasView('nodes')}
-            style={viewPill(canvasView === 'nodes')}
+            onClick={() => setViewMode('nodes')}
+            style={viewPill(viewMode === 'nodes')}
           >
             {'\u229E'} Nodes
           </button>
           <button
             type="button"
-            onClick={() => setCanvasView('groups')}
-            style={viewPill(canvasView === 'groups')}
+            onClick={() => setViewMode('groups')}
+            style={viewPill(viewMode === 'groups')}
           >
             {'\u25A3'} Groups
           </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('screens')}
+            style={viewPill(viewMode === 'screens')}
+          >
+            {'\u25A5'} Screens
+          </button>
         </div>
 
-        <button
-          type="button"
-          onClick={openSearch}
-          title="Search nodes (Ctrl+K)"
-          style={searchBtn}
-        >
-          🔍
-        </button>
+        {viewMode !== 'screens' && (
+          <button
+            type="button"
+            onClick={openSearch}
+            title="Search nodes (Ctrl+K)"
+            style={searchBtn}
+          >
+            🔍
+          </button>
+        )}
 
         <div style={{ flex: 1 }} />
 

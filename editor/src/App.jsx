@@ -40,22 +40,61 @@ function GroupCanvasError() {
   )
 }
 
+function ScreenBuilderLoading() {
+  return (
+    <div style={{
+      flex: 1,
+      padding: 24,
+      background: 'radial-gradient(circle at top left, #151528 0%, #0d0d1a 55%, #090912 100%)',
+      color: '#666680',
+      fontSize: 12,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}>
+      Loading screen builder…
+    </div>
+  )
+}
+
+function ScreenBuilderError() {
+  return (
+    <div style={{
+      flex: 1,
+      padding: 24,
+      background: 'radial-gradient(circle at top left, #151528 0%, #0d0d1a 55%, #090912 100%)',
+      color: '#E24B4A',
+      fontSize: 12,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      textAlign: 'center',
+    }}>
+      Screen builder failed to load. Reload the editor to try again.
+    </div>
+  )
+}
+
 const GroupCanvas = lazy(() => import('./canvas/GroupCanvas').catch(() => ({
   default: GroupCanvasError,
+})))
+const ScreenBuilder = lazy(() => import('./components/ScreenBuilder').catch(() => ({
+  default: ScreenBuilderError,
 })))
 
 const SearchPalette = lazy(() => import('./components/SearchPalette'))
 
 export default function App() {
-  const canvasView = useStore((s) => s.canvasView)
+  const viewMode = useStore((s) => s.viewMode)
   const activeGroupId = useStore((s) => s.activeGroupId)
-  const focusGroupId = canvasView === 'nodes' ? activeGroupId : null
+  const focusGroupId = viewMode === 'nodes' ? activeGroupId : null
   const openSearch = useStore((s) => s.openSearch)
-  const closeSearch = useStore((s) => s.closeSearch)
 
   // Ctrl+K to open search palette
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (viewMode === 'screens') return
+
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault()
         openSearch()
@@ -64,7 +103,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [openSearch])
+  }, [openSearch, viewMode])
 
   return (
     <div
@@ -80,18 +119,26 @@ export default function App() {
     >
       <Toolbar />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minWidth: 0 }}>
-        <Palette />
-        {canvasView === 'nodes' ? (
-          <Canvas focusGroupId={focusGroupId} />
-        ) : (
-          <Suspense fallback={<GroupCanvasLoading />}>
-            <GroupCanvas />
+        {viewMode === 'screens' ? (
+          <Suspense fallback={<ScreenBuilderLoading />}>
+            <ScreenBuilder />
           </Suspense>
+        ) : (
+          <>
+            <Palette />
+            {viewMode === 'nodes' ? (
+              <Canvas focusGroupId={focusGroupId} />
+            ) : (
+              <Suspense fallback={<GroupCanvasLoading />}>
+                <GroupCanvas />
+              </Suspense>
+            )}
+            <Inspector />
+            <Suspense fallback={null}>
+              <SearchPalette />
+            </Suspense>
+          </>
         )}
-        <Inspector />
-        <Suspense fallback={null}>
-          <SearchPalette />
-        </Suspense>
       </div>
     </div>
   )

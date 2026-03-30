@@ -20,10 +20,13 @@ import {
   normalizeImportedGroups,
   serializeProjectGroup,
 } from '../utils/groupUtils.js'
+import { createScreenBuilderSlice, SCREEN_BUILDER_DEFAULTS } from './slices/screenBuilderSlice.js'
 
 export { GROUP_COLOR_PALETTE }
 
 const useStore = create((set, get) => ({
+  ...createScreenBuilderSlice(set),
+
   // --- Graph state ---
   nodes: [],
   edges: [],
@@ -31,6 +34,7 @@ const useStore = create((set, get) => ({
   selectedNodeIds: [],
   blueprints: [],
   groups: [],
+  viewMode: 'nodes',
   canvasView: 'nodes',
 
   // --- Search palette ---
@@ -313,11 +317,14 @@ const useStore = create((set, get) => ({
     })
   },
 
-  setCanvasView: (view) =>
+  setViewMode: (view) =>
     set((state) => ({
+      viewMode: view === 'groups' || view === 'screens' ? view : 'nodes',
       canvasView: view === 'groups' ? 'groups' : 'nodes',
       activeGroupId: view === 'groups' ? null : state.activeGroupId,
     })),
+
+  setCanvasView: (view) => get().setViewMode(view),
 
   setActiveGroup: (groupId) => set({ activeGroupId: groupId }),
 
@@ -424,10 +431,12 @@ const useStore = create((set, get) => ({
     })
 
     set({
+      ...SCREEN_BUILDER_DEFAULTS,
       nodes: rfNodes,
       edges: rfEdges,
       groups: normalizeImportedGroups(project.groups, rfNodes, { generateId }),
       selectedNodeId: null,
+      viewMode: 'nodes',
       canvasView: 'nodes',
       activeGroupId: null,
     })

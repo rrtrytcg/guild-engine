@@ -819,7 +819,7 @@
     },
     "interactive_widget": {
       "type": "object",
-      "required": ["type", "action"],
+      "required": ["type"],
       "properties": {
         "type": { "type": "string", "enum": ["textbutton", "iconbutton", "textinput"] },
         "action": { "type": "string", "description": "Action identifier triggered on click" },
@@ -843,6 +843,15 @@
       "properties": {
         "id": { "type": "string", "description": "Unique screen identifier used in navigation" },
         "name": { "type": "string", "description": "Display name shown in navigation" },
+        "nav": {
+          "type": "object",
+          "description": "Navigation configuration for this screen",
+          "properties": {
+            "toolbar": { "type": "boolean", "description": "Whether to show a toolbar button for this screen" },
+            "hotkey": { "type": "string", "description": "Keyboard shortcut to open this screen" },
+            "group": { "type": "string", "enum": ["main", "secondary", "debug"], "description": "Toolbar group placement" }
+          }
+        },
         "layout": { "$ref": "#/definitions/container_widget", "description": "Root widget of the screen layout" },
         "style": { "$ref": "#/definitions/css_properties", "description": "CSS overrides for the screen container" }
       }

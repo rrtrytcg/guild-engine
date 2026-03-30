@@ -1,0 +1,108 @@
+{
+  "id": "test.inventory",
+  "name": "Inventory",
+  "nav": {
+    "toolbar": true,
+    "hotkey": "I",
+    "group": "main"
+  },
+  "layout": {
+    "id": "root",
+    "type": "vbox",
+    "gap": 12,
+    "children": [
+      {
+        "id": "header",
+        "type": "hbox",
+        "gap": 8,
+        "children": [
+          {
+            "id": "title",
+            "type": "label",
+            "text": "Inventory",
+            "style": {
+              "font-size": "16px",
+              "font-weight": "bold"
+            }
+          },
+          {
+            "id": "spacer",
+            "type": "spacer",
+            "width": 0,
+            "height": 0
+          },
+          {
+            "id": "btn_close",
+            "type": "iconbutton",
+            "icon": "✕",
+            "action": "close_inventory"
+          }
+        ]
+      },
+      {
+        "id": "gold_display",
+        "type": "hbox",
+        "gap": 8,
+        "children": [
+          {
+            "id": "gold_label",
+            "type": "label",
+            "text": "Gold:"
+          },
+          {
+            "id": "gold_value",
+            "type": "label",
+            "text": "{{resources.gold}}",
+            "style": {
+              "color": "#FFD700",
+              "font-weight": "bold"
+            }
+          }
+        ]
+      },
+      {
+        "id": "slot_grid",
+        "type": "grid",
+        "gap": 4,
+        "children": [
+          {
+            "id": "slot_0",
+            "type": "iconbutton",
+            "icon": "🗡️",
+            "action": "use_item_0"
+          },
+          {
+            "id": "slot_1",
+            "type": "iconbutton",
+            "icon": "🛡️",
+            "action": "use_item_1"
+          },
+          {
+            "id": "slot_2",
+            "type": "iconbutton",
+            "icon": "🧪",
+            "action": "use_item_2"
+          },
+          {
+            "id": "slot_3",
+            "type": "iconbutton",
+            "icon": "📿",
+            "action": "use_item_3"
+          },
+          {
+            "id": "slot_4",
+            "type": "iconbutton",
+            "icon": "🔮",
+            "action": "use_item_4"
+          },
+          {
+            "id": "slot_5",
+            "type": "iconbutton",
+            "icon": "🍖",
+            "action": "use_item_5"
+          }
+        ]
+      }
+    ]
+  }
+}

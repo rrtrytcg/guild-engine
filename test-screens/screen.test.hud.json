@@ -1,0 +1,102 @@
+{
+  "id": "test.hud",
+  "name": "HUD",
+  "nav": {
+    "toolbar": true,
+    "hotkey": "H",
+    "group": "main"
+  },
+  "layout": {
+    "id": "root",
+    "type": "vbox",
+    "gap": 16,
+    "children": [
+      {
+        "id": "title",
+        "type": "label",
+        "text": "Hero Dashboard",
+        "style": {
+          "font-size": "18px",
+          "font-weight": "bold",
+          "color": "#ffffff"
+        }
+      },
+      {
+        "id": "resources_row",
+        "type": "hbox",
+        "gap": 24,
+        "children": [
+          {
+            "id": "gold_label",
+            "type": "label",
+            "text": "Gold:"
+          },
+          {
+            "id": "gold_value",
+            "type": "label",
+            "text": "{{resources.gold}}",
+            "style": {
+              "color": "#FFD700",
+              "font-weight": "bold"
+            }
+          },
+          {
+            "id": "gems_label",
+            "type": "label",
+            "text": "Gems:"
+          },
+          {
+            "id": "gems_value",
+            "type": "label",
+            "text": "{{resources.gems}}",
+            "style": {
+              "color": "#7F77DD",
+              "font-weight": "bold"
+            }
+          }
+        ]
+      },
+      {
+        "id": "hp_bar",
+        "type": "progressbar",
+        "value": "{{hero.hp}}",
+        "max": "{{hero.maxHp}}",
+        "color": "#DD4444",
+        "height": 8
+      },
+      {
+        "id": "xp_bar",
+        "type": "progressbar",
+        "value": "{{hero.xp}}",
+        "max": "{{hero.maxXp}}",
+        "color": "#44DD44",
+        "height": 8
+      },
+      {
+        "id": "actions_row",
+        "type": "hbox",
+        "gap": 8,
+        "children": [
+          {
+            "id": "btn_inventory",
+            "type": "textbutton",
+            "label": "Inventory",
+            "action": "open_inventory"
+          },
+          {
+            "id": "btn_quests",
+            "type": "textbutton",
+            "label": "Quests",
+            "action": "open_quests"
+          },
+          {
+            "id": "btn_close",
+            "type": "textbutton",
+            "label": "Close",
+            "action": "close_hud"
+          }
+        ]
+      }
+    ]
+  }
+}
