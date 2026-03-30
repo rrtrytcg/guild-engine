@@ -16,6 +16,7 @@ export default function Toolbar() {
   const registerBlueprint = useStore((s) => s.registerBlueprint)
   const canvasView = useStore((s) => s.canvasView)
   const setCanvasView = useStore((s) => s.setCanvasView)
+  const openSearch = useStore((s) => s.openSearch)
   const nodeCount = useStore((s) => s.nodes.length)
   const edgeCount = useStore((s) => s.edges.length)
   const selectedNodeIds = useStore((s) => s.selectedNodeIds)
@@ -114,6 +115,15 @@ export default function Toolbar() {
             {'\u25A3'} Groups
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={openSearch}
+          title="Search nodes (Ctrl+K)"
+          style={searchBtn}
+        >
+          🔍
+        </button>
 
         <div style={{ flex: 1 }} />
 
@@ -416,3 +426,18 @@ const viewPill = (active) => ({
   userSelect: 'none',
   WebkitUserSelect: 'none',
 })
+
+const searchBtn = {
+  background: 'transparent',
+  border: '1px solid #2a2a3e',
+  borderRadius: 7,
+  color: '#8888aa',
+  fontSize: 14,
+  padding: '5px 10px',
+  cursor: 'pointer',
+  touchAction: 'manipulation',
+  WebkitTapHighlightColor: 'transparent',
+  userSelect: 'none',
+  WebkitUserSelect: 'none',
+  transition: 'border-color .15s, color .15s',
+}
