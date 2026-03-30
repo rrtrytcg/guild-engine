@@ -6,6 +6,52 @@
 
 ---
 
+## CRITICAL FIXES — 2026-03-30 (Balance & Schema Corrections)
+
+### v1.1.0 — Balance Calibration Fixes (WORLDFORGE + HEROFORGE)
+
+**PROBLEM:** First playtest revealed critical balance failure:
+- Gold cap: 480 (4 minutes of income at 2/s)
+- Cheapest hero: 3200 gold (26 minutes of income)
+- Result: Players hit cap and could NEVER afford heroes — SOFT-LOCK
+
+**ROOT CAUSE:**
+1. WORLDFORGE Table E: `base_income × 240` claimed "60 minutes" but actually = 4 minutes (confused ticks with seconds)
+2. HEROFORGE Table C: Used arbitrary multipliers, not time-to-afford calculations
+3. No soft-lock verification between cap and recruit costs
+
+**FIXES APPLIED:**
+
+WORLDFORGE.md — Table E rewritten:
+- OLD: `base_income × 240` (claimed 60 min, actually 4 min)
+- NEW: `base_income × 1200` (20 minutes for medium pacing)
+- Added SOFT-LOCK CHECK: `base_cap >= 1.5 × cheapest_recruit_cost`
+- Added verification example showing 8-12 min recruit times
+
+HEROFORGE.md — Table C rewritten:
+- OLD: Arbitrary multipliers (×0.8-2.0 of unspecified base)
+- NEW: Time-based formula `base_income × target_seconds`
+- Starter: 480-540s (8-9 min), Standard: 540-660s (9-11 min), Elite: 660-780s (11-13 min)
+- Added mandatory verification showing time-to-afford for each class
+
+### v1.1.0 — Editor/Engine Compatibility Fixes (ASSEMBLER)
+
+**PROBLEM 1:** Engine event log showed "undefined — a new adventure begins"
+**ROOT CAUSE:** project.json missing `title` field
+**FIX:** ASSEMBLER.md now requires `"title": "{WORLDFORGE meta.project_name}"` in project.json
+
+**PROBLEM 2:** Editor validator rejected project.json with "missing nodes or edges array"
+**ROOT CAUSE:** Edges only in `editor_metadata.intended_edges[]`, not top-level
+**FIX:** ASSEMBLER.md now requires top-level `"edges": [...]` array (39 edges from XR audit)
+
+**FILES MODIFIED:**
+- guild-engine/generator/WORLDFORGE.md — Table E fixed, soft-lock check added
+- guild-engine/generator/HEROFORGE.md — Table C fixed, time-based formula
+- guild-engine/generator/ASSEMBLER.md — `title` and `edges` fields added to template
+- guild-engine/generated/project.json — Patched with title and edges arrays
+
+---
+
 ## WORLDFORGE Runs
 
 ### WORLDFORGE Run — 2026-03-30
