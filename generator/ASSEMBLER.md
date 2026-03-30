@@ -668,6 +668,66 @@ MERGE COMPLETE
 
 ---
 
+## SECTION 7B — Auto-Apply Intended Edges
+
+**This section runs after Section 7 (Node Merging) and before Section 8 (Intended Edge Documentation).**
+
+After merging nodes and generating the intended edge list from resolved cross-references, ASSEMBLER applies all edges to the source nodes' `connections[]` arrays. This ensures `project.json` imports with all edges pre-wired.
+
+```
+EDGE APPLICATION PROCEDURE:
+  1. For each resolved XR check (XR-03 through XR-20, excluding SKIPPED):
+     - Extract: source_node_id, target_node_id, relation_type
+     - Find source_node in merged node set
+     - If source_node has no connections[] field: add connections: []
+     - If target_node_id not already in source_node.connections[]:
+       - Append target_node_id to source_node.connections[]
+       - Log: Edge applied: {source_node_id} → {target_node_id} ({relation_type})
+
+  2. Count total edges applied:
+     - Total edges applied: [N]
+     - Nodes with connections: [N]
+     - Nodes without connections: [N]
+
+  3. Verify all edges applied successfully:
+     - If any edge failed (source node not found): Log ERROR — edge not applied
+     - If all edges applied: Log PASS — all connections wired
+```
+
+**Schema compliance:**
+- `connections[]` is an optional array of strings on all node types in schema v1.2.0
+- Values are node IDs (strings) — no validation required at schema level
+- This is the intended use of the connections field per WIKI.md Section 1
+
+**Edge mapping (from XR checks):**
+
+| XR Check | Source → Target | Relation |
+|---|---|---|
+| XR-03 | workflow → building | available_at |
+| XR-04 | resource → workflow | consumes |
+| XR-05 | workflow → resource/item | produces |
+| XR-06 | upgrade → building | hosts |
+| XR-08 | upgrade → workflow | unlocks |
+| XR-09 | recipe → workflow | used_by |
+| XR-10 | recipe → item | produces |
+| XR-13 | loot_table → expedition | drops_from |
+| XR-15 | loot_table → boss_expedition | drops_from |
+| XR-16 | act → expedition | gates |
+| XR-17 | act → boss_expedition | gates |
+| XR-19 | upgrade → any node | unlocks |
+| XR-20 | faction → any node | gates |
+
+```
+EDGE APPLICATION COMPLETE
+  Total edges applied:    [N]
+  Nodes with connections: [N]
+  Nodes without:          [N]
+  Failed edges:           [N] (ERROR if > 0)
+  Status:                 {PASS | FAIL}
+```
+
+---
+
 ## SECTION 8 — Intended Edge Documentation
 
 ASSEMBLER does not generate edges. Edges are drawn in the editor by the designer or by auto-rig.

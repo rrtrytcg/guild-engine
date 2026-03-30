@@ -1,32 +1,84 @@
-# ACTFORGE — AI-Assisted Act Generation
-# Run this in Claude Code to generate complete act blueprints from text descriptions.
+# ACTFORGE — AI-Assisted Act & Expedition Design
+# Run this in Claude Code to generate the complete act structure for a Guild Engine project.
+# ACTFORGE is the fourth forge in the Forge Suite — reads WORLDFORGE, HEROFORGE, BUILDFORGE output.
 #
-# Input:  User's narrative description + difficulty/theme/duration parameters
-# Output: guild-engine/generator/act-{name}.blueprint.json
+# Input:  guild-engine/generated/world-economy.json     (from WORLDFORGE)
+#         guild-engine/generated/hero-roster.json        (from HEROFORGE)
+#         guild-engine/generated/building-system.json    (from BUILDFORGE)
+#         guild-engine/generator/world-template.json     (from TRANSLATEPASS)
+#         OR: free-text GAME_PITCH if no source material
 #
-# This prompt produces blueprint files compatible with the editor's Blueprint Library.
-# Generated acts appear under the "Acts" category tab and support parameter injection.
+# Output: guild-engine/generated/acts.json              (act + expedition + boss_expedition + event + loot_table nodes)
+#         guild-engine/generator/act-flags.md            (design tensions for review)
+#
+# Schema version: 1.2.0
+# Forge Suite position: 4 of 7 — reads WORLDFORGE, HEROFORGE, BUILDFORGE; feeds ITEMFORGE, UPGRADEFORGE
 
 ---
 
-## Your Task
+## Purpose
 
-Read the user's act description. Generate a complete, playable act structure using
-Guild Engine's existing node types. Output a `.blueprint.json` file that can be
-imported via the Blueprint Library.
+ACTFORGE is not a zone filler. It is a pacing architect and encounter designer.
 
-**Do NOT create new node types.** Map the user's narrative terms to existing types:
+Its job is to answer the question that determines whether a game's progression feels earned or feels
+grindy:
+**what should the player overcome at each stage, and what should overcoming it feel like?**
 
-| User's term | Guild Engine type | Notes |
-|-------------|-------------------|-------|
-| "zone" | `expedition` | Standard expedition node |
-| "area" / "region" | `expedition` | Same as zone |
-| "boss arena" | `boss_expedition` | Final encounter |
-| "side zone" | `expedition` | With `unlock_conditions[]` |
-| "encounter" | `expedition` | Combat-focused, shorter duration |
-| "loot" | `loot_table` | Rewards for expeditions |
-| "event" / "story beat" | `event` | Mid-expedition narrative |
-| "act" | `act` | Container node |
+Every act ACTFORGE generates carries three answers: what this act represents in the world's fiction,
+what mechanical challenge it presents (DPS check, survival test, speed clear, loot run), and why
+completing this act before the next creates a meaningful progression arc. ACTFORGE documents all
+three — in the node, in the calibration object, and in flags where the answers are in tension.
+
+An expedition with no mechanical identity is not an encounter. It is a loading screen with combat.
+ACTFORGE generates expeditions that create memorable moments — a zone where the timer counts down
+faster than expected, forcing a desperate retreat. A boss with phases that change the fight's
+rhythm. An event that forces the player to choose between loot and safety.
+
+ACTFORGE also generates the connective tissue: **loot_table** nodes that define what drops,
+**event** nodes that create mid-expedition narrative choices, and the **act** containers that gate
+progression. The engine does not know what "The Shadow Hound" means — it reads the configuration and
+executes the encounter. ACTFORGE writes the configuration that makes each act feel distinct.
+
+Every downstream forge reads ACTFORGE output. ITEMFORGE cannot generate equipment without knowing
+what loot tables exist and what rarity distribution each act uses. UPGRADEFORGE cannot size global
+upgrades without knowing the act completion curve. ACTFORGE sets the encounter bounds. Everything
+else works within them.
+
+---
+
+## Before doing anything else
+
+Read these files in order:
+
+1. `guild-engine/schema/project.schema.json` — act, expedition, boss_expedition, event, loot_table node fields
+2. `guild-engine/docs/WIKI.md` — Section 1 (Node Types), Section 2 (Expedition Resolver)
+3. `guild-engine/generator/CHANGELOG.md` — pending act/expedition-related systems
+4. `guild-engine/generated/world-economy.json` — WORLDFORGE output (required)
+5. `guild-engine/generated/hero-roster.json` — HEROFORGE output (required)
+6. `guild-engine/generated/building-system.json` — BUILDFORGE output (required)
+7. If source material exists: `guild-engine/generator/world-template.json`
+
+Print your read status before proceeding:
+```
+ACTFORGE reading context...
+  ✓ schema/project.schema.json
+  ✓ docs/WIKI.md
+  ✓ generator/CHANGELOG.md
+  [✓ / ✗] generated/world-economy.json    (REQUIRED — abort if missing)
+  [✓ / ✗] generated/hero-roster.json      (REQUIRED — abort if missing)
+  [✓ / ✗] generated/building-system.json  (REQUIRED — abort if missing)
+  [✓ / ✗] world-template.json
+```
+
+**If any required forge output is missing, STOP.** Print:
+```
+ACTFORGE ABORT: Missing upstream forge output.
+Run missing forges first:
+  WORLDFORGE: guild-engine/generator/WORLDFORGE.md
+  HEROFORGE:  guild-engine/generator/HEROFORGE.md
+  BUILDFORGE: guild-engine/generator/BUILDFORGE.md
+ACTFORGE cannot generate acts without economy, hero, and building constraints.
+```
 
 ---
 
@@ -35,383 +87,508 @@ imported via the Blueprint Library.
 User provides:
 
 ```
-ACT_DESCRIPTION: "{{USER_TEXT}}"
-DIFFICULTY_TARGET: "{{early (lvl 1-5)|mid (lvl 6-10)|late (lvl 11-15)|endgame (lvl 16-20)}}"
-THEME: "{{fantasy|scifi|steampunk|horror|industrial|coastal|underground|urban}}"
-DURATION_ESTIMATE: "{{short (30min)|medium (1hr)|long (2hr+)}}"
+WORLDFORGE_OUTPUT:     "{{path to world-economy.json}}"
+HEROFORGE_OUTPUT:      "{{path to hero-roster.json}}"
+BUILDFORGE_OUTPUT:     "{{path to building-system.json}}"
+SOURCE_MATERIAL:       "{{path to world-template.json, or 'none'}}"
+GAME_PITCH:            "{{optional text description if no source material}}"
+ACT_COUNT:             "{{2 acts | 3 acts (default) | 4+ acts}}"
+PACING_STYLE:          "{{fast (short acts, quick escalation) | standard (balanced) | slow (long acts, gradual)}}"
+DIFFICULTY_CURVE:      "{{gentle | standard (default) | punishing}}"
 ```
 
-If the user doesn't specify, default to:
-- DIFFICULTY_TARGET: mid
-- THEME: fantasy
-- DURATION_ESTIMATE: medium
+**Defaults if not provided:**
+- ACT_COUNT: `3 acts`
+- PACING_STYLE: `standard`
+- DIFFICULTY_CURVE: `standard`
+
+**ACT_COUNT definitions:**
+- `2 acts` — Tight progression for short games. Act 1: tutorial + early game. Act 2: mid + endgame.
+  Boss levels: 5, 10.
+- `3 acts` — Standard Guild Engine progression. Act 1: early (lvl 1-5). Act 2: mid (lvl 6-10).
+  Act 3: late (lvl 11-15). Boss levels: 5, 10, 15.
+- `4+ acts` — Extended progression for long games. Each act covers 3-5 levels. Boss levels: 5, 10,
+  15, 20+.
+
+**PACING_STYLE definitions:**
+- `fast` — Expeditions are shorter (30-60s), escalation is aggressive, act completion in 2-3 hours.
+- `standard` — Mixed expedition lengths (60-120s), moderate escalation, act completion in 4-6 hours.
+- `slow` — Longer expeditions (90-180s), gradual escalation, act completion in 8-12 hours.
+
+**DIFFICULTY_CURVE definitions:**
+- `gentle` — Enemy stats at lower end of danger range, failure is rare, WIPE is forgiving.
+- `standard` — Enemy stats in middle of danger range, failure teaches, WIPE is costly but recoverable.
+- `punishing` — Enemy stats at upper end, failure is common early, WIPE means significant resource loss.
 
 ---
 
 ## STEP 1 — NARRATIVE ANALYSIS
 
-Before generating nodes, analyze the input text for:
+Before generating any nodes, analyze the source material and upstream forge outputs for these five
+signals. Write your analysis to the console — this is the reasoning that justifies every act
+decision that follows.
 
-**1. Location Extraction**
-Identify 2-5 distinct areas (caves, cities, temples, ruins, etc.).
-Each becomes an `expedition` node.
+### A. Act Theme Extraction
 
-**2. Actor Identification**
-Who are the antagonists? (cultists, smugglers, monsters, rival guilds)
-These inform enemy types and event choices.
+Identify the narrative arc from source material or world-template.json. Every act needs a theme,
+antagonist force, and escalation pattern.
 
-**3. MacGuffin Detection**
-What object/person drives the plot? (kidnapped person, artifact, revenge target)
-Used for event text and boss motivation.
+For each act:
+```
+ACT {N}: {act name}
+  Theme: "[environmental + tonal descriptor, e.g., 'corrupted wilderness', 'drowned ruins']"
+  Antagonist: "[who opposes the player — faction, creature type, environmental force]"
+  MacGuffin: "[what drives progression — artifact, person, knowledge, territory]"
+  Escalation: "[how threat increases from first zone to boss]"
+  Boss: "[name + concept — e.g., 'The Shadow Hound: corrupted alpha beast']"
+```
 
-**4. Temporal Elements**
-Time pressure? (low tide, eclipse, ritual countdown, escaping guards)
-Becomes `special_mechanics` on boss or mid-path events.
+### B. Zone Mapping
 
-**5. Moral Choice Points**
-Betrayal options? Spare or kill decisions? Faction alignments?
-These become `event.choices[]` with different consequences.
+For each act, identify 2-5 distinct expedition zones. Each zone needs a mechanical identity beyond
+flavor text.
 
-**6. Escalation Pattern**
-How does threat increase from first zone to finale?
-Map to `danger_level` progression (see calibration tables below).
+For each zone:
+```
+ZONE: {zone name}
+  Expedition ID: exp-{act}-{slug}
+  Danger level: {2-4 for Act 1 entry, scaling up}
+  Mechanical identity: "[DPS race | survival test | speed clear | loot run | puzzle]"
+  Special mechanic: "[tide_change | darkness | reinforcements | trap_laden | time_pressure | environmental_hazard | none]"
+  Primary drop: "[which material from WORLDFORGE this zone farms]"
+```
+
+### C. Boss Design
+
+For each act boss, define the encounter pattern:
+
+```
+BOSS: {boss name}
+  Expedition ID: boss-{act}-{slug}
+  Danger level: {5 for Act 1, 10 for Act 2, 15 for Act 3}
+  HP: {calculated per Table D}
+  ATK: {calculated per Table D}
+  Phase 1 (100% HP): "[opening state — no modifier or minor buff]"
+  Phase 2 (50% HP): "[desperation state — ATK/speed buff, new mechanic]"
+  Phase 3 (optional, 25% HP): "[final stand — major buff or enrage timer]"
+  Special mechanics: "[1-3 from the library below]"
+  Guaranteed drop: "[boss-specific item or material]"
+```
+
+### D. Event Design
+
+For each zone, design 1-2 mid-expedition events. Events create narrative texture and meaningful
+choices during runs.
+
+For each event:
+```
+EVENT: {event name}
+  Trigger: "on_enter" | "on_kill" | "on_timer"
+  Choices:
+    A) "[option text]" → "[outcome: resource gain/loss, loot roll, hero status]"
+    B) "[option text]" → "[outcome: resource gain/loss, loot roll, hero status]"
+    C) "[optional option text]" → "[outcome]"
+  Design intent: "[what dilemma this creates — risk vs reward, speed vs safety, etc.]"
+```
+
+### E. Translation Flags
+
+Surface contradictions between source material and the expedition system:
+
+```
+//TRANSLATE_FLAG [SEVERITY: LOW | MEDIUM | HIGH]
+TENSION: "[What the source says or implies about this encounter]"
+CONFLICT: "[What the expedition system would do by default]"
+OPTIONS:
+  A) [Option that honors source intent — may require unusual mechanics]
+  B) [Option that honors game mechanics — may simplify source intent]
+  C) [Compromise option if available]
+DESIGNER DECISION REQUIRED: [Yes/No]
+```
+
+**Flag triggers (mandatory):**
+- Source describes an encounter that doesn't fit the expedition model (e.g., multi-boss, escort)
+- Source boss has a mechanic not in the special_mechanics library
+- Source act structure doesn't match the ACT_COUNT parameter (e.g., source has 5 acts, parameter is 3)
+- Source describes loot that doesn't match ITEMFORGE's material list
 
 ---
 
 ## STEP 2 — CALIBRATION TABLES
 
-Use these tables to balance the generated act.
+Use these tables to calculate defensible values for every act/expedition node. Do not estimate. Show
+the math for every value that has a calculation behind it.
 
-### Zone Count by Duration
+### Table A — Act/Zone Count by Parameters
 
-| Duration | Standard Expeditions | Boss | Side Zones (max) |
-|----------|---------------------|------|------------------|
-| short (30min) | 2 | 1 | 0-1 |
-| medium (1hr) | 3-4 | 1 | 1-2 |
-| long (2hr+) | 4-5 | 1 | 2-3 |
+| Act Count | Acts | Zones per Act | Total Standard Expeditions | Total Bosses |
+|---|---|---|---|---|
+| `2 acts` | 2 | 2-3 | 4-6 | 2 |
+| `3 acts` | 3 | 3-4 | 9-12 | 3 |
+| `4 acts` | 4 | 3-4 | 12-16 | 4 |
 
-### Danger Level by Act Position
+**Side zones (optional):** 0-2 per act, with unlock_conditions.
 
-Danger level maps to expedition `level` field and enemy scaling.
+### Table B — Danger Level by Act Position
 
-| Act Position | Danger Range | Enemy ATK (per level) | Enemy HP (per level) |
-|--------------|--------------|----------------------|---------------------|
-| Zone 1 (entry) | 2-4 | ×8-10 | ×60-70 |
-| Zone 2 (buildup) | 4-6 | ×10-12 | ×70-85 |
-| Zone 3 (mid) | 6-8 | ×12-14 | ×85-100 |
-| Zone 4 (climax approach) | 8-9 | ×14-16 | ×100-120 |
-| Boss (final) | 9-10 | ×15-18 | ×150-200 |
-| Secret boss | 11-12 | ×18-22 | ×200-250 |
+Danger level determines enemy stat multipliers. Map expedition `level` field to danger.
 
-**Formula for enemy stats:**
+| Act | Zone 1 | Zone 2 | Zone 3 | Zone 4 | Boss |
+|---|---|---|---|---|---|
+| Act 1 | 2-3 | 3-4 | 4-5 | — | 5 |
+| Act 2 | 6-7 | 7-8 | 8-9 | — | 10 |
+| Act 3 | 11-12 | 12-13 | 13-14 | 14-15 | 15 |
+| Act 4 | 16-17 | 17-18 | 18-19 | 19-20 | 20 |
+
+**Rule: danger level must increase monotonically within each act.**
+
+### Table C — Enemy Stat Calculation
+
+Enemy ATK and HP scale with level and danger. Use these formulas:
+
 ```
-enemy_atk = level × (8 to 18 based on danger)
-enemy_hp = level × (60 to 250 based on danger)
+enemy_atk = level × atk_multiplier
+enemy_hp = level × hp_multiplier
 ```
 
-### Loot Tier by Danger Level
+| Danger Range | ATK Multiplier | HP Multiplier | Best For |
+|---|---|---|---|
+| 2-3 (tutorial) | 8-10 | 60-70 | Act 1 Zone 1 |
+| 4-5 (early) | 10-12 | 70-85 | Act 1 Zone 2-3, Boss |
+| 6-7 (mid-early) | 12-14 | 85-100 | Act 2 Zone 1-2 |
+| 8-9 (mid-late) | 14-16 | 100-120 | Act 2 Zone 3-4, Boss |
+| 10-12 (late) | 16-20 | 120-150 | Act 3 zones |
+| 13-15 (endgame) | 18-22 | 150-200 | Act 3 Boss, Act 4 |
+| 16-20 (punishing) | 20-25 | 200-280 | Optional super-bosses |
 
-| Danger | Common | Uncommon | Rare | Epic | Legendary |
-|--------|--------|----------|------|------|-----------|
-| 2-3 | 60% | 30% | 10% | 0% | 0% |
-| 4-5 | 45% | 35% | 15% | 5% | 0% |
-| 6-7 | 30% | 35% | 25% | 10% | 0% |
-| 8-9 | 20% | 25% | 30% | 20% | 5% |
-| 10+ | 10% | 15% | 25% | 35% | 15% |
+**Example calculation (show this math for every expedition):**
+```
+EXPEDITION: exp-act1-outskirts (level 3, danger 3-4)
+  enemy_atk = 3 × 10 = 30 (early game — players should win consistently)
+  enemy_hp = 3 × 70 = 210 (moderate HP — clearable in 2-3 rounds)
 
-### Special Mechanics Library
+BOSS: boss-act1-shadow-hound (level 5, danger 5)
+  enemy_atk = 5 × 12 = 60 (threatening but beatable with proper party)
+  enemy_hp = 5 × 85 = 425 (boss HP — requires sustained DPS)
+  boss_hp = 425 × 3.0 = 1,275 (boss has 3× normal HP for phase mechanics)
+```
 
-Pick 1-3 mechanics that fit the theme:
+### Table D — Boss HP & Phase Calculation
 
-| Mechanic | Effect | Best for |
-|----------|--------|----------|
-| `tide_change` | Duration varies, loot changes | Coastal, swamp |
-| `darkness` | Party size reduced, LCK matters | Underground, horror |
-| `reinforcements` | Enemy ATK increases over time | Siege, guild raids |
-| `trap_laden` | Party HP reduced at start | Dungeons, vaults |
-| `time_pressure` | Duration -30%, boss enrages | Heist, rescue |
-| `environmental_hazard` | Random party damage | Volcanic, cursed |
-| `faction_interference` | Random faction event | Urban, political |
+Bosses have inflated HP to enable phase mechanics. Calculate:
 
-### Side Zone Unlock Conditions
+```
+boss_hp = (level × hp_multiplier) × boss_hp_scalar
+```
 
-Use existing `unlock_conditions[]` format. Pick one per side zone:
+| Boss Position | Boss HP Scalar | Phases | Special Mechanics |
+|---|---|---|---|
+| Act 1 Boss | ×3.0 | 2 phases (100%, 50%) | 1 mechanic |
+| Act 2 Boss | ×3.5 | 2-3 phases (100%, 50%, 25%) | 2 mechanics |
+| Act 3+ Boss | ×4.0 | 3 phases (100%, 50%, 25%) | 2-3 mechanics |
 
-| Trigger Type | unlock_condition | Example |
-|--------------|-----------------|---------|
-| Secret found | `expedition_completed` + specific expedition | Find hidden switch |
-| Boss pre-condition | `expedition_completed` (main path only) | Kill boss before timer |
-| Faction standing | `faction_rep_gte` | Rep ≥ 3 with smugglers |
-| Rare random | `act_start` (10% chance) | Random encounter |
-| Puzzle solved | `expedition_completed` + event choice | Choose "investigate" |
-| Item required | `item_owned` (from previous act) | Have key from Act 1 |
+**Phase modifier guidelines:**
+- Phase 1 (100%): No modifier or minor buff (ATK +2, DEF +2)
+- Phase 2 (50%): Moderate buff (ATK +5, SPD +3) or new mechanic
+- Phase 3 (25%): Strong buff (ATK +8, SPD +5) or enrage timer
+
+### Table E — Expedition Duration by Pacing
+
+`duration_s` field controls how long expeditions take. Affected by party SPD stat.
+
+| Pacing | Zone 1 | Zone 2 | Zone 3 | Zone 4 | Boss |
+|---|---|---|---|---|---|
+| `fast` | 30-45s | 45-60s | 60s | — | 90-120s |
+| `standard` | 60s | 60-90s | 90s | 90-120s | 120-150s |
+| `slow` | 90s | 90-120s | 120s | 120-150s | 150-180s |
+
+**Party size guidelines:**
+- Standard expeditions: 3 heroes (flexible composition)
+- Boss expeditions: 4 heroes (full party, max synergy)
+
+### Table F — Loot Table Structure
+
+Every expedition needs a loot_table. Rarity distribution matches danger level.
+
+| Danger | Common | Uncommon | Rare | Epic | Legendary | Boss Guaranteed |
+|---|---|---|---|---|---|---|
+| 2-3 | 60% | 30% | 10% | 0% | 0% | — |
+| 4-5 | 45% | 35% | 15% | 5% | 0% | Rare |
+| 6-7 | 30% | 35% | 25% | 10% | 0% | Rare |
+| 8-9 | 20% | 25% | 30% | 20% | 5% | Epic |
+| 10+ | 10% | 15% | 25% | 35% | 15% | Epic+ |
+
+**Entry count rules:**
+- Standard loot table: 3-5 entries (mix of materials, equipment, consumables)
+- Boss loot table: 4-6 entries + 1 guaranteed rare/epic
+
+### Table G — Resource Reward Calibration (Reads WORLDFORGE)
+
+ACTFORGE must read `economy_calibration.expedition_reward_bands` from `world-economy.json`.
+Resource rewards on expeditions must fall within these bands.
+
+```
+WORLDFORGE CONTRACT:
+  Early expedition reward: {min}–{max} {resource_id}
+  Mid expedition reward: {min}–{max} {resource_id}
+  Late expedition reward: {min}–{max} {resource_id}
+  Boss multiplier: ×{N}
+```
+
+**Verification (mandatory):**
+```
+Expedition: exp-act1-{zone}
+  Danger: {N} (early tier)
+  Resource reward: {amount} {resource_id}
+  WORLDFORGE band: {min}–{max}
+  {PASS/FAIL}: within band?
+
+Boss: boss-act1-{boss}
+  Resource reward: {amount} {resource_id}
+  WORLDFORGE band: early × boss_multiplier = {calculated}
+  {PASS/FAIL}: within band?
+```
+
+### Table H — Special Mechanics Library
+
+Pick 1-3 mechanics per boss, 0-1 per standard expedition.
+
+| Mechanic | Effect | Best For |
+|---|---|---|
+| `tide_change` | Duration ±30%, loot table swaps | Coastal, swamp, river |
+| `darkness` | Party size -1, LCK matters more | Underground, horror, night |
+| `reinforcements` | Enemy ATK +2 per round after round 3 | Siege, guild raids, hive |
+| `trap_laden` | Party starts at 70% HP | Dungeons, vaults, ruins |
+| `time_pressure` | Duration -30%, boss enrages at 90s | Heist, rescue, escape |
+| `environmental_hazard` | Random 5-10 damage to party per round | Volcanic, cursed, storm |
+| `faction_interference` | Random event fires mid-fight | Urban, political, contested |
+| `corruption` | Heroes gain stacking debuff per round | Shadow zones, plague |
+| `terrain_advantage` | SPD-primary heroes gain +5 ATK | Forest, mountain, urban |
 
 ---
 
 ## STEP 3 — GENERATION RULES
 
-### Act Structure (Mandatory)
+### A. Act Node Structure
 
-Every generated act MUST have:
-1. **One `act` node** — container with `expedition_ids[]` and `boss_expedition_id`
-2. **2-5 `expedition` nodes** — standard zones (based on duration)
-3. **One `boss_expedition` node** — final encounter
-4. **1-3 `loot_table` nodes** — standard + boss loot
-5. **0-3 `event` nodes** — mid-expedition narrative (at least one per zone)
-6. **0-2 side expeditions** — optional content with unlock conditions
-
-### Boss Design Pattern
-
-Every boss MUST have:
-- `phases[]` array with at least 2 phases (phase at 100% HP, phase at 50% HP)
-- `special_mechanics[]` array with 1-3 mechanics from the library
-- `loot_table_id` pointing to boss-specific loot table
-- `on_success_unlock[]` array (for next act progression)
-
-Phase structure:
-```json
-"phases": [
-  {
-    "phase_number": 1,
-    "hp_threshold": 1.0,
-    "label": "Opening Stance",
-    "modifier": {},
-    "log_message": "The boss readies their weapon..."
-  },
-  {
-    "phase_number": 2,
-    "hp_threshold": 0.5,
-    "label": "Desperate Fury",
-    "modifier": { "attack": 5, "speed": 3 },
-    "log_message": "Wounded, the boss fights more fiercely!"
-  }
-]
-```
-
-### Loot Table Structure
-
-**Standard loot table:**
-- 3-5 item entries with varying weights
-- Weight distribution matches loot tier table above
-- At least one material/resource entry for crafting
-
-**Boss loot table:**
-- 1 guaranteed epic/rare item (`guaranteed: true`)
-- 2-4 weighted entries
-- Special drop tied to act's MacGuffin (e.g., "Tide Revenant Heart")
-
-### Event Structure
-
-Every event MUST have:
-- `trigger_type`: `"on_enter"` or `"on_kill"` or `"on_timer"`
-- `trigger_target`: expedition ID or boss ID
-- `choices[]` array with 2-4 options
-- Each choice has `outcome` with at least one effect:
-  - `log_message`
-  - `resource_delta`
-  - `loot_table_id`
-  - `hero_status`
-
----
-
-## STEP 4 — BLUEPRINT OUTPUT FORMAT
-
-Output a `.blueprint.json` file with this exact structure:
+Every generated `act` node must use this exact structure:
 
 ```json
 {
-  "blueprint_meta": {
-    "id": "act-{generated-slug}",
-    "label": "{Act Name}",
-    "description": "One-sentence summary of the act fantasy",
-    "complexity": "basic|medium|complex|epic",
-    "requires_schema_version": "1.2.0",
-    "created_at": "{ISO timestamp}",
-    "flavor": "{THEME}",
-    "parameters": [
-      {
-        "key": "act_number",
-        "label": "Act Number",
-        "type": "number",
-        "required": true,
-        "description": "Which act number this is (1, 2, 3...)",
-        "injects_into": ["act-{id}.act_number"]
-      },
-      {
-        "key": "difficulty_level",
-        "label": "Base Difficulty Level",
-        "type": "number",
-        "required": true,
-        "description": "Starting level for expeditions (1-20)",
-        "injects_into": ["expedition-{id}.level", "boss-{id}.level"]
-      },
-      {
-        "key": "loot_prefix",
-        "label": "Loot Table Prefix",
-        "type": "string",
-        "required": true,
-        "description": "Prefix for generated loot table IDs",
-        "injects_into": ["loot_table-{id}.id"]
-      }
-    ]
-  },
-  "nodes": [
-    {
-      "id": "act-{slug}",
-      "type": "act",
-      "label": "{Act Name}",
-      "description": "{narrative description}",
-      "act_number": 1,
-      "completion_conditions": [
-        { "type": "boss_defeated", "target_id": "boss-{slug}" }
-      ],
-      "expedition_ids": ["exp-{slug}-1", "exp-{slug}-2"],
-      "boss_expedition_id": "boss-{slug}",
-      "on_complete_events": [],
-      "unlocks_node_ids": [],
-      "narrative_log": "{flavor text}",
-      "visible": true,
-      "canvas_pos": { "x": 0, "y": 0 }
-    },
-    {
-      "id": "exp-{slug}-1",
-      "type": "expedition",
-      "label": "{Zone Name}",
-      "description": "{flavor text}",
-      "icon": "{emoji}",
-      "duration_s": 60,
-      "party_size": 3,
-      "level": 5,
-      "enemy_atk": 50,
-      "enemy_hp": 400,
-      "base_xp": null,
-      "curse_chance": 0.1,
-      "loot_table_id": "loot-{slug}-standard",
-      "fail_loot_table_id": "",
-      "entry_cost": [],
-      "resource_rewards": [],
-      "faction_rewards": [],
-      "on_success_unlock": [],
-      "events": ["event-{slug}-1"],
-      "unlock_conditions": [],
-      "visible": true,
-      "canvas_pos": { "x": 200, "y": 100 }
-    },
-    {
-      "id": "boss-{slug}",
-      "type": "boss_expedition",
-      "label": "{Boss Name}",
-      "description": "{boss flavor}",
-      "icon": "{emoji}",
-      "duration_s": 120,
-      "party_size": 4,
-      "level": 7,
-      "enemy_atk": 90,
-      "enemy_hp": 1200,
-      "boss_hp": 2000,
-      "boss_stats": { "attack": 25, "defense": 15, "speed": 8 },
-      "phases": [...],
-      "special_mechanics": ["tide_change", "reinforcements"],
-      "loot_table_id": "loot-{slug}-boss",
-      "on_success_unlock": [],
-      "repeatable": false,
-      "unlock_conditions": [],
-      "visible": true,
-      "canvas_pos": { "x": 600, "y": 100 }
-    },
-    {
-      "id": "loot-{slug}-standard",
-      "type": "loot_table",
-      "label": "{Act} Standard Loot",
-      "rolls": 1,
-      "entries": [
-        { "item_id": "item-{material}", "weight": 30, "min_qty": 1, "max_qty": 2, "guaranteed": false },
-        { "item_id": "item-{uncommon}", "weight": 15, "min_qty": 1, "max_qty": 1, "guaranteed": false }
-      ],
-      "visible": true,
-      "canvas_pos": { "x": 400, "y": 300 }
-    },
-    {
-      "id": "event-{slug}-1",
-      "type": "event",
-      "label": "{Event Name}",
-      "description": "{context}",
-      "log_message": "{narrative text}",
-      "trigger_type": "on_enter",
-      "trigger_target": "exp-{slug}-1",
-      "choices": [
-        {
-          "label": "{Choice A}",
-          "outcome": {
-            "log_message": "{result text}",
-            "resource_delta": {}
-          }
-        },
-        {
-          "label": "{Choice B}",
-          "outcome": {
-            "log_message": "{result text}",
-            "loot_table_id": "loot-{slug}-standard"
-          }
-        }
-      ],
-      "visible": true,
-      "canvas_pos": { "x": 200, "y": 200 }
-    }
+  "id": "act-{slug}",
+  "type": "act",
+  "label": "{Act Name}",
+  "description": "{One sentence: narrative summary and what the player accomplishes}",
+  "act_number": 1,
+  "completion_conditions": [
+    { "type": "boss_defeated", "target_id": "boss-{slug}" }
   ],
-  "edges": [
-    {
-      "id": "edge-act-exp1",
-      "source": "act-{slug}",
-      "target": "exp-{slug}-1",
-      "data": { "relation": "unlocks" },
-      "style": { "stroke": "#7F77DD", "strokeWidth": 1.5 },
-      "label": "unlocks"
-    },
-    {
-      "id": "edge-act-boss",
-      "source": "act-{slug}",
-      "target": "boss-{slug}",
-      "data": { "relation": "unlocks" },
-      "style": { "stroke": "#7F77DD", "strokeWidth": 1.5 },
-      "label": "unlocks"
-    },
-    {
-      "id": "edge-exp-loot",
-      "source": "loot-{slug}-standard",
-      "target": "exp-{slug}-1",
-      "data": { "relation": "drops_from" },
-      "style": { "stroke": "#1D9E75", "strokeWidth": 1.5 },
-      "label": "drops_from"
-    },
-    {
-      "id": "edge-event-exp",
-      "source": "event-{slug}-1",
-      "target": "exp-{slug}-1",
-      "data": { "relation": "triggers" },
-      "style": { "stroke": "#639922", "strokeWidth": 1.5 },
-      "label": "triggers"
-    }
-  ],
-  "generated_metadata": {
-    "estimated_playtime_minutes": 45,
-    "combat_encounters": 3,
-    "boss_count": 1,
-    "side_zones": 1,
-    "loot_items": 8,
-    "narrative_events": 4
-  }
+  "expedition_ids": ["exp-{slug}-1", "exp-{slug}-2", "exp-{slug}-3"],
+  "boss_expedition_id": "boss-{slug}",
+  "on_complete_events": [],
+  "unlocks_node_ids": [],
+  "narrative_log": "{flavor text shown on act completion}",
+  "visible": true,
+  "canvas_pos": { "x": 0, "y": 0 }
 }
 ```
 
----
+**Completion conditions:**
+- Always include `boss_defeated` condition targeting the act's boss
+- Optional: add `expedition_completed` conditions for side zones
 
-## STEP 5 — CANVAS LAYOUT ALGORITHM
+### B. Expedition Node Structure
+
+Every generated `expedition` node must use this exact structure:
+
+```json
+{
+  "id": "exp-{slug}",
+  "type": "expedition",
+  "label": "{Zone Name}",
+  "description": "{Flavor text: what this place is and why it's dangerous}",
+  "icon": "{emoji}",
+  "duration_s": 60,
+  "party_size": 3,
+  "level": 5,
+  "enemy_atk": 50,
+  "enemy_hp": 400,
+  "base_xp": null,
+  "curse_chance": 0.1,
+  "loot_table_id": "loot-{slug}",
+  "fail_loot_table_id": "",
+  "entry_cost": [],
+  "resource_rewards": [
+    { "resource_id": "resource-gold", "amount_min": 100, "amount_max": 150 }
+  ],
+  "faction_rewards": [],
+  "on_success_unlock": [],
+  "events": ["event-{slug}-1"],
+  "unlock_conditions": [],
+  "visible": true,
+  "canvas_pos": { "x": 200, "y": 100 }
+}
+```
+
+**Field rules:**
+- `duration_s`: from Table E based on pacing style
+- `party_size`: 3 for standard, 4 for boss
+- `level`: from Table B danger mapping
+- `enemy_atk` and `enemy_hp`: calculated per Table C (SHOW YOUR MATH)
+- `base_xp`: null for now (ITEMFORGE/UPGRADEFORGE may populate)
+- `curse_chance`: 0.05 for Act 1 Zone 1, scaling to 0.30 for final boss
+- `loot_table_id`: must reference a loot_table node you generate
+- `resource_rewards`: must fall within WORLDFORGE's expedition_reward_bands
+- `events`: array of event IDs (at least 1 per expedition)
+
+### C. Boss Expedition Node Structure
+
+Every generated `boss_expedition` node must use this exact structure:
+
+```json
+{
+  "id": "boss-{slug}",
+  "type": "boss_expedition",
+  "label": "{Boss Name}",
+  "description": "{Boss flavor: who they are and why they matter}",
+  "icon": "{emoji}",
+  "duration_s": 120,
+  "party_size": 4,
+  "level": 10,
+  "enemy_atk": 150,
+  "enemy_hp": 1200,
+  "boss_hp": 3600,
+  "boss_stats": { "attack": 25, "defense": 15, "speed": 8 },
+  "phases": [
+    {
+      "phase_number": 1,
+      "hp_threshold": 1.0,
+      "label": "Opening Stance",
+      "modifier": {},
+      "log_message": "The boss readies their weapon..."
+    },
+    {
+      "phase_number": 2,
+      "hp_threshold": 0.5,
+      "label": "Desperate Fury",
+      "modifier": { "attack": 5, "speed": 3 },
+      "log_message": "Wounded, the boss fights more fiercely!"
+    }
+  ],
+  "special_mechanics": ["tide_change", "reinforcements"],
+  "loot_table_id": "loot-{slug}-boss",
+  "on_success_unlock": [],
+  "repeatable": false,
+  "unlock_conditions": [],
+  "visible": true,
+  "canvas_pos": { "x": 600, "y": 100 }
+}
+```
+
+**Phase rules (mandatory):**
+- At least 2 phases (100% and 50% HP thresholds)
+- Optional 3rd phase at 25% for Act 3+ bosses
+- Each phase has `phase_number`, `hp_threshold` (1.0 = 100%, 0.5 = 50%), `label`, `modifier` (can be empty), `log_message`
+
+**Special mechanics rules:**
+- At least 1 mechanic from Table H
+- Maximum 3 mechanics (more than 3 becomes unreadable)
+
+### D. Loot Table Node Structure
+
+Every generated `loot_table` node must use this exact structure:
+
+```json
+{
+  "id": "loot-{slug}",
+  "type": "loot_table",
+  "label": "{Zone} Loot",
+  "rolls": 1,
+  "entries": [
+    {
+      "item_id": "item-{material}",
+      "weight": 30,
+      "min_qty": 1,
+      "max_qty": 2,
+      "guaranteed": false
+    },
+    {
+      "item_id": "item-{uncommon-gear}",
+      "weight": 15,
+      "min_qty": 1,
+      "max_qty": 1,
+      "guaranteed": false
+    }
+  ],
+  "visible": true,
+  "canvas_pos": { "x": 400, "y": 300 }
+}
+```
+
+**Entry rules:**
+- 3-5 entries for standard loot tables
+- 4-6 entries + 1 guaranteed for boss loot tables
+- Weight distribution must match Table F rarity by danger level
+- At least one entry should reference a material from WORLDFORGE
+
+### E. Event Node Structure
+
+Every generated `event` node must use this exact structure:
+
+```json
+{
+  "id": "event-{slug}",
+  "type": "event",
+  "label": "{Event Name}",
+  "description": "{Context: what's happening}",
+  "log_message": "{Narrative text shown to player}",
+  "trigger_type": "on_enter",
+  "trigger_target": "exp-{slug}",
+  "choices": [
+    {
+      "label": "{Choice A text}",
+      "outcome": {
+        "log_message": "{Result text}",
+        "resource_delta": { "resource-gold": 20 },
+        "loot_table_id": "",
+        "hero_status": ""
+      }
+    },
+    {
+      "label": "{Choice B text}",
+      "outcome": {
+        "log_message": "{Result text}",
+        "resource_delta": {},
+        "loot_table_id": "loot-{slug}",
+        "hero_status": ""
+      }
+    }
+  ],
+  "visible": true,
+  "canvas_pos": { "x": 200, "y": 250 }
+}
+```
+
+**Choice rules:**
+- 2-4 choices per event
+- At least 2 choices must have meaningfully different outcomes
+- Outcomes can include: `log_message`, `resource_delta`, `loot_table_id`, `hero_status`
+
+**Trigger rules:**
+- `on_enter`: fires when expedition starts (most common)
+- `on_kill`: fires after defeating an enemy (for mid-expedition events)
+- `on_timer`: fires after X seconds (for time-based events)
+
+### F. Canvas Layout Algorithm
 
 Position nodes using this layout:
 
 ```
-Act Structure (horizontal flow):
+Act Structure (horizontal flow per act):
+
+Act 1: y: 0-400
+Act 2: y: 450-850
+Act 3: y: 900-1300
 
                     ┌─────────────┐
                     │  ACT NODE   │
@@ -433,98 +610,258 @@ Act Structure (horizontal flow):
   │  (200, 250) │  │  (400, 250) │  │ (600, 250)  │
   └─────────────┘  └─────────────┘  └─────────────┘
 
-Side zones offset +150px on Y axis from parent zone.
 Loot tables at y: 300-400 range.
+Events at y: 250 range.
 ```
 
 **Spacing rules:**
 - X spacing between expeditions: 200px
-- Y spacing for related nodes: 150px
+- Y spacing per act: 450px (act header + zones + events + loot)
 - Side zones: parent X + 50, parent Y + 200
 
+### G. The acts.json Output Format
+
+```json
+{
+  "schema_version": "1.2.0",
+  "actforge_version": "1.0.0",
+  "generated_at": "{ISO timestamp}",
+  "meta": {
+    "project_name": "{from WORLDFORGE meta}",
+    "act_count": "{N}",
+    "pacing_style": "{fast|standard|slow}",
+    "difficulty_curve": "{gentle|standard|punishing}",
+    "source_material": "{path or 'pitch'}",
+    "worldforge_input": "{path to world-economy.json}",
+    "heroforge_input": "{path to hero-roster.json}",
+    "buildforge_input": "{path to building-system.json}",
+    "designer_notes": "{brief summary of the act structure and progression arc}"
+  },
+  "nodes": [
+    // All act nodes
+    // All expedition nodes
+    // All boss_expedition nodes
+    // All loot_table nodes
+    // All event nodes
+  ],
+  "act_calibration": {
+    "danger_progression": [
+      { "expedition_id": "{id}", "level": 0, "enemy_atk": 0, "enemy_hp": 0, "calculated": "level × multiplier = value" }
+    ],
+    "boss_analysis": [
+      {
+        "boss_id": "{id}",
+        "level": 0,
+        "base_hp": 0,
+        "boss_hp_scalar": 3.0,
+        "final_boss_hp": 0,
+        "calculated": "level × hp_multiplier × scalar = value"
+      }
+    ],
+    "loot_distribution": [
+      {
+        "loot_table_id": "{id}",
+        "danger_level": 0,
+        "rarity_distribution": { "common": "60%", "uncommon": "30%", "rare": "10%" },
+        "entry_count": 0
+      }
+    ],
+    "resource_reward_audit": [
+      {
+        "expedition_id": "{id}",
+        "resource_id": "{id}",
+        "reward_range": {"min": 0, "max": 0},
+        "worldforge_band": {"min": 0, "max": 0},
+        "pass": true
+      }
+    ],
+    "event_coverage": [
+      { "expedition_id": "{id}", "event_count": 0, "pass": true }
+    ]
+  },
+  "flags": [
+    {
+      "id": "flag-{n}",
+      "severity": "low | medium | high",
+      "tension": "{what the source implies}",
+      "conflict": "{what the act system would do by default}",
+      "options": ["A) ...", "B) ...", "C) ..."],
+      "default_applied": "{which option ACTFORGE used}",
+      "designer_decision_required": true
+    }
+  ],
+  "downstream_contracts": {
+    "itemforge": {
+      "loot_table_ids": ["{id}", "..."],
+      "rarity_bands_by_act": {
+        "act_1": { "common": "60%", "uncommon": "30%", "rare": "10%" },
+        "act_2": { "common": "30%", "uncommon": "35%", "rare": "25%", "epic": "10%" },
+        "act_3": { "common": "20%", "uncommon": "25%", "rare": "30%", "epic": "20%", "legendary": "5%" }
+      },
+      "note": "ITEMFORGE must generate items matching these loot table entries. Rarity distribution should match act progression."
+    },
+    "upgradeforge": {
+      "act_completion_curve": {
+        "act_1_boss_level": 5,
+        "act_2_boss_level": 10,
+        "act_3_boss_level": 15
+      },
+      "note": "UPGRADEFORGE should time global upgrade unlocks around act completion milestones."
+    }
+  }
+}
+```
+
 ---
 
-## STEP 6 — VALIDATION CHECKLIST
+## STEP 4 — VALIDATION CHECKLIST
 
-Before outputting, verify:
+Run through every item before writing the output file. ERRORS block output. WARNINGS are written to
+`act-flags.md` and noted in the terminal summary but do not block output.
 
-**Structure (Errors if wrong):**
-- [ ] Exactly one `act` node
-- [ ] At least 2 standard `expedition` nodes
-- [ ] Exactly one `boss_expedition` node
-- [ ] `act.boss_expedition_id` references existing boss
-- [ ] `act.expedition_ids[]` references existing expeditions
-- [ ] All expeditions have `loot_table_id` referencing existing loot table
-- [ ] Boss has `phases[]` with at least 2 entries
-- [ ] All `event.trigger_target` references existing expedition or boss
+### Structural Checks (Errors if failed)
 
-**Balance (Warnings if wrong):**
-- [ ] Danger level increases monotonically (Zone 1 < Zone 2 < Boss)
-- [ ] Boss level ≥ highest standard expedition level
-- [ ] At least one event per standard expedition
-- [ ] Boss has `special_mechanics[]` (not empty)
-- [ ] Loot tables have 3+ entries
+- [ ] At least 2 `act` nodes exist (matching ACT_COUNT parameter)
+- [ ] Each act has at least 2 standard `expedition` nodes
+- [ ] Each act has exactly 1 `boss_expedition` node
+- [ ] `act.boss_expedition_id` references an existing boss_expedition node
+- [ ] `act.expedition_ids[]` references existing expedition nodes
+- [ ] All expeditions have `loot_table_id` referencing an existing loot_table node
+- [ ] All boss_expeditions have `phases[]` with at least 2 entries
+- [ ] All events have `trigger_target` referencing an existing expedition or boss
+- [ ] All `id` fields are slug-format: lowercase, hyphens only
+- [ ] Act IDs use `act-{slug}` prefix
+- [ ] Expedition IDs use `exp-{slug}` or `exp-act{n}-{slug}` format
+- [ ] Boss IDs use `boss-{slug}` or `boss-act{n}-{slug}` format
+- [ ] No duplicate IDs across the entire node set
+- [ ] `type` field matches the node's actual type on every node
+- [ ] `schema_version` in output file is `"1.2.0"`
+- [ ] `downstream_contracts` object is present and complete
 
-**Blueprint compatibility:**
-- [ ] `blueprint_meta.parameters[]` includes act_number, difficulty_level, loot_prefix
-- [ ] All node IDs use slug format (no spaces, lowercase, hyphen-separated)
-- [ ] Edges have `data.relation` field matching edge color conventions
+### Balance Checks (Warnings if failed)
+
+- [ ] Danger level increases monotonically within each act
+- [ ] Boss level ≥ all standard expedition levels in the same act
+- [ ] Every standard expedition has at least 1 event in `events[]`
+- [ ] Every boss has at least 1 entry in `special_mechanics[]`
+- [ ] All loot tables have 3+ entries
+- [ ] Boss loot tables have 1 guaranteed rare/epic entry
+- [ ] Resource rewards fall within WORLDFORGE's expedition_reward_bands (±20% tolerance)
+- [ ] Curse chance scales appropriately (0.05 Act 1 Zone 1 → 0.30 final boss)
+
+### Pipeline Checks (Warnings if failed)
+
+- [ ] `//TRANSLATE_FLAG` comments present on any node where source material created tension
+- [ ] `flags[]` array populated if any source material contradictions exist
+- [ ] `act-flags.md` file generated if `flags[]` is non-empty
+- [ ] `CHANGELOG.md` entry appended
+- [ ] `act_calibration.danger_progression` shows math for every expedition
+- [ ] `act_calibration.boss_analysis` shows math for every boss
+- [ ] `act_calibration.resource_reward_audit` all entries pass
 
 ---
 
-## STEP 7 — WRITE THE FILE
+## STEP 5 — ACT FLAGS FILE
 
-Write the generated blueprint to:
-```
-guild-engine/generator/act-{slug}.blueprint.json
-```
+If any flags exist, generate `guild-engine/generator/act-flags.md` with this format:
 
-Then append to `guild-engine/generator/CHANGELOG.md`:
-```
-### ActForge Run — [ISO date]
-- INPUT: [first 20 words of ACT_DESCRIPTION]
-- OUTPUT: act-{slug}.blueprint.json
-- COMPLEXITY: [basic|medium|complex|epic]
-- NODES: [N] total ([N] expeditions, [N] events, [N] loot tables)
-- ESTIMATED PLAYTIME: [N] minutes
+```markdown
+# Act System Flags — {Project Name}
+### Generated by ACTFORGE {ISO date}
+
+These flags represent design tensions between your source material and standard Guild Engine
+act/expedition mechanics. Review each flag and confirm or override the default decision.
+
+---
+
+## FLAG-001 [SEVERITY: HIGH] — {Flag title}
+
+**Source intent:** {What the source material implies about this encounter}
+**Engine default:** {What the expedition system would do}
+
+**Options:**
+- A) {Option A description — honors source encounter design}
+- B) {Option B description — honors game mechanics}
+- C) {Option C, if available}
+
+**Default applied:** {Which option ACTFORGE used}
+
+**To override:** Edit `acts.json` nodes as follows:
+  - {Specific field change to apply Option A}
+  - {Specific field change to apply Option B}
+
+---
+
+## FLAG-002 [SEVERITY: LOW] — ...
 ```
 
 ---
 
-## STEP 8 — PRINT SUMMARY
+## STEP 6 — FILE WRITING
 
-Print to terminal:
+Write these files in this order:
+
+```
+1. guild-engine/generated/acts.json                  (primary output)
+2. guild-engine/generator/act-flags.md               (only if flags[] is non-empty)
+3. Append to guild-engine/generator/CHANGELOG.md     (always)
+```
+
+**CHANGELOG entry format:**
+
+```markdown
+### ACTFORGE Run — {ISO date}
+- VERSION: v1.0.0
+- TYPE: SYSTEM
+- SCOPE: ACTFORGE
+- STATUS: IMPLEMENTED
+- INPUT: world-economy.json + hero-roster.json + building-system.json + {source or pitch}
+- OUTPUT: guild-engine/generated/acts.json
+- ACTS: {N} total
+- EXPEDITIONS: {N} standard, {N} boss
+- EVENTS: {N} total
+- LOOT TABLES: {N} total
+- FLAGS: {N} design tensions ({N} high, {N} medium, {N} low)
+- DOWNSTREAM: acts.json ready for ITEMFORGE, UPGRADEFORGE
+```
+
+---
+
+## STEP 7 — TERMINAL SUMMARY
+
+Print this summary box after all files are written:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  ActForge Complete                                                      │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  {Act Name}                                                             │
-│  Theme: {theme} · Difficulty: {difficulty} · Duration: {duration}       │
+│  {Project Name}                                                         │
+│  Acts: {N} · Pacing: {style} · Difficulty: {curve}                     │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  Nodes:  [N] total                                                      │
-│    • Expeditions:     [N]                                               │
-│    • Boss:            1                                                 │
-│    • Events:          [N]                                               │
-│    • Loot tables:     [N]                                               │
-│    • Side zones:      [N]                                               │
+│  Acts:       {N} total                                                  │
+│  Expeditions: {N} standard, {N} boss                                   │
+│  Events:     {N} total                                                  │
+│  Loot Tables: {N} total                                                 │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  Output: guild-engine/generator/act-{slug}.blueprint.json              │
-│  Estimated playtime: [N] minutes                                        │
+│  Danger Progression: Act 1 (lvl 2-5) → Act 2 (lvl 6-10) → Act 3 (lvl 11-15) │
+│  Boss HP Curve: Act 1 ({N}) → Act 2 ({N}) → Act 3 ({N})                │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Resource Audit:  {PASS / FAIL — vs WORLDFORGE bands}                  │
+│  Event Coverage:  {PASS / FAIL — all expeditions have events?}         │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Output: guild-engine/generated/acts.json                              │
+│  Flags:  {N} design tensions (see act-flags.md | none)                 │
 └─────────────────────────────────────────────────────────────────────────┘
 
-To import into the editor:
-  1. Open Blueprint Library (⌘B or Ctrl+B)
-  2. Select "Acts" tab
-  3. Click "Import .blueprint.json"
-  4. Select act-{slug}.blueprint.json
-  5. Parameter modal appears — set act number, difficulty, loot prefix
-  6. Blueprint drops onto canvas pre-wired
+Downstream forge contracts written:
+  ITEMFORGE    — {N} loot tables, rarity bands by act defined
+  UPGRADEFORGE — act completion curve: boss levels 5, 10, 15
 
-Next steps:
-  - Rig expedition inputs to your resource nodes (gold, materials)
-  - Customize event choices with your faction IDs
-  - Adjust boss phases for your party composition
+Next step: Run ITEMFORGE
+  > Follow guild-engine/generator/ITEMFORGE.md exactly.
+  > INPUT: guild-engine/generated/world-economy.json
+         + guild-engine/generated/building-system.json
+         + guild-engine/generated/acts.json
 ```
 
 ---
@@ -534,233 +871,283 @@ Next steps:
 ```
 > Follow guild-engine/generator/ACTFORGE.md exactly.
 
-ACT_DESCRIPTION: "A plague-ridden coastal region where smugglers operate from 
-tidal caves. The baron's son has been kidnapped by fish-cultists. Final 
-confrontation in a sunken cathedral at low tide."
-DIFFICULTY_TARGET: mid
-THEME: coastal
-DURATION_ESTIMATE: medium
+WORLDFORGE_OUTPUT:     "guild-engine/generated/world-economy.json"
+HEROFORGE_OUTPUT:      "guild-engine/generated/hero-roster.json"
+BUILDFORGE_OUTPUT:     "guild-engine/generated/building-system.json"
+SOURCE_MATERIAL:       "guild-engine/generator/world-template.json"
+GAME_PITCH:            "none"
+ACT_COUNT:             "2 acts"
+PACING_STYLE:          "standard"
+DIFFICULTY_CURVE:      "standard"
 
-✓ Analyzing narrative...
-  • Locations: Tidal Caves, Smuggler's Landing, Sunken Cathedral
-  • Antagonists: Fish-cultists, smuggler collaborators
-  • MacGuffin: Baron's kidnapped son
-  • Temporal: Low tide window (time pressure)
-  • Mechanics: tide_change, environmental_hazard
+ACTFORGE reading context...
+  ✓ schema/project.schema.json
+  ✓ docs/WIKI.md
+  ✓ generator/CHANGELOG.md
+  ✓ generated/world-economy.json
+  ✓ generated/hero-roster.json
+  ✓ generated/building-system.json
+  ✓ world-template.json
 
-✓ Generating act structure...
-  • 3 standard expeditions
-  • 1 boss expedition (Sunken Cathedral)
-  • 1 side zone (Hidden Sea Cave)
-  • 4 narrative events
-  • 3 loot tables
+WORLDFORGE CONTRACTS LOADED:
+  Primary resource: resource-gold
+  Materials: resource-iron-ore, resource-shadow-essence
+  Expedition reward bands:
+    Early: 3,840–5,760 gold
+    Mid: 8,640–12,960 gold
+    Late: 19,200–28,800 gold
+    Boss: ×3.0 multiplier
+
+HEROFORGE CONTRACTS LOADED:
+  Combat classes: 5 (tank, damage ×2, support, speed)
+  Party power curve: lvl 1=145, lvl 10=580, lvl 20=1100
+
+BUILDFORGE CONTRACTS LOADED:
+  Material consumption: iron ore 10/min, shadow essence 4/min
+
+✓ Step 1 — Narrative Analysis
+
+  ACT 1: The Outskirts
+    Theme: Corrupted wilderness — plague-tainted wilds outside the city walls
+    Antagonist: Shadow beasts, bandits, corrupted wildlife
+    MacGuffin: Secure the northern mine route
+    Escalation: Wisps → wolf packs → bandit ambushes → Shadow Hound lair
+    Boss: The Shadow Hound — corrupted alpha beast, massive, plague-scarred
+
+  ACT 2: The Undercity
+    Theme: Drowned ruins beneath the city — flooded sewers, abandoned districts
+    Antagonist: Undead, cultists, shadow elementals
+    MacGuffin: Sever the plague's source before it reaches the surface
+    Escalation: Sewer drones → undead patrols → cult rituals → Pale Archivist's vault
+    Boss: The Pale Archivist — lich who knows too much, keeper of forbidden lore
+
+  ZONE MAPPING:
+    ACT 1:
+      exp-act1-outskirts-road   (danger 2-3, iron ore drop zone)
+      exp-act1-bandit-hideout   (danger 4, gold + iron ore)
+      exp-act1-wolf-den         (danger 4, side zone — unlock: expedition_completed bandit-hideout)
+      boss-act1-shadow-hound    (danger 5, guaranteed boss drop)
+
+    ACT 2:
+      exp-act2-flooded-sewers   (danger 6-7, shadow essence drop zone)
+      exp-act2-abandoned-district (danger 8, gold + essence)
+      exp-act2-cult-catacombs   (danger 9, side zone — unlock: expedition_completed sewers)
+      boss-act2-pale-archivist  (danger 10, guaranteed rare/epic drop)
+
+  BOSS DESIGN:
+    BOSS: The Shadow Hound
+      Level: 5, Danger: 5
+      enemy_atk = 5 × 12 = 60
+      enemy_hp = 5 × 85 = 425
+      boss_hp = 425 × 3.0 = 1,275
+      Phase 1 (100%): "The beast circles, jaws dripping with shadow" — no modifier
+      Phase 2 (50%): "Wounded, the Shadow Hound calls its pack!" — ATK +5, reinforcements mechanic
+      Special mechanics: reinforcements (wolf spawns after round 3)
+      Guaranteed drop: item-hound-fang (rare material)
+
+    BOSS: The Pale Archivist
+      Level: 10, Danger: 10
+      enemy_atk = 10 × 16 = 160
+      enemy_hp = 10 × 120 = 1,200
+      boss_hp = 1,200 × 3.5 = 4,200
+      Phase 1 (100%): "The lich's eyes glow with ancient knowledge" — SPD +2
+      Phase 2 (50%): "Forbidden words twist the air" — ATK +8, corruption mechanic
+      Phase 3 (25%): "Death is a door I hold the key to" — enrage timer (90s)
+      Special mechanics: corruption (stacking debuff), environmental_hazard (shadow damage)
+      Guaranteed drop: item-archivist-key (epic quest item)
+
+  EVENT DESIGN:
+    EVENT: Ambush at Dawn
+      Trigger: on_enter, exp-act1-outskirts-road
+      Choices:
+        A) "Prepare for battle!" → +20 gold, loot roll
+        B) "Flee to the main road" → -30s duration, no loot
+      Design intent: risk vs reward — fight for loot or play safe?
+
+    EVENT: Cultist Ritual
+      Trigger: on_enter, exp-act2-cult-catacombs
+      Choices:
+        A) "Interrupt the ritual!" → combat, high loot, +curse chance
+        B) "Observe from shadows" → no combat, low loot, no curse
+        C) "Join the ritual (LCK check)" → high risk, epic loot on success, WIPE on fail
+      Design intent: multi-layer risk/reward with class check option
+
+✓ Step 2 — Calibration
+
+  DANGER PROGRESSION:
+    exp-act1-outskirts-road:   lvl 3, ATK = 3×10 = 30, HP = 3×70 = 210
+    exp-act1-bandit-hideout:   lvl 4, ATK = 4×11 = 44, HP = 4×75 = 300
+    exp-act1-wolf-den:         lvl 4, ATK = 4×11 = 44, HP = 4×75 = 300
+    boss-act1-shadow-hound:    lvl 5, ATK = 5×12 = 60, HP = 5×85 = 425, boss_hp = 1,275
+
+    exp-act2-flooded-sewers:   lvl 7, ATK = 7×13 = 91, HP = 7×90 = 630
+    exp-act2-abandoned-district: lvl 8, ATK = 8×14 = 112, HP = 8×100 = 800
+    exp-act2-cult-catacombs:   lvl 9, ATK = 9×15 = 135, HP = 9×110 = 990
+    boss-act2-pale-archivist:  lvl 10, ATK = 10×16 = 160, HP = 10×120 = 1,200, boss_hp = 4,200
+
+  RESOURCE REWARD AUDIT:
+    WORLDFORGE CONTRACT:
+      Early band: 3,840–5,760 gold
+      Mid band: 8,640–12,960 gold
+      Boss multiplier: ×3.0
+
+    exp-act1-outskirts-road: 4,000 gold — PASS (within early band)
+    exp-act1-bandit-hideout: 5,500 gold — PASS (within early band, upper end)
+    boss-act1-shadow-hound: 15,000 gold — PASS (early ×3.0 = 11,520–17,280)
+
+    exp-act2-flooded-sewers: 10,000 gold — PASS (within mid band)
+    exp-act2-abandoned-district: 12,000 gold — PASS (within mid band, upper end)
+    boss-act2-pale-archivist: 35,000 gold — PASS (mid ×3.0 = 25,920–38,880)
+
+✓ Step 3 — Generating nodes...
+
+  ACTS: 2
+    act-1-outskirts
+    act-2-undercity
+
+  EXPEDITIONS: 7
+    6 standard expeditions
+    2 boss expeditions
+
+  EVENTS: 6
+    3 events Act 1
+    3 events Act 2
+
+  LOOT TABLES: 4
+    2 standard loot tables
+    2 boss loot tables
+
+✓ Step 4 — Validation
+  Structural:       15/15 checks passed ✓
+  Balance:          8/8 checks passed ✓
+  Resource Audit:   6/6 PASS ✓
+  Event Coverage:   8/8 expeditions have events ✓
+
+✓ Step 5 — act-flags.md written (0 flags)
+✓ Step 6 — acts.json written (623 lines)
+✓ Step 7 — CHANGELOG.md updated
 
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  ActForge Complete                                                      │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  The Tides of Rot                                                       │
-│  Theme: coastal · Difficulty: mid · Duration: medium                    │
+│  Shadowbound Guild                                                      │
+│  Acts: 2 · Pacing: standard · Difficulty: standard                     │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  Nodes:  12 total                                                       │
-│    • Expeditions:     4                                                 │
-│    • Boss:            1                                                 │
-│    • Events:          4                                                 │
-│    • Loot tables:     3                                                 │
-│    • Side zones:      1                                                 │
+│  Acts:       2 total                                                    │
+│  Expeditions: 6 standard, 2 boss                                       │
+│  Events:     6 total                                                    │
+│  Loot Tables: 4 total                                                   │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  Output: guild-engine/generator/act-tides-of-rot.blueprint.json        │
-│  Estimated playtime: 55 minutes                                         │
+│  Danger Progression: Act 1 (lvl 2-5) → Act 2 (lvl 6-10)                │
+│  Boss HP Curve: Act 1 (1,275) → Act 2 (4,200)                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Resource Audit:  PASS — vs WORLDFORGE bands                          │
+│  Event Coverage:  PASS — all expeditions have events                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Output: guild-engine/generated/acts.json                              │
+│  Flags:  0 design tensions                                             │
 └─────────────────────────────────────────────────────────────────────────┘
 
-To import into the editor:
-  1. Open Blueprint Library (⌘B or Ctrl+B)
-  2. Select "Acts" tab
-  3. Click "Import .blueprint.json"
-  4. Select act-tides-of-rot.blueprint.json
-  5. Parameter modal appears — set act number, difficulty, loot prefix
-  6. Blueprint drops onto canvas pre-wired
+Downstream forge contracts written:
+  ITEMFORGE    — 4 loot tables, rarity bands by act defined
+  UPGRADEFORGE — act completion curve: boss levels 5, 10
+
+Next step: Run ITEMFORGE
+  > Follow guild-engine/generator/ITEMFORGE.md exactly.
 ```
 
 ---
 
 ## CRITICAL RULES
 
-1. NEVER create new node types — use existing `expedition`, `boss_expedition`, `act`, `loot_table`, `event`.
-2. ALWAYS include `blueprint_meta.parameters[]` for parameter injection (act_number, difficulty_level, loot_prefix).
-3. ALWAYS use slug-format IDs (lowercase, hyphens, no spaces).
-4. ALWAYS include edges with `data.relation` for auto-coloring.
-5. Boss MUST have `phases[]` — no flat boss fights.
-6. Every standard expedition MUST have at least one `event` in its `events[]` array.
-7. Side zones MUST have non-trivial `unlock_conditions[]` — not just `act_start`.
-8. Danger level MUST increase monotonically through the act.
+1. **NEVER create new node types** — use existing `act`, `expedition`, `boss_expedition`,
+   `loot_table`, `event`. No custom types.
+
+2. **ALWAYS read WORLDFORGE's expedition_reward_bands** — resource rewards must fall within these
+   bands (±20% tolerance). Show the math for every reward calculation.
+
+3. **ALWAYS show enemy stat calculations** — `enemy_atk = level × multiplier`,
+   `enemy_hp = level × multiplier`. No unexplained numbers.
+
+4. **ALWAYS include at least 2 phases on every boss** — no flat boss fights. Phase at 100% and 50%
+   HP minimum.
+
+5. **ALWAYS include at least 1 event per expedition** — expeditions without events are empty
+   loading screens.
+
+6. **ALWAYS include at least 1 special_mechanic on every boss** — bosses without mechanics are
+   damage sponges, not encounters.
+
+7. **ALWAYS use slug-format IDs** — lowercase, hyphens only, no spaces.
+
+8. **ALWAYS verify loot_table_id references** — every expedition and boss must reference a loot_table
+   node that exists.
+
+9. **NEVER set curse_chance above 0.30** — higher values feel unfair, not challenging.
+
+10. **ALWAYS position act nodes using the canvas layout** — acts stack vertically (Act 1: y=0-400,
+    Act 2: y=450-850, etc.), expeditions flow horizontally within each act.
 
 ---
 
 ## KNOWN LIMITATIONS (v1.0)
 
-**Item generation deferred to v1.1**
+ACTFORGE v1.0 does **not** handle:
 
-Loot tables reference item IDs that may not exist in your project. You have two options:
+- **Faction rewards** — `faction_rewards[]` on expeditions is supported but ACTFORGE leaves it empty.
+  FACTIONFORGE (not yet implemented) will populate faction rewards.
 
-**Option A: Manual wiring (current)**
-- Import the act blueprint
-- Create your own item nodes (or use existing ones)
-- Edit loot table entries to reference your items
+- **Entry costs** — `entry_cost[]` on expeditions is supported but ACTFORGE leaves it empty. Future
+  update may add consumable-gated expeditions.
 
-**Option B: Auto-create stub items (workaround)**
-- After import, the Canvas Doctor will flag "dangling loot_table item_id"
-- Use auto-fix to create stub material items
-- Customize item stats later
+- **Multi-boss encounters** — The schema supports multiple bosses but ACTFORGE generates one boss
+  per act. Multi-boss fights require manual editing.
 
-**v1.1 roadmap (PENDING):**
-- Add `items[]` parameter array with `injects_into` for loot entries
-- OR: Generate stub item nodes alongside act (positioned left of main act)
-- See `CHANGELOG.md` — "ACTFORGE v1.1 — Item parameter injection"
+- **Escort missions** — No support for escort-type expeditions where the goal is protecting an NPC.
+  Would require new node type or extensive event wiring.
+
+- **Dynamic expedition modifiers** — Expeditions have fixed `level`, `enemy_atk`, `enemy_hp`.
+  Dynamic scaling (party level-based difficulty) is a runtime feature, not a generation feature.
 
 ---
 
-## ACTFORGE v1.1 — AUTO-GENERATED STUB ITEMS
+## PIPELINE INTEGRATION
 
-**STATUS: IMPLEMENTED**
+### Reads
 
-Loot tables now include auto-generated stub item nodes. These are placeholder items
-themed to the act's narrative, positioned to the left of the main act structure.
+| File | Source | What ACTFORGE uses |
+|---|---|---|
+| `world-economy.json` | WORLDFORGE | Expedition reward bands, primary resource ID, material IDs |
+| `hero-roster.json` | HEROFORGE | Party power curve, combat class count (for party size recommendations) |
+| `building-system.json` | BUILDFORGE | Material consumption rates (drop rates must exceed consumption) |
+| `world-template.json` | TRANSLATEPASS | Act themes, boss names, zone descriptions |
 
-### Item Generation Rules
+### Writes
 
-**For each loot table, generate 2-4 stub items:**
+| File | Contents |
+|---|---|
+| `generated/acts.json` | Primary output — all act, expedition, boss, loot, event nodes + calibration |
+| `generator/act-flags.md` | Design tension flags (only if flags exist) |
+| `generator/CHANGELOG.md` | Appended ACTFORGE run entry |
 
-1. **Common material** (weight 30-40%) — Crafting ingredient
-   - Type: `item`, subtype: `material`
-   - Rarity: `common`
-   - Stack: 99
-   - Example: "Tidal Herb", "Cultist Scrap", "Rusted Key"
+### Feeds
 
-2. **Uncommon equipment** (weight 15-25%) — Basic gear
-   - Type: `item`, subtype: `equipment`
-   - Slot: `weapon` or `armor` (based on theme)
-   - Rarity: `uncommon`
-   - Stats: ATK +5 or DEF +4
-   - Example: "Smuggler's Knife", "Cultist Robe"
-
-3. **Rare boss drop** (boss loot only, weight 5-10%) — Unique item
-   - Type: `item`, subtype: `equipment` or `material`
-   - Slot: `accessory` or `relic`
-   - Rarity: `rare` or `epic`
-   - Special stat: LCK +8 or unique modifier
-   - Example: "Tide Revenant Heart", "Baron's Signet"
-
-### Stub Item Canvas Position
-
-Position stub items in a column to the LEFT of the act:
-```
-Stub Items Column    Act Structure
-x: -300 to -200      x: 0 to 600
-
-┌─────────────┐
-│ Item 1      │  (−300, 100)
-│ (common)    │
-├─────────────┤
-│ Item 2      │  (−300, 250)
-│ (uncommon)  │
-├─────────────┤
-│ Item 3      │  (−300, 400)
-│ (rare/boss) │
-└─────────────┘
-```
-
-### Stub Item Node Template
-
-```json
-{
-  "id": "item-{slug}-{item_key}",
-  "type": "item",
-  "label": "{Themed Item Name}",
-  "description": "A {adjective} {item} found in {location}. {Flavor text}.",
-  "icon": "{emoji}",
-  "rarity": "common|uncommon|rare|epic",
-  "item_type": "material|equipment",
-  "subtype": "material|equipment",
-  "slot": null,
-  "stat_modifiers": { "attack": 5 },
-  "stack_limit": 99,
-  "stack_max": 99,
-  "visible": true,
-  "canvas_pos": { "x": -300, "y": 150 }
-}
-```
-
-### Loot Table Wiring
-
-Auto-wire stub items to their loot tables:
-```json
-{
-  "id": "loot-{slug}-standard",
-  "type": "loot_table",
-  "entries": [
-    {
-      "item_id": "item-{slug}-herb",
-      "weight": 35,
-      "min_qty": 1,
-      "max_qty": 2,
-      "guaranteed": false
-    },
-    {
-      "item_id": "item-{slug}-knife",
-      "weight": 20,
-      "min_qty": 1,
-      "max_qty": 1,
-      "guaranteed": false
-    }
-  ]
-}
-```
-
-### Edge Generation
-
-Create `drops_from` edges from items to loot tables:
-```json
-{
-  "id": "edge-item-loot-1",
-  "source": "item-{slug}-herb",
-  "target": "loot-{slug}-standard",
-  "data": { "relation": "drops_from" },
-  "style": { "stroke": "#1D9E75", "strokeWidth": 1.5 },
-  "label": "drops_from"
-}
-```
-
-### Item Naming by Theme
-
-Use these thematic prefixes/suffixes:
-
-| Theme | Material | Equipment | Boss Drop |
-|-------|----------|-----------|-----------|
-| coastal | Tidal _, _ of the Deep | Smuggler's _, Fisherman's _ | Tide _, Drowned _ |
-| underground | Cave _, Stone _, _ Shard | Delver's _, Deep _ | Earth _, Void _ |
-| horror | Rotting _, Cursed _ | Haunted _, _ Shroud | Nightmare _, Terror _ |
-| steampunk | Gear _, _ Coil, _ Fuel | Engineer's _, Brass _ | Clockwork _, Steam _ |
-| fantasy | Arcane _, _ Essence | Mage's _, Knight's _ | Dragon _, Phoenix _ |
-
-### Updated Validation Checklist
-
-Add to STEP 6 validation:
-
-**Item generation (v1.1+):**
-- [ ] Each loot table has 2-4 stub items generated
-- [ ] At least one common material per standard loot table
-- [ ] At least one uncommon equipment per standard loot table
-- [ ] Boss loot table has one rare/epic boss drop
-- [ ] All item IDs referenced in loot tables exist in nodes[]
-- [ ] Stub items positioned at x: -300 to -200 (left column)
-- [ ] `drops_from` edges created for all item→loot_table pairs
+| Downstream Forge | What It Reads | Why |
+|---|---|---|
+| ITEMFORGE | `loot_table_ids`, `rarity_bands_by_act` | Item generation matching loot table entries, rarity distribution |
+| UPGRADEFORGE | `act_completion_curve` | Global upgrade timing around act milestones |
+| ASSEMBLER | All of the above | Cross-reference validation |
 
 ---
 
 ## RELATED FILES
 
-- `guild-engine/generator/GENERATORPASS2.md` — Full project generation
-- `guild-engine/generator/GENERATORPASS3.md` — World expansion (add zones to acts)
-- `guild-engine/generator/CANVASDOCTOR.md` — Validation after generation
-- `guild-engine/schema/project.schema.json` — Authoritative field list
-- `guild-engine/docs/WIKI.md` — Section 8 (Act System), Section 2 (Expedition resolver)
+| File | Relationship |
+|---|---|
+| `guild-engine/generator/WORLDFORGE.md` | Upstream — economy constraints |
+| `guild-engine/generator/HEROFORGE.md` | Upstream — hero roster, party power |
+| `guild-engine/generator/BUILDFORGE.md` | Upstream — building system, material consumption |
+| `guild-engine/generator/ITEMFORGE.md` | Downstream — item generation for loot tables |
+| `guild-engine/generator/UPGRADEFORGE.md` | Downstream — global upgrades timed to act completion |
+| `guild-engine/schema/project.schema.json` | Schema authority |
+| `guild-engine/docs/WIKI.md` | Section 1 (Node Types), Section 2 (Expedition Resolver) |

@@ -1,0 +1,838 @@
+{
+  "schema_version": "1.2.0",
+  "buildforge_version": "1.0.0",
+  "generated_at": "2026-03-30T12:10:00Z",
+  "meta": {
+    "project_name": "Shadowbound Guild",
+    "building_count": "standard",
+    "workflow_depth": "standard",
+    "upgrade_style": "linear",
+    "source_material": "pitch.txt + world-template.json",
+    "worldforge_input": "guild-engine/generated/world-economy.json",
+    "heroforge_input": "guild-engine/generated/hero-roster.json",
+    "designer_notes": "A gritty dark fantasy building system with three core structures: Guildhall (passive gold + contracts), Forge (iron gear crafting + salvage), and Shadow Vault (essence extraction + cursed crafting). Each building has a clear economic role and artisan staffing that creates meaningful production decisions."
+  },
+  "nodes": [
+    {
+      "id": "building-guildhall",
+      "type": "building",
+      "label": "Guildhall",
+      "description": "The guild's public face where contracts are signed — produces gold passively and hosts contract negotiation workflows.",
+      "icon": "🏰",
+      "max_level": 3,
+      "levels": [
+        {
+          "build_cost": [{ "resource_id": "resource-gold", "amount": 4000 }],
+          "build_time_s": 0,
+          "production": {},
+          "hero_slots": 0,
+          "recipe_slots": 0
+        },
+        {
+          "build_cost": [{ "resource_id": "resource-gold", "amount": 8000 }],
+          "build_time_s": 45,
+          "production": {},
+          "hero_slots": 0,
+          "recipe_slots": 0
+        },
+        {
+          "build_cost": [{ "resource_id": "resource-gold", "amount": 16000 }],
+          "build_time_s": 90,
+          "production": {},
+          "hero_slots": 0,
+          "recipe_slots": 0
+        }
+      ],
+      "is_crafting_station": false,
+      "has_workflows": true,
+      "artisan_slots": {
+        "base_count": 1,
+        "max_count": 3,
+        "expand_by": "building_upgrade"
+      },
+      "unlock_conditions": [],
+      "visible": true,
+      "canvas_pos": {"x": 1450, "y": 50}
+    },
+    {
+      "id": "building-forge",
+      "type": "building",
+      "label": "Forge",
+      "description": "A soot-choked workshop where iron ore is melted down and hammered into weapons and armor — the backbone of equipment production.",
+      "icon": "🔨",
+      "max_level": 3,
+      "levels": [
+        {
+          "build_cost": [{ "resource_id": "resource-gold", "amount": 5000 }],
+          "build_time_s": 0,
+          "production": {},
+          "hero_slots": 0,
+          "recipe_slots": 2
+        },
+        {
+          "build_cost": [{ "resource_id": "resource-gold", "amount": 10000 }],
+          "build_time_s": 60,
+          "production": {},
+          "hero_slots": 0,
+          "recipe_slots": 3
+        },
+        {
+          "build_cost": [{ "resource_id": "resource-gold", "amount": 20000 }],
+          "build_time_s": 120,
+          "production": {},
+          "hero_slots": 0,
+          "recipe_slots": 4
+        }
+      ],
+      "is_crafting_station": true,
+      "has_workflows": true,
+      "artisan_slots": {
+        "base_count": 1,
+        "max_count": 3,
+        "expand_by": "building_upgrade"
+      },
+      "unlock_conditions": [],
+      "visible": true,
+      "canvas_pos": {"x": 1450, "y": 250}
+    },
+    {
+      "id": "building-shadow-vault",
+      "type": "building",
+      "label": "Shadow Vault",
+      "description": "A hidden chamber that distills shadow essence from captured corruption — unlocks in Act 2 and feeds the cursed economy.",
+      "icon": "🌑",
+      "max_level": 3,
+      "levels": [
+        {
+          "build_cost": [{ "resource_id": "resource-gold", "amount": 12000 }],
+          "build_time_s": 0,
+          "production": {},
+          "hero_slots": 0,
+          "recipe_slots": 2
+        },
+        {
+          "build_cost": [{ "resource_id": "resource-gold", "amount": 24000 }],
+          "build_time_s": 60,
+          "production": {},
+          "hero_slots": 0,
+          "recipe_slots": 3
+        },
+        {
+          "build_cost": [{ "resource_id": "resource-gold", "amount": 48000 }],
+          "build_time_s": 120,
+          "production": {},
+          "hero_slots": 0,
+          "recipe_slots": 4
+        }
+      ],
+      "is_crafting_station": true,
+      "has_workflows": true,
+      "artisan_slots": {
+        "base_count": 1,
+        "max_count": 3,
+        "expand_by": "building_upgrade"
+      },
+      "unlock_conditions": [
+        {
+          "type": "act_reached",
+          "target_id": "act-2",
+          "value": 2
+        }
+      ],
+      "visible": true,
+      "canvas_pos": {"x": 1450, "y": 450}
+    },
+    {
+      "id": "workflow-guildhall-contracts",
+      "type": "building_workflow",
+      "label": "Process Contracts",
+      "behavior": "produce_resource",
+      "action_type": "contract_negotiation",
+      "workflow_mode": "passive",
+      "host_building": "building-guildhall",
+      "total_ticks_required": 240,
+      "output_rules": [
+        {
+          "output_type": "resource",
+          "target": "resource-gold",
+          "quantity": 5,
+          "yield_formula": "5 * (1 + building_level * 0.2)"
+        }
+      ],
+      "success_table": {
+        "base_failure": 0.05,
+        "base_crit": 0.10,
+        "failure_behavior": "consume_inputs_no_output",
+        "crit_behavior": "double_output",
+        "crit_multiplier": 2.0,
+        "failure_grants_xp": true,
+        "failure_xp_multiplier": 0.4,
+        "xp_on_complete": 12
+      },
+      "xp_on_complete": 12,
+      "unlocked_by": {
+        "building_level": 1,
+        "building_prerequisites": []
+      },
+      "auto_repeat": {
+        "available": true,
+        "unlock_by": "none"
+      }
+    },
+    {
+      "id": "workflow-forge-smelt",
+      "type": "building_workflow",
+      "label": "Smelt Ore",
+      "behavior": "consume_resource",
+      "action_type": "smelting",
+      "workflow_mode": "queued",
+      "host_building": "building-forge",
+      "inputs": [
+        { "resource": "resource-iron-ore", "amount": 3 }
+      ],
+      "duration_formula": "base_duration * (1 - worker_skill / 200)",
+      "duration_base_ticks": 240,
+      "batch_config": {
+        "max_size": 1,
+        "unlock_higher_batch_by": "building_upgrade"
+      },
+      "output_rules": [
+        {
+          "output_type": "resource",
+          "target": "resource-iron-ore",
+          "quantity": 1,
+          "yield_formula": "1"
+        }
+      ],
+      "success_table": {
+        "base_failure": 0.10,
+        "base_crit": 0.08,
+        "failure_behavior": "partial_refund",
+        "crit_behavior": "double_output",
+        "crit_multiplier": 2.0,
+        "failure_grants_xp": true,
+        "failure_xp_multiplier": 0.4,
+        "xp_on_complete": 15
+      },
+      "xp_on_complete": 15,
+      "unlocked_by": {
+        "building_level": 1,
+        "building_prerequisites": []
+      },
+      "auto_repeat": {
+        "available": true,
+        "unlock_by": "building_upgrade"
+      }
+    },
+    {
+      "id": "workflow-forge-craft-weapon",
+      "type": "building_workflow",
+      "label": "Craft Weapon",
+      "behavior": "consume_resource",
+      "action_type": "weaponsmith",
+      "workflow_mode": "queued",
+      "host_building": "building-forge",
+      "inputs": [
+        { "resource": "resource-iron-ore", "amount": 5 }
+      ],
+      "duration_formula": "base_duration * (1 - worker_skill / 200) * (1 + (batch_size - 1) * 0.3)",
+      "duration_base_ticks": 360,
+      "batch_config": {
+        "max_size": 3,
+        "unlock_higher_batch_by": "building_upgrade"
+      },
+      "output_rules": [
+        {
+          "output_type": "item",
+          "target": "item-iron-weapon",
+          "quantity": 1,
+          "yield_formula": "1"
+        }
+      ],
+      "success_table": {
+        "base_failure": 0.12,
+        "base_crit": 0.10,
+        "failure_behavior": "partial_refund",
+        "crit_behavior": "quality_upgrade",
+        "crit_multiplier": 2.0,
+        "failure_grants_xp": true,
+        "failure_xp_multiplier": 0.4,
+        "xp_on_complete": 18
+      },
+      "xp_on_complete": 18,
+      "streak_bonus": {
+        "action_type": "weaponsmith",
+        "threshold": 3,
+        "duration_reduction": 0.15,
+        "crit_bonus": 0.08,
+        "decay_on_switch": true
+      },
+      "unlocked_by": {
+        "building_level": 1,
+        "building_prerequisites": []
+      },
+      "auto_repeat": {
+        "available": true,
+        "unlock_by": "building_upgrade"
+      }
+    },
+    {
+      "id": "workflow-forge-craft-armor",
+      "type": "building_workflow",
+      "label": "Craft Armor",
+      "behavior": "consume_resource",
+      "action_type": "armorsmith",
+      "workflow_mode": "queued",
+      "host_building": "building-forge",
+      "inputs": [
+        { "resource": "resource-iron-ore", "amount": 6 }
+      ],
+      "duration_formula": "base_duration * (1 - worker_skill / 200) * (1 + (batch_size - 1) * 0.3)",
+      "duration_base_ticks": 420,
+      "batch_config": {
+        "max_size": 3,
+        "unlock_higher_batch_by": "building_upgrade"
+      },
+      "output_rules": [
+        {
+          "output_type": "item",
+          "target": "item-iron-armor",
+          "quantity": 1,
+          "yield_formula": "1"
+        }
+      ],
+      "success_table": {
+        "base_failure": 0.12,
+        "base_crit": 0.10,
+        "failure_behavior": "partial_refund",
+        "crit_behavior": "quality_upgrade",
+        "crit_multiplier": 2.0,
+        "failure_grants_xp": true,
+        "failure_xp_multiplier": 0.4,
+        "xp_on_complete": 18
+      },
+      "xp_on_complete": 18,
+      "streak_bonus": {
+        "action_type": "armorsmith",
+        "threshold": 3,
+        "duration_reduction": 0.15,
+        "crit_bonus": 0.08,
+        "decay_on_switch": true
+      },
+      "unlocked_by": {
+        "building_level": 1,
+        "building_prerequisites": []
+      },
+      "auto_repeat": {
+        "available": true,
+        "unlock_by": "building_upgrade"
+      }
+    },
+    {
+      "id": "workflow-vault-extract",
+      "type": "building_workflow",
+      "label": "Extract Essence",
+      "behavior": "consume_resource",
+      "action_type": "essence_extraction",
+      "workflow_mode": "queued",
+      "host_building": "building-shadow-vault",
+      "inputs": [],
+      "duration_formula": "base_duration * (1 - worker_skill / 200)",
+      "duration_base_ticks": 480,
+      "batch_config": {
+        "max_size": 1,
+        "unlock_higher_batch_by": "none"
+      },
+      "output_rules": [
+        {
+          "output_type": "resource",
+          "target": "resource-shadow-essence",
+          "quantity": 2,
+          "yield_formula": "2 * (1 + building_level * 0.25)"
+        }
+      ],
+      "success_table": {
+        "base_failure": 0.08,
+        "base_crit": 0.12,
+        "failure_behavior": "consume_inputs_no_output",
+        "crit_behavior": "double_output",
+        "crit_multiplier": 2.0,
+        "failure_grants_xp": true,
+        "failure_xp_multiplier": 0.4,
+        "xp_on_complete": 20
+      },
+      "xp_on_complete": 20,
+      "momentum_config": {
+        "gain_per_job": 8,
+        "decay_per_idle_tick": 0.3,
+        "thresholds": [
+          { "momentum": 25, "label": "Focused", "speed_bonus": 0.10, "crit_bonus": 0.03 },
+          { "momentum": 50, "label": "Attuned", "speed_bonus": 0.20, "crit_bonus": 0.07 },
+          { "momentum": 75, "label": "Corrupted", "speed_bonus": 0.30, "crit_bonus": 0.12 }
+        ],
+        "max": 100
+      },
+      "unlocked_by": {
+        "building_level": 1,
+        "building_prerequisites": []
+      },
+      "auto_repeat": {
+        "available": true,
+        "unlock_by": "building_upgrade"
+      }
+    },
+    {
+      "id": "workflow-vault-craft-cursed",
+      "type": "building_workflow",
+      "label": "Craft Cursed Gear",
+      "behavior": "consume_resource",
+      "action_type": "cursed_crafting",
+      "workflow_mode": "queued",
+      "host_building": "building-shadow-vault",
+      "inputs": [
+        { "resource": "resource-shadow-essence", "amount": 4 }
+      ],
+      "duration_formula": "base_duration * (1 - worker_skill / 200) * (1 + (batch_size - 1) * 0.4)",
+      "duration_base_ticks": 600,
+      "batch_config": {
+        "max_size": 2,
+        "unlock_higher_batch_by": "building_upgrade"
+      },
+      "output_rules": [
+        {
+          "output_type": "item",
+          "target": "item-cursed-relic",
+          "quantity": 1,
+          "yield_formula": "1"
+        }
+      ],
+      "success_table": {
+        "base_failure": 0.15,
+        "base_crit": 0.10,
+        "failure_behavior": "consume_inputs_no_output",
+        "crit_behavior": "quality_upgrade",
+        "crit_multiplier": 2.0,
+        "failure_grants_xp": true,
+        "failure_xp_multiplier": 0.4,
+        "xp_on_complete": 25
+      },
+      "xp_on_complete": 25,
+      "streak_bonus": {
+        "action_type": "cursed_crafting",
+        "threshold": 4,
+        "duration_reduction": 0.20,
+        "crit_bonus": 0.15,
+        "decay_on_switch": true
+      },
+      "unlocked_by": {
+        "building_level": 1,
+        "building_prerequisites": []
+      },
+      "auto_repeat": {
+        "available": true,
+        "unlock_by": "building_upgrade"
+      }
+    },
+    {
+      "id": "upgrade-guildhall-1",
+      "type": "building_upgrade",
+      "label": "Expand Contract Office",
+      "host_building": "building-guildhall",
+      "level": 2,
+      "cost": [
+        { "resource": "resource-gold", "amount": 8000 }
+      ],
+      "effects": {
+        "slots_added": 1,
+        "batch_size_increase": 0,
+        "unlocks_workflows": [],
+        "unlocks_auto_repeat_on": [],
+        "apply_modifier": null
+      },
+      "ui_discovery": {
+        "mode": "transparent",
+        "unknown_label": "",
+        "hint_on_hover": false,
+        "hint_text": "",
+        "show_effects_preview": true
+      },
+      "requires": {
+        "building_level": 1,
+        "cross_building": []
+      }
+    },
+    {
+      "id": "upgrade-guildhall-2",
+      "type": "building_upgrade",
+      "label": "Master Broker's Chamber",
+      "host_building": "building-guildhall",
+      "level": 3,
+      "cost": [
+        { "resource": "resource-gold", "amount": 16000 }
+      ],
+      "effects": {
+        "slots_added": 1,
+        "batch_size_increase": 0,
+        "unlocks_workflows": [],
+        "unlocks_auto_repeat_on": ["workflow-guildhall-contracts"],
+        "apply_modifier": null
+      },
+      "ui_discovery": {
+        "mode": "transparent",
+        "unknown_label": "",
+        "hint_on_hover": false,
+        "hint_text": "",
+        "show_effects_preview": true
+      },
+      "requires": {
+        "building_level": 2,
+        "cross_building": []
+      }
+    },
+    {
+      "id": "upgrade-forge-1",
+      "type": "building_upgrade",
+      "label": "Reinforced Anvil",
+      "host_building": "building-forge",
+      "level": 2,
+      "cost": [
+        { "resource": "resource-gold", "amount": 10000 }
+      ],
+      "effects": {
+        "slots_added": 1,
+        "batch_size_increase": 2,
+        "unlocks_workflows": [],
+        "unlocks_auto_repeat_on": [],
+        "apply_modifier": null
+      },
+      "ui_discovery": {
+        "mode": "transparent",
+        "unknown_label": "",
+        "hint_on_hover": false,
+        "hint_text": "",
+        "show_effects_preview": true
+      },
+      "requires": {
+        "building_level": 1,
+        "cross_building": []
+      }
+    },
+    {
+      "id": "upgrade-forge-2",
+      "type": "building_upgrade",
+      "label": "Master Smith's Tools",
+      "host_building": "building-forge",
+      "level": 3,
+      "cost": [
+        { "resource": "resource-gold", "amount": 20000 }
+      ],
+      "effects": {
+        "slots_added": 1,
+        "batch_size_increase": 1,
+        "unlocks_workflows": [],
+        "unlocks_auto_repeat_on": ["workflow-forge-smelt", "workflow-forge-craft-weapon", "workflow-forge-craft-armor"],
+        "apply_modifier": null
+      },
+      "ui_discovery": {
+        "mode": "transparent",
+        "unknown_label": "",
+        "hint_on_hover": false,
+        "hint_text": "",
+        "show_effects_preview": true
+      },
+      "requires": {
+        "building_level": 2,
+        "cross_building": []
+      }
+    },
+    {
+      "id": "upgrade-vault-1",
+      "type": "building_upgrade",
+      "label": "Essence Containment Ward",
+      "host_building": "building-shadow-vault",
+      "level": 2,
+      "cost": [
+        { "resource": "resource-gold", "amount": 24000 }
+      ],
+      "effects": {
+        "slots_added": 1,
+        "batch_size_increase": 1,
+        "unlocks_workflows": [],
+        "unlocks_auto_repeat_on": [],
+        "apply_modifier": null
+      },
+      "ui_discovery": {
+        "mode": "transparent",
+        "unknown_label": "",
+        "hint_on_hover": false,
+        "hint_text": "",
+        "show_effects_preview": true
+      },
+      "requires": {
+        "building_level": 1,
+        "cross_building": []
+      }
+    },
+    {
+      "id": "upgrade-vault-2",
+      "type": "building_upgrade",
+      "label": "Corruption Siphon",
+      "host_building": "building-shadow-vault",
+      "level": 3,
+      "cost": [
+        { "resource": "resource-gold", "amount": 48000 }
+      ],
+      "effects": {
+        "slots_added": 1,
+        "batch_size_increase": 1,
+        "unlocks_workflows": [],
+        "unlocks_auto_repeat_on": ["workflow-vault-extract", "workflow-vault-craft-cursed"],
+        "apply_modifier": null
+      },
+      "ui_discovery": {
+        "mode": "transparent",
+        "unknown_label": "",
+        "hint_on_hover": false,
+        "hint_text": "",
+        "show_effects_preview": true
+      },
+      "requires": {
+        "building_level": 2,
+        "cross_building": []
+      }
+    },
+    {
+      "id": "recipe-iron-sword",
+      "type": "crafting_recipe",
+      "label": "Iron Sword",
+      "output_item": "item-iron-sword",
+      "output_quantity": 1,
+      "inputs": [
+        { "resource": "resource-iron-ore", "amount": 5 }
+      ],
+      "craft_time_formula": "base_duration * (1 - worker_skill / 200)",
+      "required_workflow": "workflow-forge-craft-weapon",
+      "required_building_level": 1,
+      "success_table_override": null,
+      "crit_output": {
+        "behavior": "double_output"
+      }
+    },
+    {
+      "id": "recipe-iron-axe",
+      "type": "crafting_recipe",
+      "label": "Iron Axe",
+      "output_item": "item-iron-axe",
+      "output_quantity": 1,
+      "inputs": [
+        { "resource": "resource-iron-ore", "amount": 6 }
+      ],
+      "craft_time_formula": "base_duration * (1 - worker_skill / 200)",
+      "required_workflow": "workflow-forge-craft-weapon",
+      "required_building_level": 1,
+      "success_table_override": null,
+      "crit_output": {
+        "behavior": "double_output"
+      }
+    },
+    {
+      "id": "recipe-iron-chestplate",
+      "type": "crafting_recipe",
+      "label": "Iron Chestplate",
+      "output_item": "item-iron-chestplate",
+      "output_quantity": 1,
+      "inputs": [
+        { "resource": "resource-iron-ore", "amount": 8 }
+      ],
+      "craft_time_formula": "base_duration * (1 - worker_skill / 200)",
+      "required_workflow": "workflow-forge-craft-armor",
+      "required_building_level": 1,
+      "success_table_override": null,
+      "crit_output": {
+        "behavior": "double_output"
+      }
+    },
+    {
+      "id": "recipe-shadow-amulet",
+      "type": "crafting_recipe",
+      "label": "Shadow Amulet",
+      "output_item": "item-shadow-amulet",
+      "output_quantity": 1,
+      "inputs": [
+        { "resource": "resource-shadow-essence", "amount": 4 }
+      ],
+      "craft_time_formula": "base_duration * (1 - worker_skill / 200)",
+      "required_workflow": "workflow-vault-craft-cursed",
+      "required_building_level": 1,
+      "success_table_override": null,
+      "crit_output": {
+        "behavior": "quality_upgrade",
+        "result_item": "item-void-relic"
+      }
+    }
+  ],
+  "building_calibration": {
+    "cost_curves": {
+      "worldforge_contract": {
+        "primary_resource_id": "resource-gold",
+        "first_upgrade_cost": 2200,
+        "upgrade_cost_scaling": "×2.0 per tier"
+      },
+      "building_cost_audit": [
+        {
+          "building_id": "building-guildhall",
+          "tier": 1,
+          "level_1_cost": 4000,
+          "time_to_build_minutes": 8.33,
+          "pass": true
+        },
+        {
+          "building_id": "building-forge",
+          "tier": 1,
+          "level_1_cost": 5000,
+          "time_to_build_minutes": 10.42,
+          "pass": true
+        },
+        {
+          "building_id": "building-shadow-vault",
+          "tier": 2,
+          "level_1_cost": 12000,
+          "time_to_build_minutes": 25.0,
+          "pass": true
+        }
+      ]
+    },
+    "workflow_timing": {
+      "duration_audit": [
+        {
+          "workflow_id": "workflow-guildhall-contracts",
+          "base_duration_ticks": 240,
+          "with_skilled_artisan_ticks": 216,
+          "batch_3_per_item_ticks": null,
+          "pass": true
+        },
+        {
+          "workflow_id": "workflow-forge-smelt",
+          "base_duration_ticks": 240,
+          "with_skilled_artisan_ticks": 179,
+          "batch_3_per_item_ticks": null,
+          "pass": true
+        },
+        {
+          "workflow_id": "workflow-forge-craft-weapon",
+          "base_duration_ticks": 360,
+          "with_skilled_artisan_ticks": 228,
+          "batch_3_per_item_ticks": 95,
+          "pass": true
+        },
+        {
+          "workflow_id": "workflow-forge-craft-armor",
+          "base_duration_ticks": 420,
+          "with_skilled_artisan_ticks": 266,
+          "batch_3_per_item_ticks": 111,
+          "pass": true
+        },
+        {
+          "workflow_id": "workflow-vault-extract",
+          "base_duration_ticks": 480,
+          "with_skilled_artisan_ticks": 367,
+          "batch_3_per_item_ticks": null,
+          "pass": true
+        },
+        {
+          "workflow_id": "workflow-vault-craft-cursed",
+          "base_duration_ticks": 600,
+          "with_skilled_artisan_ticks": 459,
+          "batch_3_per_item_ticks": null,
+          "pass": true
+        }
+      ]
+    },
+    "success_rates": {
+      "failure_rate_audit": [
+        { "workflow_id": "workflow-guildhall-contracts", "base_failure": 0.05, "effective_failure_with_artisan": 0.04, "danger_zone": false },
+        { "workflow_id": "workflow-forge-smelt", "base_failure": 0.10, "effective_failure_with_artisan": 0.08, "danger_zone": false },
+        { "workflow_id": "workflow-forge-craft-weapon", "base_failure": 0.12, "effective_failure_with_artisan": 0.09, "danger_zone": false },
+        { "workflow_id": "workflow-forge-craft-armor", "base_failure": 0.12, "effective_failure_with_artisan": 0.09, "danger_zone": false },
+        { "workflow_id": "workflow-vault-extract", "base_failure": 0.08, "effective_failure_with_artisan": 0.06, "danger_zone": false },
+        { "workflow_id": "workflow-vault-craft-cursed", "base_failure": 0.15, "effective_failure_with_artisan": 0.11, "danger_zone": false }
+      ]
+    },
+    "material_flow_map": [
+      {
+        "material_id": "resource-iron-ore",
+        "source": "expedition + workflow-forge-smelt (refine)",
+        "consumed_by_workflows": ["workflow-forge-craft-weapon", "workflow-forge-craft-armor"],
+        "output_produces": ["item-iron-sword", "item-iron-axe", "item-iron-chestplate"],
+        "flow_status": "active"
+      },
+      {
+        "material_id": "resource-shadow-essence",
+        "source": "workflow-vault-extract",
+        "consumed_by_workflows": ["workflow-vault-craft-cursed"],
+        "output_produces": ["item-shadow-amulet", "item-void-relic"],
+        "flow_status": "active"
+      }
+    ],
+    "artisan_coverage": [
+      {
+        "artisan_class_id": "artisan-forgemaster",
+        "matched_buildings": ["building-forge"],
+        "matched_action_types": ["weaponsmith", "armorsmith"],
+        "coverage_status": "matched"
+      },
+      {
+        "artisan_class_id": "artisan-shadow-alchemist",
+        "matched_buildings": ["building-shadow-vault"],
+        "matched_action_types": ["essence_extraction", "cursed_crafting"],
+        "coverage_status": "matched"
+      },
+      {
+        "artisan_class_id": "artisan-contract-broker",
+        "matched_buildings": ["building-guildhall"],
+        "matched_action_types": ["contract_negotiation", "resource_management"],
+        "coverage_status": "matched"
+      }
+    ],
+    "chain_definitions": [
+      {
+        "chain_name": "Ore-to-Weapons",
+        "steps": [
+          { "building_id": "building-forge", "workflow_id": "workflow-forge-smelt", "output": "refined iron" },
+          { "building_id": "building-forge", "workflow_id": "workflow-forge-craft-weapon", "output": "iron weapon" }
+        ],
+        "total_time_seconds": 10.5,
+        "bottleneck_step": "workflow-forge-craft-weapon"
+      },
+      {
+        "chain_name": "Shadow-to-Power",
+        "steps": [
+          { "building_id": "building-shadow-vault", "workflow_id": "workflow-vault-extract", "output": "shadow essence" },
+          { "building_id": "building-shadow-vault", "workflow_id": "workflow-vault-craft-cursed", "output": "cursed relic" }
+        ],
+        "total_time_seconds": 18.0,
+        "bottleneck_step": "workflow-vault-craft-cursed"
+      }
+    ]
+  },
+  "flags": [],
+  "downstream_contracts": {
+    "actforge": {
+      "material_consumption_rates": {
+        "resource-iron-ore": { "per_craft": 5, "per_minute_at_base": 10 },
+        "resource-shadow-essence": { "per_craft": 4, "per_minute_at_base": 4 }
+      },
+      "note": "ACTFORGE expedition drop rates must exceed building consumption at intended pacing. Iron ore: aim for 15-20 drops per Act 1 expedition. Shadow essence: aim for 6-10 drops per Act 2 expedition."
+    },
+    "itemforge": {
+      "recipe_output_items": ["item-iron-sword", "item-iron-axe", "item-iron-chestplate", "item-shadow-amulet", "item-void-relic"],
+      "salvage_workflows": [],
+      "note": "ITEMFORGE must generate items matching these output_item IDs. Items should have salvage_profile if salvage workflows are added later."
+    },
+    "upgradeforge": {
+      "building_upgrade_ids": ["upgrade-guildhall-1", "upgrade-guildhall-2", "upgrade-forge-1", "upgrade-forge-2", "upgrade-vault-1", "upgrade-vault-2"],
+      "max_building_levels": { "building-guildhall": 3, "building-forge": 3, "building-shadow-vault": 3 },
+      "note": "UPGRADEFORGE generates global upgrades; building_upgrade nodes are already generated by BUILDFORGE. Global upgrades should complement these per-building upgrades."
+    }
+  }
+}

@@ -6,6 +6,103 @@
 
 ---
 
+## WORLDFORGE Runs
+
+### WORLDFORGE Run — 2026-03-30
+- VERSION: v1.0.0
+- TYPE: SYSTEM
+- SCOPE: WORLDFORGE
+- STATUS: IMPLEMENTED
+- INPUT: pitch.txt + world-template.json (Shadowbound Guild dark fantasy)
+- OUTPUT: guild-engine/generated/world-economy.json
+- RESOURCES: 3 total (1 primary, 0 secondary, 2 materials)
+- PACING: medium
+- ECONOMY_TYPE: hybrid
+- FLAGS: 2 design tensions (0 high, 2 low)
+- DOWNSTREAM: world-economy.json ready for HEROFORGE, BUILDFORGE, ACTFORGE, ITEMFORGE, UPGRADEFORGE
+
+### HEROFORGE Run — 2026-03-30
+- VERSION: v1.0.0
+- TYPE: SYSTEM
+- SCOPE: HEROFORGE
+- STATUS: IMPLEMENTED
+- INPUT: world-economy.json + pitch.txt + world-template.json (Shadowbound Guild dark fantasy)
+- OUTPUT: guild-engine/generated/hero-roster.json
+- CLASSES: 8 total (5 combat, 3 artisan)
+- ARCHETYPES: Tank (Shieldbearer), Damage (Shadow Hunter), Support (Warden), Bruiser (Plague Veteran), Speed (Outrunner)
+- FLAGS: 2 design tensions (0 high, 2 low)
+- DOWNSTREAM: hero-roster.json ready for BUILDFORGE, ACTFORGE, ITEMFORGE, UPGRADEFORGE
+
+### BUILDFORGE Run — 2026-03-30
+- VERSION: v1.0.0
+- TYPE: SYSTEM
+- SCOPE: BUILDFORGE
+- STATUS: IMPLEMENTED
+- INPUT: world-economy.json + hero-roster.json + pitch.txt + world-template.json (Shadowbound Guild)
+- OUTPUT: guild-engine/generated/building-system.json
+- BUILDINGS: 3 total (1 producer, 1 transformer, 1 creator)
+- WORKFLOWS: 6 total (5 queued, 1 passive)
+- UPGRADES: 6 total
+- RECIPES: 4 total
+- FLAGS: 0 design tensions flagged
+- DOWNSTREAM: building-system.json ready for ACTFORGE, ITEMFORGE, UPGRADEFORGE
+
+### ACTFORGE Run — 2026-03-30
+- VERSION: v1.0.0
+- TYPE: SYSTEM
+- SCOPE: ACTFORGE
+- STATUS: IMPLEMENTED
+- INPUT: world-economy.json + hero-roster.json + building-system.json + pitch.txt + world-template.json
+- OUTPUT: guild-engine/generated/acts.json
+- ACTS: 2 total
+- EXPEDITIONS: 6 standard, 2 boss
+- EVENTS: 8 total
+- LOOT TABLES: 8 total
+- FLAGS: 0 design tensions flagged
+- DOWNSTREAM: acts.json ready for ITEMFORGE, UPGRADEFORGE
+
+### ITEMFORGE Run — 2026-03-30
+- VERSION: v1.0.0
+- TYPE: SYSTEM
+- SCOPE: ITEMFORGE
+- STATUS: IMPLEMENTED
+- INPUT: world-economy.json + hero-roster.json + building-system.json + acts.json + pitch.txt + world-template.json
+- OUTPUT: guild-engine/generated/item-ecosystem.json
+- ITEMS: 50 total (24 equipment, 8 consumables, 18 materials)
+- RARITY: 16 common, 14 uncommon, 9 rare, 5 epic, 1 legendary
+- LOOT TABLES: 8 total (8 matched to ACTFORGE references)
+- SALVAGE PROFILES: 24/24 equipment items with salvage defined
+- FLAGS: 0 design tensions flagged
+- DOWNSTREAM: item-ecosystem.json ready for UPGRADEFORGE, ASSEMBLER
+
+### UPGRADEFORGE Run — 2026-03-30
+- VERSION: v1.0.0
+- TYPE: SYSTEM
+- SCOPE: UPGRADEFORGE
+- STATUS: IMPLEMENTED
+- INPUT: world-economy.json + hero-roster.json + building-system.json + item-ecosystem.json + acts.json + pitch.txt + world-template.json
+- OUTPUT: guild-engine/generated/upgrade-ecosystem.json
+- UPGRADES: 10 total (3 economy, 3 hero, 2 building, 2 expedition)
+- PRESTIGE: disabled
+- FACTIONS: 2 total (Merchant Consortium, Shadow Hunters — 5 rep tiers each)
+- FLAGS: 0 design tensions flagged
+- DOWNSTREAM: upgrade-ecosystem.json ready for ASSEMBLER
+
+### ASSEMBLER Run — 2026-03-30
+- VERSION: v1.0.0
+- TYPE: SYSTEM
+- SCOPE: ASSEMBLER
+- STATUS: PASS_WITH_WARNINGS
+- INPUT: world-economy.json + hero-roster.json + building-system.json + acts.json + item-ecosystem.json + upgrade-ecosystem.json
+- OUTPUT: guild-engine/generated/project.json
+- NODES MERGED: 116 total (resources: 3, hero_class: 8, building: 3, building_workflow: 6, building_upgrade: 6, crafting_recipe: 4, act: 2, expedition: 6, boss_expedition: 2, event: 8, loot_table: 8, item: 50, upgrade: 10, faction: 2, prestige: 0)
+- CROSS-REFERENCE ERRORS: 0
+- CALIBRATION WARNINGS: 3 (Act 1 fast completion, iron ore deficit, level-1 party low power)
+- CANVAS DOCTOR: skipped
+- NEXT: Import project.json into editor → run auto-rig → Compile → playtest
+
+---
+
 ## How to read this file
 
 Each entry has:
