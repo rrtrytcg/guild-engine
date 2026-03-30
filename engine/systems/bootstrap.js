@@ -1,7 +1,7 @@
 // Converts a project.json into a fully hydrated live game state.
 // Called once on load. Everything the engine needs lives here.
 
-export function bootstrapState(project) {
+export function bootstrapState(project, engine) {
   const nodeMap = new Map(project.nodes.map((n) => [n.id, n]))
 
   // Resources

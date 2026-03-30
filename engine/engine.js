@@ -10,7 +10,7 @@ import {
   summarizeExpeditionReadiness,
 } from './systems/expeditions.js'
 import { tickCrafting, processBuildingTick, buildBuilding, recruitHero, buyUpgrade, equipItem, unequipItem, startCraft, saveGame, loadSave, evaluateFormula } from './systems/buildings.js'
-import { screenRegistry, defineScreen as engineDefineScreen, getScreen as engineGetScreen } from './layoutEngine.js'
+import { screenRegistry, defineScreen as engineDefineScreen, getScreen as engineGetScreen, renderScreenToHTML } from './layoutEngine.js'
 
 const TICK_MS = 250 // 4 ticks/sec
 const ITEM_RARITY_TIERS = ['common', 'uncommon', 'rare', 'epic', 'legendary']
@@ -25,6 +25,7 @@ export class EngineRuntime {
     // Re-export screen registry functions for external use
     this.defineScreen = engineDefineScreen
     this.getScreen = engineGetScreen
+    this.renderScreenToHTML = renderScreenToHTML
 
     this.actions = {
       buildBuilding: (id) => {
@@ -124,7 +125,7 @@ export class EngineRuntime {
 
   init(project, onRender) {
     this.stop()
-    this.state = bootstrapState(project)
+    this.state = bootstrapState(project, this)
     this.renderCallback = onRender
 
     const restored = loadSave(this.state)
