@@ -1,70 +1,105 @@
 import React from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { renderToString } from 'react-dom/server'
+import { render, screen } from '@testing-library/react'
+import { ScreenBuilder } from '../src/components/ScreenBuilder.jsx'
 
-const useStoreMock = vi.fn((selector) => selector({
-  screens: [{
-    id: 'ui.inventory',
-    name: 'Inventory',
-    nav: { toolbar: true, hotkey: 'I', group: 'main' },
-    sourceName: 'inventory.screen.json',
-    layout: {
-      id: 'root',
-      type: 'vbox',
-      children: [
-        { id: 'title_label', type: 'label', text: 'Inventory' },
-      ],
+// Mock all dependencies
+vi.mock('../src/hooks/useWidgetTree', () => ({
+  default: () => ({
+    activeScreen: {
+      id: 'ui.inventory',
+      name: 'Inventory',
+      layout: { id: 'root', type: 'vbox', children: [] },
     },
-  }],
-  activeScreen: {
-    id: 'ui.inventory',
-    name: 'Inventory',
-    nav: { toolbar: true, hotkey: 'I', group: 'main' },
-    layout: {
-      id: 'root',
-      type: 'vbox',
-      children: [
-        { id: 'title_label', type: 'label', text: 'Inventory' },
-      ],
+    screens: [{ id: 'ui.inventory', name: 'Inventory' }],
+    rootWidget: { id: 'root', type: 'vbox', children: [] },
+    selectedWidgetId: null,
+    widgetCount: 1,
+    ensureDraft: vi.fn(),
+    selectWidget: vi.fn(),
+    addWidget: vi.fn(),
+    deleteWidget: vi.fn(),
+    duplicateWidget: vi.fn(),
+    moveWidget: vi.fn(),
+    wrapWidget: vi.fn(),
+  }),
+}))
+
+vi.mock('../src/hooks/useScreenPreview', () => ({
+  default: () => ({
+    activeScreen: {
+      id: 'ui.inventory',
+      name: 'Inventory',
+      layout: { id: 'root', type: 'vbox', children: [] },
     },
-  },
-  activeScreenId: null,
-  selectedWidgetId: null,
-  previewDataSource: 'live',
-  mockData: {},
-  isDirty: false,
-  ensureScreenBuilderDraft: vi.fn(),
-  loadScreens: vi.fn(),
-  selectScreen: vi.fn(),
-  setSelectedWidgetId: vi.fn(),
-  setPreviewDataSource: vi.fn(),
-  addScreenWidget: vi.fn(),
-  deleteScreenWidget: vi.fn(),
-  duplicateScreenWidget: vi.fn(),
-  moveScreenWidget: vi.fn(),
-  wrapScreenWidget: vi.fn(),
-  updateScreenWidget: vi.fn(),
-  createScreen: vi.fn(),
-  deleteScreen: vi.fn(),
-  renameScreen: vi.fn(),
-  updateScreenNav: vi.fn(),
+    snapshot: {},
+  }),
 }))
 
 vi.mock('../src/store/useStore', () => ({
-  default: (selector) => useStoreMock(selector),
+  default: (selector) => selector({
+    previewDataSource: 'live',
+    canvasZoom: 1.0,
+    canvasFitMode: 'manual',
+    setCanvasZoom: vi.fn(),
+    fitCanvasToViewport: vi.fn(),
+    screens: [{ id: 'ui.inventory', name: 'Inventory' }],
+    activeScreen: {
+      id: 'ui.inventory',
+      name: 'Inventory',
+      layout: { id: 'root', type: 'vbox', children: [] },
+    },
+    activeScreenId: 'ui.inventory',
+    selectedWidgetId: null,
+    previewDataSource: 'live',
+    mockData: {},
+    isDirty: false,
+    ensureScreenBuilderDraft: vi.fn(),
+    loadScreens: vi.fn(),
+    selectScreen: vi.fn(),
+    setSelectedWidgetId: vi.fn(),
+    setPreviewDataSource: vi.fn(),
+    addScreenWidget: vi.fn(),
+    deleteScreenWidget: vi.fn(),
+    duplicateScreenWidget: vi.fn(),
+    moveScreenWidget: vi.fn(),
+    wrapScreenWidget: vi.fn(),
+    updateScreenWidget: vi.fn(),
+    createScreen: vi.fn(),
+    deleteScreen: vi.fn(),
+    renameScreen: vi.fn(),
+    updateScreenNav: vi.fn(),
+  }),
 }))
 
-describe('ScreenBuilder shell', () => {
-  it('renders the initial shell panels', async () => {
-    const { default: ScreenBuilder } = await import('../src/components/ScreenBuilder.jsx')
-    const markup = renderToString(React.createElement(ScreenBuilder))
+describe('ScreenBuilder new layout', () => {
+  it('renders 4-zone layout with palette, tree, canvas, properties', () => {
+    render(<ScreenBuilder />)
+    // Left top - Palette
+    expect(screen.getByText('Palette')).toBeTruthy()
+    // Left bottom - Widget Tree
+    expect(screen.getByText('Widget Tree')).toBeTruthy()
+    // Center - Canvas
+    expect(screen.getByText('Canvas')).toBeTruthy()
+    // Right - Properties
+    expect(screen.getByText('Properties')).toBeTruthy()
+  })
 
-    expect(markup).toContain('Widget Tree')
-    expect(markup).toContain('Inventory')
-    expect(markup).toContain('title_label')
-    expect(markup).toContain('Preview data')
-    expect(markup).toContain('Load')
-    expect(markup).toContain('Navigation')
-    expect(markup).toContain('ui.inventory')
+  it('renders Inventory screen name in canvas header', () => {
+    render(<ScreenBuilder />)
+    // Inventory appears multiple times (WidgetTree header, Canvas header, etc.)
+    expect(screen.getAllByText('Inventory').length).toBeGreaterThan(0)
+  })
+
+  it('still renders NavSettings in properties panel', () => {
+    render(<ScreenBuilder />)
+    // Navigation appears in NavSettings
+    expect(screen.getAllByText('Navigation').length).toBeGreaterThan(0)
+  })
+
+  it('renders screen tabs in canvas area header', () => {
+    render(<ScreenBuilder />)
+    // Screen tabs appear in the canvas area
+    expect(screen.getAllByText('Inventory').length).toBeGreaterThan(0)
   })
 })

@@ -14,6 +14,8 @@ describe('createScreenBuilderSlice', () => {
     expect(slice.previewDataSource).toBe('live')
     expect(slice.mockData).toEqual({})
     expect(slice.isDirty).toBe(false)
+    expect(slice.canvasZoom).toBe(1.0)
+    expect(slice.canvasFitMode).toBe('manual')
   })
 
   it('wires screen builder setters through zustand set', () => {
@@ -45,6 +47,8 @@ describe('createScreenBuilderSlice', () => {
       isDirty: false,
       screenErrors: [],
       screenWarnings: [],
+      canvasZoom: 1.0,
+      canvasFitMode: 'manual',
     })
 
     const firstUpdate = set.mock.calls[0][0]
@@ -77,5 +81,39 @@ describe('createScreenBuilderSlice', () => {
     slice.loadScreens(screens)
 
     expect(set).toHaveBeenCalledWith(expect.any(Function))
+  })
+
+  it('setCanvasZoom clamps value between 0.5 and 2.0 and sets fitMode to manual', () => {
+    const set = vi.fn()
+    const slice = createScreenBuilderSlice(set)
+
+    slice.setCanvasZoom(1.5)
+    const updater1 = set.mock.calls[0][0]
+    expect(updater1({})).toEqual({
+      canvasZoom: 1.5,
+      canvasFitMode: 'manual',
+    })
+
+    slice.setCanvasZoom(0.2)
+    const updater2 = set.mock.calls[1][0]
+    expect(updater2({})).toEqual({
+      canvasZoom: 0.5,
+      canvasFitMode: 'manual',
+    })
+
+    slice.setCanvasZoom(3.0)
+    const updater3 = set.mock.calls[2][0]
+    expect(updater3({})).toEqual({
+      canvasZoom: 2.0,
+      canvasFitMode: 'manual',
+    })
+  })
+
+  it('fitCanvasToViewport sets canvasFitMode to auto', () => {
+    const set = vi.fn()
+    const slice = createScreenBuilderSlice(set)
+
+    slice.fitCanvasToViewport()
+    expect(set).toHaveBeenCalledWith({ canvasFitMode: 'auto' })
   })
 })

@@ -34,6 +34,8 @@ export const SCREEN_BUILDER_DEFAULTS = {
   isDirty: false,
   screenErrors: [],
   screenWarnings: [],
+  canvasZoom: 1.0,
+  canvasFitMode: 'manual',
 }
 
 export function createScreenBuilderSlice(set) {
@@ -97,6 +99,13 @@ export function createScreenBuilderSlice(set) {
     setPreviewDataSource: (previewDataSource) => set({ previewDataSource }),
     setMockData: (mockData) => set({ mockData: mockData ?? {} }),
     setScreenBuilderDirty: (isDirty) => set({ isDirty: Boolean(isDirty) }),
+
+    setCanvasZoom: (zoom) => set((state) => ({
+      canvasZoom: Math.min(2.0, Math.max(0.5, zoom)),
+      canvasFitMode: 'manual',
+    })),
+
+    fitCanvasToViewport: () => set({ canvasFitMode: 'auto' }),
 
     addScreenWidget: (parentId, type) => set((state) => {
       const layout = getScreenLayout(state.activeScreen)
