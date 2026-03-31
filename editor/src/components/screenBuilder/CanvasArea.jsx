@@ -1,13 +1,20 @@
-import { useMemo } from 'react'
+import { useMemo, useRef, useEffect, useCallback } from 'react'
 import { defineScreen, renderScreenToHTML } from '../../../../engine/layoutEngine.js'
 import useScreenPreview from '../../hooks/useScreenPreview'
 import useStore from '../../store/useStore'
 import { CanvasToolbar } from './CanvasToolbar.jsx'
+import SelectionOverlay from './SelectionOverlay.jsx'
 
 export function CanvasArea({ onAction }) {
   const { activeScreen, snapshot } = useScreenPreview()
   const canvasZoom = useStore((s) => s.canvasZoom)
   const canvasFitMode = useStore((s) => s.canvasFitMode)
+  const selectedWidgetId = useStore((s) => s.selectedWidgetId)
+  const setSelectedWidgetId = useStore((s) => s.setSelectedWidgetId)
+  const updateScreenWidget = useStore((s) => s.updateScreenWidget)
+
+  const viewportRef = useRef(null)
+  const surfaceRef = useRef(null)
 
   const html = useMemo(() => {
     if (!activeScreen?.id || !activeScreen?.layout?.type) return ''
@@ -15,17 +22,48 @@ export function CanvasArea({ onAction }) {
     return renderScreenToHTML(activeScreen.id, snapshot, () => {})
   }, [activeScreen, snapshot])
 
-  const handleCanvasClick = (event) => {
+  const handleCanvasClick = useCallback((event) => {
     const actionTarget = event.target instanceof Element
       ? event.target.closest('[data-action]')
       : null
     const action = actionTarget?.getAttribute('data-action')
-    if (!action) return
+    if (action) {
+      event.preventDefault()
+      event.stopPropagation()
+      onAction?.(action)
+      return
+    }
 
-    event.preventDefault()
-    event.stopPropagation()
-    onAction?.(action)
-  }
+    const widgetTarget = event.target instanceof Element
+      ? event.target.closest('[data-widget-id]')
+      : null
+    const widgetId = widgetTarget?.getAttribute('data-widget-id')
+
+    if (widgetId) {
+      setSelectedWidgetId(widgetId)
+    } else {
+      setSelectedWidgetId(null)
+    }
+  }, [onAction, setSelectedWidgetId])
+
+  const handleResize = useCallback((widgetId, updates) => {
+    if (updates.width != null) {
+      updateScreenWidget(widgetId, 'style.width', updates.width)
+    }
+    if (updates.height != null) {
+      updateScreenWidget(widgetId, 'style.height', updates.height)
+    }
+  }, [updateScreenWidget])
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setSelectedWidgetId(null)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [setSelectedWidgetId])
 
   if (!activeScreen) {
     return (
@@ -51,7 +89,7 @@ export function CanvasArea({ onAction }) {
       </div>
 
       {/* Viewport with scrollbars */}
-      <div style={viewportStyle} data-canvas-viewport>
+      <div style={viewportStyle} data-canvas-viewport ref={viewportRef}>
         {/* Grid background layer */}
         <div style={gridBackgroundStyle} />
 
@@ -59,6 +97,7 @@ export function CanvasArea({ onAction }) {
         <div
           style={surfaceOuterStyle}
           onClick={handleCanvasClick}
+          ref={surfaceRef}
         >
           <div
             data-canvas-surface
@@ -69,6 +108,15 @@ export function CanvasArea({ onAction }) {
             }}
             dangerouslySetInnerHTML={{ __html: html }}
           />
+          {selectedWidgetId && (
+            <SelectionOverlay
+              containerRef={surfaceRef}
+              selectedWidgetId={selectedWidgetId}
+              onSelect={setSelectedWidgetId}
+              onDeselect={() => setSelectedWidgetId(null)}
+              onResize={handleResize}
+            />
+          )}
         </div>
       </div>
 

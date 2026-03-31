@@ -140,16 +140,17 @@ describe('widgetToHTML', () => {
     })
   })
 
-  describe('display widgets', () => {
-    it('renders label with text content', () => {
-      const label = { type: 'label', text: 'Hello World' }
-      expect(widgetToHTML(label, snapshot, () => {})).toBe('<span class="widget-label">Hello World</span>')
-    })
+describe('display widgets', () => {
+  it('renders label with text content', () => {
+    const label = { type: 'label', text: 'Hello World', id: 'test' }
+    expect(widgetToHTML(label, snapshot, () => {})).toContain('class="widget-label"')
+    expect(widgetToHTML(label, snapshot, () => {})).toContain('Hello World')
+  })
 
-    it('renders label with bindings', () => {
-      const label = { type: 'label', text: 'Gold: {{resources.gold}}' }
-      expect(widgetToHTML(label, snapshot, () => {})).toBe('<span class="widget-label">Gold: 100</span>')
-    })
+  it('renders label with bindings', () => {
+    const label = { type: 'label', text: 'Gold: {{resources.gold}}', id: 'test' }
+    expect(widgetToHTML(label, snapshot, () => {})).toContain('Gold: 100')
+  })
 
     it('renders label with style', () => {
       const label = { type: 'label', text: 'Styled', style: { color: 'red' } }

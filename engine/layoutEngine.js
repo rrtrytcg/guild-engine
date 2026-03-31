@@ -103,7 +103,7 @@ function renderContainer(widget, snapshot, actionHandler, depth) {
   const customStyle = style ? styleStr(style) : ''
   const fullStyle = customStyle ? `${baseStyle};${customStyle}` : baseStyle
   
-  return `<div class="widget-${type}" style="${fullStyle}">${childHtml}</div>`
+  return `<div class="widget-${type}" data-widget-id="${escapeAttr(widget.id)}" style="${fullStyle}">${childHtml}</div>`
 }
 
 /**
@@ -119,7 +119,7 @@ function renderProgressbar(widget, snapshot) {
   const color = widget.color ?? '#7F77DD'
   const styleAttr = widget.style ? ` style="${styleStr(widget.style)}"` : ''
   
-  return `<div class="widget-progressbar"${styleAttr}>
+  return `<div class="widget-progressbar" data-widget-id="${escapeAttr(widget.id)}"${styleAttr}>
     <div class="progress-bar-outer" style="height:${widget.height ?? 6}px">
       <div class="progress-bar-inner" style="width:${pct}%;background:${color}"></div>
     </div>
@@ -147,25 +147,25 @@ export function widgetToHTML(widget, snapshot, actionHandler, depth = 0) {
       return renderContainer(widget, snapshot, actionHandler, depth)
 
     case 'label':
-      return `<span class="widget-label"${widget.style ? ` style="${styleStr(widget.style)}"` : ''}>${resolveBindings(widget.text ?? '', snapshot)}</span>`
+      return `<span class="widget-label" data-widget-id="${escapeAttr(widget.id)}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''}>${resolveBindings(widget.text ?? '', snapshot)}</span>`
 
     case 'textbutton':
-      return `<button class="widget-textbutton" data-action="${escapeAttr(widget.action ?? '')}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''}>${widget.icon ? widget.icon + ' ' : ''}${escape(resolveBindings(widget.label ?? '', snapshot))}</button>`
+      return `<button class="widget-textbutton" data-widget-id="${escapeAttr(widget.id)}" data-action="${escapeAttr(widget.action ?? '')}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''}>${widget.icon ? widget.icon + ' ' : ''}${escape(resolveBindings(widget.label ?? '', snapshot))}</button>`
 
     case 'iconbutton':
-      return `<button class="widget-iconbutton" data-action="${escapeAttr(widget.action ?? '')}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''}>${escape(widget.icon ?? '')}</button>`
+      return `<button class="widget-iconbutton" data-widget-id="${escapeAttr(widget.id)}" data-action="${escapeAttr(widget.action ?? '')}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''}>${escape(widget.icon ?? '')}</button>`
 
     case 'textinput':
-      return `<input class="widget-textinput" type="text" placeholder="${escapeAttr(widget.placeholder ?? '')}" value="${escapeAttr(widget.binding ? String(getByPath(snapshot, widget.binding) ?? '') : '')}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''} />`
+      return `<input class="widget-textinput" data-widget-id="${escapeAttr(widget.id)}" type="text" placeholder="${escapeAttr(widget.placeholder ?? '')}" value="${escapeAttr(widget.binding ? String(getByPath(snapshot, widget.binding) ?? '') : '')}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''} />`
 
     case 'progressbar':
       return renderProgressbar(widget, snapshot)
 
     case 'image':
-      return `<img class="widget-image" src="${escapeAttr(widget.src ?? '')}" width="${widget.width ?? ''}" height="${widget.height ?? ''}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''} loading="lazy" />`
+      return `<img class="widget-image" data-widget-id="${escapeAttr(widget.id)}" src="${escapeAttr(widget.src ?? '')}" width="${widget.width ?? ''}" height="${widget.height ?? ''}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''} loading="lazy" />`
 
     case 'spacer':
-      return `<div class="widget-spacer" style="width:${widget.width ?? 0}px;height:${widget.height ?? 0}px"></div>`
+      return `<div class="widget-spacer" data-widget-id="${escapeAttr(widget.id)}" style="width:${widget.width ?? 0}px;height:${widget.height ?? 0}px"></div>`
 
     default:
       return `<!-- unknown widget type: ${widget.type} -->`
