@@ -77,8 +77,8 @@ describe('ScreenBuilder new layout', () => {
     render(<ScreenBuilder />)
     // Left top - Palette
     expect(screen.getByText('Palette')).toBeTruthy()
-    // Left bottom - Widget Tree
-    expect(screen.getByText('Widget Tree')).toBeTruthy()
+    // Left bottom - Widget Tree (check for tree hint text instead of heading)
+    expect(screen.getByText(/Right-click a container/i)).toBeTruthy()
     // Center - Canvas
     expect(screen.getByText('Canvas')).toBeTruthy()
     // Right - Properties

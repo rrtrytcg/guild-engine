@@ -2,17 +2,23 @@ import useWidgetTree from '../hooks/useWidgetTree'
 import useStore from '../store/useStore'
 import ActionToast from './screenBuilder/ActionToast'
 import { CanvasArea } from './screenBuilder/CanvasArea.jsx'
+import ErrorBoundary from './screenBuilder/ErrorBoundary'
 import NavSettings from './screenBuilder/NavSettings'
-import ScreenPreview from './screenBuilder/ScreenPreview'
 import { WidgetPalette } from './screenBuilder/WidgetPalette.jsx'
 import WidgetProperties from './screenBuilder/WidgetProperties'
 import WidgetTree from './screenBuilder/WidgetTree'
 import { useEffect, useState } from 'react'
 
 export function ScreenBuilder() {
-  const { activeScreen } = useWidgetTree()
+  const { activeScreen, ensureDraft } = useWidgetTree()
   const previewDataSource = useStore((s) => s.previewDataSource)
   const [toastAction, setToastAction] = useState(null)
+  const [errorResetKey, setErrorResetKey] = useState(0)
+
+  // Ensure a draft screen exists as soon as ScreenBuilder mounts
+  useEffect(() => {
+    ensureDraft()
+  }, [ensureDraft])
 
   useEffect(() => {
     if (!toastAction) return undefined
@@ -26,25 +32,41 @@ export function ScreenBuilder() {
       {/* Left column: Palette (top) + Tree (bottom) */}
       <div style={leftColumnStyle}>
         <div style={paletteSectionStyle}>
-          <WidgetPalette />
+          <ErrorBoundary label="WidgetPalette" title="Widget palette failed" icon="🧩">
+            <WidgetPalette />
+          </ErrorBoundary>
         </div>
         <div style={treeSectionStyle}>
-          <WidgetTree />
+          <ErrorBoundary label="WidgetTree" title="Widget tree failed" icon="🌳">
+            <WidgetTree />
+          </ErrorBoundary>
         </div>
       </div>
 
       {/* Center: Canvas Area */}
       <main style={canvasPanelStyle}>
-        <CanvasArea onAction={(action) => setToastAction(action)} />
+        <ErrorBoundary
+          key={errorResetKey}
+          label="CanvasArea"
+          title="Canvas failed to render"
+          icon="🖼"
+          onReset={() => setErrorResetKey((k) => k + 1)}
+        >
+          <CanvasArea onAction={(action) => setToastAction(action)} />
+        </ErrorBoundary>
         <ActionToast action={toastAction} />
       </main>
 
       {/* Right: Properties */}
       <aside style={panelStyle}>
         <div style={eyebrowStyle}>Properties</div>
-        <NavSettings />
+        <ErrorBoundary label="NavSettings" title="Nav settings failed" icon="⚙" showReset={false}>
+          <NavSettings />
+        </ErrorBoundary>
         <div style={dividerStyle} />
-        <WidgetProperties />
+        <ErrorBoundary label="WidgetProperties" title="Properties panel failed" icon="📋" showReset={false}>
+          <WidgetProperties />
+        </ErrorBoundary>
       </aside>
     </div>
   )
@@ -142,3 +164,5 @@ const dividerStyle = {
   background: '#1e1e32',
   margin: '10px 0',
 }
+
+export default ScreenBuilder

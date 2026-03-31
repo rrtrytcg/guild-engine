@@ -10,11 +10,14 @@ export default function useScreenFiles() {
   const loadScreens = useStore((s) => s.loadScreens)
   const selectScreen = useStore((s) => s.selectScreen)
 
-  const screenOptions = useMemo(() => screens.map((screen) => ({
-    id: screen.id,
-    name: screen.name,
-    sourceName: screen.sourceName,
-  })), [screens])
+  const screenOptions = useMemo(() => {
+    if (!Array.isArray(screens)) return []
+    return screens.map((screen) => ({
+      id: screen.id,
+      name: screen.name,
+      sourceName: screen.sourceName,
+    }))
+  }, [screens])
 
   async function loadFromFiles(fileList) {
     const files = Array.from(fileList ?? [])

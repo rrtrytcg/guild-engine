@@ -13,25 +13,25 @@ describe('WidgetPalette', () => {
 
   it('renders container widget types', () => {
     render(<WidgetPalette />)
-    expect(screen.getByText('vbox')).toBeTruthy()
-    expect(screen.getByText('hbox')).toBeTruthy()
-    expect(screen.getByText('grid')).toBeTruthy()
-    expect(screen.getByText('stack')).toBeTruthy()
+    expect(screen.getAllByText('vbox').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('hbox').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('grid').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('stack').length).toBeGreaterThan(0)
   })
 
   it('renders display widget types', () => {
     render(<WidgetPalette />)
-    expect(screen.getByText('label')).toBeTruthy()
-    expect(screen.getByText('image')).toBeTruthy()
-    expect(screen.getByText('spacer')).toBeTruthy()
-    expect(screen.getByText('progressbar')).toBeTruthy()
+    expect(screen.getAllByText('label').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('image').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('spacer').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('progressbar').length).toBeGreaterThan(0)
   })
 
   it('renders interactive widget types', () => {
     render(<WidgetPalette />)
-    expect(screen.getByText('textbutton')).toBeTruthy()
-    expect(screen.getByText('iconbutton')).toBeTruthy()
-    expect(screen.getByText('textinput')).toBeTruthy()
+    expect(screen.getAllByText('textbutton').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('iconbutton').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('textinput').length).toBeGreaterThan(0)
   })
 
   it('all widget items are draggable', () => {

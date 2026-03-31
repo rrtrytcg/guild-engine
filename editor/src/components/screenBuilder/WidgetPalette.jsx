@@ -42,9 +42,9 @@ export function WidgetPalette() {
         <span style={eyebrowStyle}>Palette</span>
       </div>
 
-      <div style={hintStyle}>
-        Drag widgets onto the canvas (Phase 3)
-      </div>
+  <div style={hintStyle}>
+    Drag widgets onto containers on the canvas
+  </div>
 
       <div style={categoriesStyle}>
         {WIDGET_CATEGORIES.map((category) => (

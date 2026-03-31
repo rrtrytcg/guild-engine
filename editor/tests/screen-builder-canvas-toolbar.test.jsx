@@ -2,28 +2,22 @@ import React from 'react'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { CanvasToolbar } from '../src/components/screenBuilder/CanvasToolbar.jsx'
-import useStore from '../src/store/useStore.js'
 
-let mockState = {
+const mockState = {
   canvasZoom: 1.0,
   canvasFitMode: 'manual',
   setCanvasZoom: vi.fn(),
   fitCanvasToViewport: vi.fn(),
 }
 
-beforeEach(() => {
-  vi.clearAllMocks()
-  mockState = {
-    canvasZoom: 1.0,
-    canvasFitMode: 'manual',
-    setCanvasZoom: vi.fn(),
-    fitCanvasToViewport: vi.fn(),
-  }
-  useStore.default = (selector) => selector(mockState)
-})
+vi.mock('../src/store/useStore.js', () => ({
+  __esModule: true,
+  default: (selector) => selector(mockState),
+}))
 
 afterEach(() => {
   cleanup()
+  vi.clearAllMocks()
 })
 
 describe('CanvasToolbar', () => {

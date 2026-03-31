@@ -11,7 +11,6 @@ export default function WidgetTree() {
     activeScreen,
     rootWidget,
     selectedWidgetId,
-    ensureDraft,
     selectWidget,
     addWidget,
     deleteWidget,
@@ -22,10 +21,6 @@ export default function WidgetTree() {
   const [collapsedIds, setCollapsedIds] = useState(() => new Set())
   const [menu, setMenu] = useState(null)
   const [dragState, setDragState] = useState(null)
-
-  useEffect(() => {
-    ensureDraft()
-  }, [ensureDraft])
 
   useEffect(() => {
     setCollapsedIds(new Set())

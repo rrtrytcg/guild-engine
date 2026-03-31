@@ -94,16 +94,16 @@ function renderContainer(widget, snapshot, actionHandler, depth) {
   const displayType = type === 'grid' ? 'grid' : 'flex'
   const flexDirection = type === 'vbox' ? 'column' : type === 'hbox' ? 'row' : 'column'
   const alignItems = align === 'center' ? 'center' : align === 'end' ? 'flex-end' : 'flex-start'
-  
+
   const childHtml = children
     .map((child) => widgetToHTML(child, snapshot, actionHandler, depth + 1))
     .join(`<div style="width:${gap}px;height:0;flex-shrink:0"></div>`)
-  
+
   const baseStyle = `display:${displayType};flex-direction:${flexDirection};align-items:${alignItems}`
   const customStyle = style ? styleStr(style) : ''
   const fullStyle = customStyle ? `${baseStyle};${customStyle}` : baseStyle
-  
-  return `<div class="widget-${type}" data-widget-id="${escapeAttr(widget.id)}" style="${fullStyle}">${childHtml}</div>`
+
+  return `<div class="widget-${type}" data-widget-id="${escapeAttr(widget.id)}" data-widget-type="${type}" style="${fullStyle}">${childHtml}</div>`
 }
 
 /**
@@ -146,26 +146,26 @@ export function widgetToHTML(widget, snapshot, actionHandler, depth = 0) {
     case 'stack':
       return renderContainer(widget, snapshot, actionHandler, depth)
 
-    case 'label':
-      return `<span class="widget-label" data-widget-id="${escapeAttr(widget.id)}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''}>${resolveBindings(widget.text ?? '', snapshot)}</span>`
+case 'label':
+return `<span class="widget-label" data-widget-id="${escapeAttr(widget.id)}" data-widget-type="label"${widget.style ? ` style="${styleStr(widget.style)}"` : ''}>${resolveBindings(widget.text ?? '', snapshot)}</span>`
 
-    case 'textbutton':
-      return `<button class="widget-textbutton" data-widget-id="${escapeAttr(widget.id)}" data-action="${escapeAttr(widget.action ?? '')}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''}>${widget.icon ? widget.icon + ' ' : ''}${escape(resolveBindings(widget.label ?? '', snapshot))}</button>`
+case 'textbutton':
+return `<button class="widget-textbutton" data-widget-id="${escapeAttr(widget.id)}" data-widget-type="textbutton" data-action="${escapeAttr(widget.action ?? '')}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''}>${widget.icon ? widget.icon + ' ' : ''}${escape(resolveBindings(widget.label ?? '', snapshot))}</button>`
 
-    case 'iconbutton':
-      return `<button class="widget-iconbutton" data-widget-id="${escapeAttr(widget.id)}" data-action="${escapeAttr(widget.action ?? '')}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''}>${escape(widget.icon ?? '')}</button>`
+case 'iconbutton':
+return `<button class="widget-iconbutton" data-widget-id="${escapeAttr(widget.id)}" data-widget-type="iconbutton" data-action="${escapeAttr(widget.action ?? '')}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''}>${escape(widget.icon ?? '')}</button>`
 
-    case 'textinput':
-      return `<input class="widget-textinput" data-widget-id="${escapeAttr(widget.id)}" type="text" placeholder="${escapeAttr(widget.placeholder ?? '')}" value="${escapeAttr(widget.binding ? String(getByPath(snapshot, widget.binding) ?? '') : '')}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''} />`
+case 'textinput':
+return `<input class="widget-textinput" data-widget-id="${escapeAttr(widget.id)}" data-widget-type="textinput" type="text" placeholder="${escapeAttr(widget.placeholder ?? '')}" value="${escapeAttr(widget.binding ? String(getByPath(snapshot, widget.binding) ?? '') : '')}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''} />`
 
-    case 'progressbar':
-      return renderProgressbar(widget, snapshot)
+case 'progressbar':
+return renderProgressbar(widget, snapshot)
 
-    case 'image':
-      return `<img class="widget-image" data-widget-id="${escapeAttr(widget.id)}" src="${escapeAttr(widget.src ?? '')}" width="${widget.width ?? ''}" height="${widget.height ?? ''}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''} loading="lazy" />`
+case 'image':
+return `<img class="widget-image" data-widget-id="${escapeAttr(widget.id)}" data-widget-type="image" src="${escapeAttr(widget.src ?? '')}" width="${widget.width ?? ''}" height="${widget.height ?? ''}"${widget.style ? ` style="${styleStr(widget.style)}"` : ''} loading="lazy" />`
 
-    case 'spacer':
-      return `<div class="widget-spacer" data-widget-id="${escapeAttr(widget.id)}" style="width:${widget.width ?? 0}px;height:${widget.height ?? 0}px"></div>`
+case 'spacer':
+return `<div class="widget-spacer" data-widget-id="${escapeAttr(widget.id)}" data-widget-type="spacer" style="width:${widget.width ?? 0}px;height:${widget.height ?? 0}px"></div>`
 
     default:
       return `<!-- unknown widget type: ${widget.type} -->`
